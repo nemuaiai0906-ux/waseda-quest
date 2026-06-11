@@ -351,7 +351,8 @@
 <div class="overlay" id="overlay">
   <div class="dqwin v-win">
     <div id="vBody"></div>
-    <button class="v-ok" onclick="closeOverlay()">▶ OK</button>
+    <button class="v-ok" onclick="adventureOn()">⚔ ぼうけんを つづける</button>
+    <button class="v-ok" style="border-color:#7ab8df;color:#9fe0ff" onclick="restAtInn()">🏨 やどやで やすむ（HP/MP全回復）</button>
   </div>
 </div>
 
@@ -494,8 +495,10 @@ function load(){
     s.items = { herb:1, ether:1 };
     s.hp = null; s.mp = null; s.monster = null; s.lastSeen = null;
   }
+  if(s.restDay === undefined) s.restDay = null;
   return s;
 }
+function isResting(){ return state.restDay === TODAY; }
 function maxHp(lv){ return 40 + lv*12; }
 function maxMp(lv){ return 10 + lv*5; }
 function atkNow(){ const lv = levelInfo(state.xp).lv; return lv*2 + WEAPONS[state.weapon].atk; }
@@ -507,6 +510,8 @@ function dstr(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"
 function phaseIndex(d){ for(let i=0;i<PHASES.length;i++){ if(d<=PHASES[i].end) return i; } return PHASES.length-1; }
 function daysUntil(t){ const t0=new Date(); t0.setHours(0,0,0,0); return Math.max(0, Math.round((t-t0)/86400000)); }
 function seedHash(s){ let h=0; for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))>>>0;} return h; }
+/* 連番シードでも値が散らばるように仕上げのミキシングをかける */
+function mix(s){ let h=seedHash(s); h^=h>>>13; h=Math.imul(h,0x5bd1e995)>>>0; h^=h>>>15; return h>>>0; }
 const TODAY = dstr(today());
 
 /* ================= tasks ================= */
@@ -534,9 +539,10 @@ function spawnMonster(forceBoss){
   const lv = levelInfo(state.xp).lv;
   const pi = phaseIndex(today());
   const mult = [1, 1.3, 1.6, 2][pi];
-  const boss = !!forceBoss;
+  /* 稀（10%）にボスが乱入する */
+  const boss = !!forceBoss || (mix(TODAY+"rare"+state.kills)%100 < 10);
   const pool = boss ? BOSSES : MONSTERS;
-  const m = pool[seedHash(TODAY+"-"+state.kills) % pool.length];
+  const m = pool[mix(TODAY+"m"+state.kills) % pool.length];
   const hpMax = Math.round((70 + lv*10) * mult * (boss ? 2.5 : 1));
   state.monster = { n:m.n, s:m.s, p:m.p, hp:hpMax, hpMax:hpMax, boss:boss };
 }
@@ -545,13 +551,16 @@ function spawnMonster(forceBoss){
 function dailyTick(){
   const lv = levelInfo(state.xp).lv;
   if(state.hp === null){ state.hp = maxHp(lv); state.mp = maxMp(lv); }
-  if(!state.monster) spawnMonster(today().getDay()===0);
+  if(!state.monster && !isResting()) spawnMonster(today().getDay()===0);
   if(state.lastSeen && state.lastSeen !== TODAY){
     const y = state.lastSeen;
+    const restedLastNight = state.restDay === y;
     const yTasks = tasksFor(y);
     const yRec = state.history[y] || {done:[]};
     const missed = yTasks.filter(t=>!yRec.done.includes(t.id)).length;
-    if(missed > 0){
+    if(restedLastNight){
+      msg("🏨 やどやで あんぜんな よるを すごした。さあ、あたらしい あさだ！", true);
+    }else if(missed > 0 && state.monster){
       const dmg = Math.min(Math.round(maxHp(lv)*0.6), missed*(4+lv*2));
       state.hp = Math.max(0, state.hp - dmg);
       msg(`ねているあいだに ${state.monster.n}のこうげき！ きみは ${dmg}の ダメージをうけた…（やりのこし ${missed}件）`, true);
@@ -566,7 +575,10 @@ function dailyTick(){
       state.mp = Math.min(maxMp(lv), state.mp + Math.round(maxMp(lv)*0.5));
       msg("ぐっすり ねむった！ HPとMPが かいふくした！", true);
     }
-    if(today().getDay()===0 && !state.monster.boss){
+    if(!state.monster){
+      spawnMonster(today().getDay()===0);
+      msg(`${state.monster.boss?"👑 ":""}${state.monster.n}が あらわれた！`, true);
+    }else if(today().getDay()===0 && !state.monster.boss){
       spawnMonster(true);
       msg("👑 にちようび！ ボスが たちはだかった！", true);
     }
@@ -865,7 +877,12 @@ function init3D(){
   });
 }
 function glRefreshMonster(){
-  if(!GL || !state.monster) return;
+  if(!GL) return;
+  if(!state.monster){
+    if(GL.monsterGrp){ GL.scene.remove(GL.monsterGrp); GL.monsterGrp=null; }
+    GL.token="";
+    return;
+  }
   const token=state.monster.n+"/"+state.monster.hpMax+"/"+state.kills;
   if(GL.token===token && GL.monsterGrp) return;
   if(GL.monsterGrp) GL.scene.remove(GL.monsterGrp);
@@ -881,7 +898,7 @@ function glLoop(){
   if(state.settings.mode!=="3d") return;
   GL.t+=.016;
   const t=GL.t;
-  if(GL.monsterGrp){
+  if(GL.monsterGrp && state.monster){
     if(state.monster.hp<=0 && GL.deadAnim<1) GL.deadAnim=Math.min(1,GL.deadAnim+.045);
     const da=GL.deadAnim;
     GL.monsterGrp.position.y=Math.sin(t*2)*.35*(1-da)+.15-da*1.4;
@@ -901,6 +918,17 @@ function glLoop(){
     o.scale.multiplyScalar(1.09);
     o.material.opacity=Math.max(0,o.userData.life);
     if(o.userData.life<=0) GL.scene.remove(o);
+  });
+  /* ドロップ品の放物線・バウンド */
+  GL.scene.children.filter(o=>o.userData.drop).forEach(o=>{
+    const d=o.userData.drop;
+    o.position.x+=d.vx; o.position.y+=d.vy; o.position.z+=d.vz;
+    d.vy-=.012;
+    if(o.position.y<.25 && d.vy<0){ o.position.y=.25; d.vy*=-.45; }
+    o.rotation.x+=d.rs; o.rotation.y+=d.rs;
+    d.life-=.016;
+    o.material.opacity=Math.min(1,d.life);
+    if(d.life<=0) GL.scene.remove(o);
   });
   GL.renderer.render(GL.scene,GL.camera);
 }
@@ -970,18 +998,123 @@ function sfxVictory(){ try{ const t=audio().currentTime; [[392,0],[392,.13],[392
 function sfxHeal(){ try{ const t=audio().currentTime; [523,659,784,1047].forEach((f,i)=>tone(f,t+i*.07,.14,"triangle",.07)); }catch(e){} }
 function sfxCoin(){ try{ const t=audio().currentTime; tone(988,t,.07,"square",.07); tone(1319,t+.08,.18,"square",.07); }catch(e){} }
 function sfxLevelUp(){ try{ const t=audio().currentTime; [523,587,659,740,831,932,1047].forEach((f,i)=>tone(f,t+i*.09,.12,"square",.07)); }catch(e){} }
-/* BGM（オリジナル曲・Am 勇ましいループ） */
-const MEL = ["A4","C5","E5","A5","G5","E5","F5","D5","E5","C5","D5","B4","C5","A4","B4","E4",
-             "A4","C5","E5","A5","B5","A5","G5","E5","F5","A5","G5","F5","E5",null,"E5",null];
-const BAS = ["A2","E3","A2","E3","F2","C3","G2","D3","C3","G3","D3","A3","C3","E3","E2","E3",
-             "A2","E3","A2","E3","E2","B2","C3","G3","F2","C3","G2","D3","A2","E3","A2",null];
+/* ================= BGM（オリジナル曲・魔物の種類ごとに変化） =================
+   2D: チップチューン / 3D: オーケストラ風シンセ（リバーブ付き）
+   mel=8分音符16歩, bass=4分音符8歩, chords=1小節4つ */
+const SONGS = {
+  blob:  { bpm:138, mel:["C5","E5","G5","E5","A5","G5","E5","C5","D5","F5","A5","F5","G5","E5","D5","C5"],
+           bass:["C3","G3","F3","C4","D3","A3","G3","G2"],
+           chords:[["C4","E4","G4"],["F4","A4","C5"],["D4","F4","A4"],["G4","B4","D5"]] },
+  ghost: { bpm:100, mel:["A4","C5","B4","A4","E5",null,"D5","C5","B4","D5","C5","B4","A4",null,"G#4",null],
+           bass:["A2","E3","A2","E3","F2","C3","E2","B2"],
+           chords:[["A3","C4","E4"],["A3","C4","E4"],["F3","A3","C4"],["E3","G#3","B3"]] },
+  dragon:{ bpm:144, mel:["D5","F5","A5","F5","G5","A5","G5","F5","E5","G5","F5","E5","D5","E5","F5","A4"],
+           bass:["D3","A3","D3","A3","C3","G3","A2","E3"],
+           chords:[["D4","F4","A4"],["A#3","D4","F4"],["C4","E4","G4"],["A3","C#4","E4"]] },
+  golem: { bpm:96,  mel:["E4","G4","E4","B3","E4","G4","A4","G4","F#4","A4","F#4","D4","E4",null,"B3",null],
+           bass:["E2","E2","B2","B2","C3","C3","B2","B2"],
+           chords:[["E3","G3","B3"],["E3","G3","B3"],["C3","E3","G3"],["B2","D#3","F#3"]] },
+  boss:  { bpm:152, mel:["D5","D5","A4","D5","F5","E5","D5","C#5","D5","E5","F5","G5","A5","G5","F5","E5"],
+           bass:["D3","D3","A#2","A#2","C3","C3","A2","A2"],
+           chords:[["D4","F4","A4"],["A#3","D4","F4"],["C4","E4","G4"],["A3","C#4","E4"]], heavy:true },
+  rest:  { bpm:80,  mel:["B4","D5","G4",null,"A4","B4","D5",null,"E5","D5","B4","A4","G4",null,null,null],
+           bass:["G2","D3","C3","D3","E3","B2","C3","D3"],
+           chords:[["G3","B3","D4"],["C4","E4","G4"],["E3","G3","B3"],["D4","F#4","A4"]] }
+};
+function currentSongKey(){
+  if(!state.monster || isResting()) return "rest";
+  return state.monster.boss ? "boss" : state.monster.s;
+}
+
+/* --- オーケストラ風の音色（3D用） --- */
+let ORCH = null;
+function impulseBuffer(sec){
+  const a=audio(), len=Math.floor(a.sampleRate*sec), buf=a.createBuffer(2,len,a.sampleRate);
+  for(let ch=0;ch<2;ch++){ const d=buf.getChannelData(ch);
+    for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.6); }
+  return buf;
+}
+function orchVerb(){
+  const a=audio();
+  if(ORCH) return ORCH;
+  const verb=a.createConvolver(); verb.buffer=impulseBuffer(1.8);
+  const wet=a.createGain(); wet.gain.value=.4;
+  verb.connect(wet); wet.connect(a.destination);
+  ORCH={verb};
+  return ORCH;
+}
+function orchOut(node){ node.connect(audio().destination); node.connect(orchVerb().verb); }
+function padNote(f,when,dur){
+  const a=audio(), g=a.createGain(), lp=a.createBiquadFilter();
+  lp.type="lowpass"; lp.frequency.value=750;
+  g.gain.setValueAtTime(0,when);
+  g.gain.linearRampToValueAtTime(.013,when+dur*.35);
+  g.gain.setValueAtTime(.013,when+dur*.72);
+  g.gain.linearRampToValueAtTime(.0001,when+dur);
+  [-7,7].forEach(dt=>{
+    const o=a.createOscillator(); o.type="sawtooth"; o.frequency.value=f; o.detune.value=dt;
+    o.connect(lp); o.start(when); o.stop(when+dur);
+  });
+  lp.connect(g); orchOut(g);
+}
+function leadNote(f,when,dur){
+  const a=audio(), o=a.createOscillator(), g=a.createGain();
+  o.type="triangle"; o.frequency.value=f;
+  const lfo=a.createOscillator(), lg=a.createGain();
+  lfo.frequency.value=5.5; lg.gain.value=f*.007;
+  lfo.connect(lg); lg.connect(o.frequency);
+  g.gain.setValueAtTime(0,when);
+  g.gain.linearRampToValueAtTime(.055,when+.03);
+  g.gain.setValueAtTime(.05,when+dur*.7);
+  g.gain.exponentialRampToValueAtTime(.0008,when+dur);
+  o.connect(g); orchOut(g);
+  o.start(when); o.stop(when+dur);
+  lfo.start(when); lfo.stop(when+dur);
+}
+function bassNote(f,when,dur){
+  const a=audio(), o=a.createOscillator(), g=a.createGain();
+  o.type="sine"; o.frequency.value=f;
+  g.gain.setValueAtTime(.08,when);
+  g.gain.exponentialRampToValueAtTime(.001,when+dur);
+  o.connect(g); orchOut(g);
+  o.start(when); o.stop(when+dur);
+}
+function timpani(when){
+  const a=audio(), o=a.createOscillator(), g=a.createGain();
+  o.type="sine";
+  o.frequency.setValueAtTime(95,when);
+  o.frequency.exponentialRampToValueAtTime(45,when+.3);
+  g.gain.setValueAtTime(.13,when);
+  g.gain.exponentialRampToValueAtTime(.001,when+.36);
+  o.connect(g); orchOut(g);
+  o.start(when); o.stop(when+.38);
+}
+
+/* --- 再生エンジン --- */
+function playChip(song,t0,step){
+  song.mel.forEach((n,i)=>{ if(n) tone(NOTE[n], t0+i*step, step*.92, "square", .028); });
+  song.bass.forEach((n,i)=>{ if(n) tone(NOTE[n], t0+i*2*step, step*1.8, "triangle", .05); });
+  for(let i=0;i<16;i+=2) noiseBurst(t0+i*step, .03, .012);
+}
+function playOrch(song,t0,step){
+  song.chords.forEach((ch,b)=>{ ch.forEach(n=>padNote(NOTE[n], t0+b*4*step, 4*step)); });
+  song.mel.forEach((n,i)=>{ if(n) leadNote(NOTE[n], t0+i*step, step*1.7); });
+  song.bass.forEach((n,i)=>{ if(n) bassNote(NOTE[n], t0+i*2*step, step*1.9); });
+  if(song.heavy){ for(let i=0;i<16;i+=4) timpani(t0+i*step); timpani(t0+14*step); }
+  else{ for(let i=0;i<16;i+=4) noiseBurst(t0+i*step, .05, .01); }
+}
 function bgmLoop(){
   if(!state.settings.bgm) return;
-  const a=audio(), t0=a.currentTime+.06, step=.16;
-  MEL.forEach((n,i)=>{ if(n) tone(NOTE[n], t0+i*step, step*.92, "square", .028); });
-  BAS.forEach((n,i)=>{ if(n) tone(NOTE[n], t0+i*step, step*.9, "triangle", .05); });
-  for(let i=0;i<MEL.length;i+=2) noiseBurst(t0+i*step, .03, .012);
-  bgmTimer = setTimeout(bgmLoop, MEL.length*step*1000 - 40);
+  const song = SONGS[currentSongKey()];
+  const step = 60/song.bpm/2;
+  const t0 = audio().currentTime + .06;
+  if(state.settings.mode==="3d") playOrch(song,t0,step);
+  else playChip(song,t0,step);
+  bgmTimer = setTimeout(bgmLoop, 16*step*1000 - 40);
+}
+function bgmRestart(){
+  clearTimeout(bgmTimer);
+  if(state.settings.bgm && actx && actx.state==="running") bgmLoop();
 }
 function toggleBgm(){
   state.settings.bgm = !state.settings.bgm; save();
@@ -1007,6 +1140,7 @@ function applyMode(){
 function toggleMode(){
   state.settings.mode = state.settings.mode==="3d" ? "2d" : "3d";
   save(); sfxMenu(); applyMode();
+  bgmRestart();
 }
 
 /* ================= メッセージ窓 ================= */
@@ -1023,14 +1157,15 @@ function msg(text, sys){
 /* ================= 描画 ================= */
 let currentMonster = null;
 function drawSprites(){
-  if(!currentMonster) return;
   if(state.settings.mode==="3d" && GL){ glRefreshMonster(); return; }
   const wrap = document.getElementById("spriteWrap");
   wrap.querySelectorAll("canvas").forEach(c=>c.remove());
   const is3d = state.settings.mode==="3d";
-  const pal = Object.assign({k:"#10131f"}, currentMonster.p);
-  const spr = drawSprite(currentMonster.s, pal, is3d?7:9);
-  wrap.insertBefore(spr, wrap.firstChild);
+  if(currentMonster){
+    const pal = Object.assign({k:"#10131f"}, currentMonster.p);
+    const spr = drawSprite(currentMonster.s, pal, is3d?7:9);
+    wrap.insertBefore(spr, wrap.firstChild);
+  }
   const party = document.getElementById("party3d");
   party.innerHTML = "";
   HEROES.forEach((h,i)=>{
@@ -1066,12 +1201,21 @@ function render(){
 
   const m = state.monster;
   currentMonster = m;
-  document.getElementById("enemyName").textContent = (m.boss?"👑":"")+m.n;
-  const hpShow = Math.max(0, m.hp);
-  document.getElementById("ehpFill").style.width = (hpShow/m.hpMax*100)+"%";
-  document.getElementById("ehpLab").textContent = `${m.n} HP ${hpShow}/${m.hpMax}`;
-  document.getElementById("enemyCount").textContent = "－ 1ひき";
-  document.getElementById("spriteWrap").classList.toggle("dead", m.hp<=0);
+  const ehpEl = document.querySelector(".ehp");
+  if(m){
+    ehpEl.style.visibility = "visible";
+    document.getElementById("enemyName").textContent = (m.boss?"👑":"")+m.n;
+    const hpShow = Math.max(0, m.hp);
+    document.getElementById("ehpFill").style.width = (hpShow/m.hpMax*100)+"%";
+    document.getElementById("ehpLab").textContent = `${m.n} HP ${hpShow}/${m.hpMax}`;
+    document.getElementById("enemyCount").textContent = "－ 1ひき";
+    document.getElementById("spriteWrap").classList.toggle("dead", m.hp<=0);
+  }else{
+    ehpEl.style.visibility = "hidden";
+    document.getElementById("enemyName").textContent = isResting() ? "🏨 おやすみちゅう…💤" : "…あたりは しずかだ";
+    document.getElementById("enemyCount").textContent = "";
+    document.getElementById("spriteWrap").classList.remove("dead");
+  }
 
   const wnames=["日","月","火","水","木","金","土"];
   document.getElementById("dateLabel").textContent = `${d.getMonth()+1}/${d.getDate()}（${wnames[d.getDay()]}）のとうばつリスト ─ ${PHASES[pi].name}`;
@@ -1111,19 +1255,23 @@ function toggle(task){
   rec.done.push(task.id);
   state.xp += task.xp;
 
-  if(!rec.dmg) rec.dmg = [];
-  if(!rec.dmg.includes(task.id)){
-    rec.dmg.push(task.id);
-    let dmg = task.xp + atkNow();
-    if(state.buff){ dmg *= 2; state.buff = false; msg("バイキルトの ちからが はじけた！", true); }
-    attackAnim(dmg);
-    state.monster.hp -= dmg;
-    msg(`きみのこうげき！ ${state.monster.n}に ${dmg}の ダメージ！`, true);
-    if(state.monster.hp <= 0){
-      setTimeout(()=>killMonster(beforeLv), 600);
+  if(state.monster && state.monster.hp > 0 && !isResting()){
+    if(!rec.dmg) rec.dmg = [];
+    if(!rec.dmg.includes(task.id)){
+      rec.dmg.push(task.id);
+      let dmg = task.xp + atkNow();
+      if(state.buff){ dmg *= 2; state.buff = false; msg("バイキルトの ちからが はじけた！", true); }
+      attackAnim(dmg);
+      state.monster.hp -= dmg;
+      msg(`きみのこうげき！ ${state.monster.n}に ${dmg}の ダメージ！`, true);
+      if(state.monster.hp <= 0){
+        setTimeout(()=>killMonster(beforeLv), 600);
+      }
+    }else{
+      msg("そのこうげきは すでに きまっている！", true);
     }
-  }else{
-    msg("そのこうげきは すでに きまっている！", true);
+  }else if(isResting()){
+    msg("🏨 やどの へやで じっくり ふくしゅうした！ けいけんちを えた！", true);
   }
 
   const tasks = tasksFor(TODAY);
@@ -1149,15 +1297,19 @@ function killMonster(beforeLv){
   state.kills += 1;
   state.xp += bonus;
 
-  let dropTxt = "";
-  const roll = seedHash(TODAY+"k"+state.kills) % 100;
-  if(m.boss){ state.items.herb++; state.items.ether++; dropTxt = "やくそう と まほうのせいすい を てにいれた！"; }
-  else if(roll < 45){ state.items.herb++; dropTxt = "やくそう を てにいれた！"; }
-  else if(roll < 80){ state.items.ether++; dropTxt = "まほうのせいすい を てにいれた！"; }
+  let drops = [];
+  const roll = mix(TODAY+"k"+state.kills) % 100;
+  if(m.boss){ state.items.herb++; state.items.ether++; drops = ["herb","ether"]; }
+  else if(roll < 45){ state.items.herb++; drops = ["herb"]; }
+  else if(roll < 80){ state.items.ether++; drops = ["ether"]; }
+
+  /* ドロップ演出（コインとアイテムが飛び散る） */
+  if(state.settings.mode==="3d" && GL) dropFx3D(drops);
+  else dropFx2D(drops);
 
   let html = `${m.boss?"👑 ":""}${m.n}を やっつけた！<br>` +
     `けいけんち <span class="gold">+${bonus}</span>　ゴールド <span class="gold">+${gold}G</span>`;
-  if(dropTxt) html += `<br>🎁 ${dropTxt}`;
+  if(drops.length) html += `<br>🎁 ${drops.map(d=>d==="herb"?"やくそう":"まほうのせいすい").join(" と ")} を てにいれた！`;
 
   const afterLv = levelInfo(state.xp).lv;
   if(afterLv > beforeLv){
@@ -1171,9 +1323,31 @@ function killMonster(beforeLv){
   }
 
   msg(`${m.n}を やっつけた！`, true);
-  spawnMonster(false);
+  state.monster = null;
+  html += `<br><br>どうする？`;
   document.getElementById("vBody").innerHTML = html;
-  document.getElementById("overlay").classList.add("show");
+  save(); render();
+  setTimeout(()=>document.getElementById("overlay").classList.add("show"), 1100);
+}
+
+/* 討伐後のえらびかた */
+function adventureOn(){
+  sfxMenu();
+  document.getElementById("overlay").classList.remove("show");
+  spawnMonster(false);
+  msg(`${state.monster.boss?"👑 つよそうな けはい…！ ":""}${state.monster.n}が あらわれた！`, true);
+  bgmRestart();
+  save(); render();
+}
+function restAtInn(){
+  sfxHeal();
+  document.getElementById("overlay").classList.remove("show");
+  const lv = levelInfo(state.xp).lv;
+  state.hp = maxHp(lv); state.mp = maxMp(lv);
+  state.restDay = TODAY;
+  msg("🏨 やどやに とまった。HPとMPが ぜんかいふくした！", true);
+  msg("あしたまで まものは あらわれない。のこりのタスクは やどで じっくり ふくしゅうしよう。");
+  bgmRestart();
   save(); render();
 }
 
@@ -1220,13 +1394,48 @@ function attackAnim(dmg){
   setTimeout(()=>fly.remove(), 850);
 }
 
-/* ================= オーバーレイ/モーダル ================= */
-function closeOverlay(){
-  sfxMenu();
-  document.getElementById("overlay").classList.remove("show");
-  msg(`${state.monster.boss?"👑 ":""}${state.monster.n}が あらわれた！`, true);
-  render();
+/* ================= ドロップ演出 ================= */
+function dropFx2D(drops){
+  const bv = document.getElementById("battleView");
+  const icons = ["🪙","🪙","🪙","🪙","🪙","🪙"];
+  drops.forEach(d=>{ icons.push(d==="herb"?"🌿":"💧"); icons.push(d==="herb"?"🌿":"💧"); });
+  icons.forEach((ic,i)=>{
+    const el = document.createElement("div");
+    el.textContent = ic;
+    el.style.cssText = "position:absolute;left:48%;top:42%;font-size:22px;z-index:8;pointer-events:none";
+    bv.appendChild(el);
+    const dx = (seedHash("dx"+i+performance.now())%170)-85;
+    el.animate([
+      {transform:"translate(0,0) scale(.5)", opacity:1},
+      {transform:`translate(${dx}px,-75px) scale(1.15)`, opacity:1, offset:.4},
+      {transform:`translate(${dx*1.35}px,70px) scale(1)`, opacity:0}
+    ],{duration:900+(i%4)*130, easing:"ease-out"}).onfinish = ()=>el.remove();
+  });
+  sfxCoin();
 }
+function dropFx3D(drops){
+  if(!GL) return;
+  const total = 9 + drops.length*2;
+  for(let i=0;i<total;i++){
+    const itemIdx = i - 9;
+    const dropType = itemIdx >= 0 ? drops[itemIdx % drops.length] : null;
+    const mesh = new THREE.Mesh(
+      dropType ? new THREE.BoxGeometry(.55,.55,.55) : new THREE.CylinderGeometry(.3,.3,.1,10),
+      new THREE.MeshLambertMaterial({color: dropType ? (dropType==="herb"?"#3fae5a":"#4a8adf") : "#ffd24a", transparent:true})
+    );
+    mesh.position.set(0,2.6,-12);
+    mesh.userData.drop = {
+      vx:((seedHash("vx"+i+state.kills)%100)/100-.5)*.3,
+      vy:.16+((seedHash("vy"+i)%60))/350,
+      vz:.08+(i%4)*.025,
+      life:1.7, rs:(i%5)/12+.04
+    };
+    GL.scene.add(mesh);
+  }
+  sfxCoin();
+}
+
+/* ================= オーバーレイ/モーダル ================= */
 function openModal(id){
   sfxMenu();
   if(id==="spellModal") renderSpells();
@@ -1409,7 +1618,8 @@ dailyTick();
 applyMode();
 render();
 document.getElementById("bgmBtn").textContent = state.settings.bgm ? "♪ ON" : "♪ OFF";
-msg(`${state.monster.boss?"👑 ボス！ ":""}${state.monster.n}が あらわれた！`, true);
+if(state.monster) msg(`${state.monster.boss?"👑 ボス！ ":""}${state.monster.n}が あらわれた！`, true);
+else if(isResting()) msg("🏨 きょうは やどで きゅうそくちゅう。タスクは じっくり ふくしゅうタイムだ。", true);
 msg("コマンド？　▶たたかう で つぎのターゲットへ");
 /* BGMはユーザー操作後でないと再生できない（ブラウザ仕様）→ 初回タップで開始 */
 if(state.settings.bgm){
