@@ -99,7 +99,7 @@
   .mode3d .party3d{display:flex;position:absolute;bottom:10px;left:0;right:0;justify-content:center;gap:30px;z-index:3}
   .party3d .hero{text-align:center;position:relative}
   .party3d .hero canvas{position:relative;z-index:1;animation:bob 2s ease-in-out infinite}
-  .party3d .h-shadow{width:34px;height:9px;background:rgba(0,0,30,.3);border-radius:50%;margin:-5px auto 0}
+  .party3d .h-shadow{width:42px;height:10px;background:rgba(0,0,30,.3);border-radius:50%;margin:-5px auto 0}
   .party3d .pos0,.party3d .pos3{transform:translateY(7px) scale(1.12)}
   .party3d .hero:nth-child(2) canvas{animation-delay:.3s}
   .party3d .hero:nth-child(3) canvas{animation-delay:.6s}
@@ -405,10 +405,10 @@ const BOSSES = [
 ];
 const TITLES = ["見習い受験生","駆け出し挑戦者","単語ハンター","文法の騎士","長文剣士","赤本の狩人","記述の魔導士","過去問マスター","都の西北ナイト","政経の勇者","早稲田の覇者"];
 const HEROES = [
-  {s:"warrior", p:{k:"#10131f",m:"#aab4c8",b:"#5f4a3a"}},
-  {s:"hero",    p:{k:"#10131f",a:"#6f4a2a",c:"#d04a4a",b:"#3a4a8a"}},
-  {s:"priest",  p:{k:"#10131f",w:"#e8e4d8",c:"#d0a83c"}},
-  {s:"mage",    p:{k:"#10131f",h:"#6f3fa0",a:"#e0b48a",r:"#4a3f8a"}}
+  {s:"warrior", p:{k:"#10131f",m:"#b8c4d8",a:"#5f6880",b:"#3a3050"}},
+  {s:"hero",    p:{k:"#10131f",h:"#e8a23c",s:"#f0c8a0",c:"#d04848",b:"#4a3f8a",m:"#d8e4f0",g:"#c8973c"}},
+  {s:"priest",  p:{k:"#10131f",w:"#ece8dc",c:"#d0a83c",m:"#b08a3c",g:"#ffd24a"}},
+  {s:"mage",    p:{k:"#10131f",h:"#5f4ab0",s:"#f0c8a0",r:"#3f3580",m:"#8a6f4a",o:"#7adfff"}}
 ];
 
 /* ================= state ================= */
@@ -527,59 +527,68 @@ const SHAPES = {
     ".kbbkaaaaa",
     ".kkkkkkkkk"
   ]),
-  hero: sym([
-    "....kk",
-    "...kaa",
-    "...kaa",
-    "..kkcc",
-    ".kcccc",
-    ".kcccc",
-    ".kcccc",
-    ".kcccc",
-    ".kkccc",
-    "...kbb",
-    "...kkk"
-  ]),
-  mage: sym([
-    ".....k",
-    "....kh",
-    "...khh",
-    "..khhh",
-    ".khhhh",
-    "..kaaa",
-    "..krrr",
-    ".krrrr",
-    ".krrrr",
-    ".krrrr",
-    "..krrr",
-    "..kkkk"
-  ]),
-  priest: sym([
-    "....kk",
-    "..kkww",
-    ".kwwww",
-    ".kwwwc",
-    ".kwwwc",
-    ".kwwwc",
-    ".kwwwc",
-    ".kwwwc",
-    ".kwwww",
-    "..kwww",
-    "..kkkk"
-  ]),
-  warrior: sym([
-    ".k....",
-    ".kk.kk",
-    "..kmmm",
-    "..kmmm",
-    ".kkmmm",
-    ".kmmmm",
-    ".kmmmm",
-    ".kmmmm",
-    "..kmmm",
-    "..kbbb",
-    "..kkkk"
-  ])
+  /* 味方は左右非対称（武器持ち）なので全列を直接定義 */
+  hero: [
+    ".........m..",
+    "...kkkk..m..",
+    "..khhhhk.m..",
+    "..khhhhk.m..",
+    ".khhhhhhkkmk",
+    "..kssssk.g..",
+    ".kkcccckk...",
+    "kcccccccck..",
+    "kcccccccck..",
+    "kcccccccck..",
+    ".kccccccck..",
+    "..kccccck...",
+    "..kbk..kbk..",
+    "..kkk..kkk.."
+  ],
+  mage: [
+    ".....k....o.",
+    "....khk...m.",
+    "...khhhk..m.",
+    "..khhhhhk.m.",
+    ".khhhhhhhkm.",
+    "..kssk....m.",
+    ".kkrrrkk..m.",
+    "krrrrrrrk.m.",
+    "krrrrrrrk.m.",
+    "krrrrrrrk.m.",
+    ".krrrrrk..m.",
+    ".krrrrrk....",
+    "..krrrk.....",
+    "..kkkkk....."
+  ],
+  priest: [
+    "....kk....g.",
+    "...kwwk...m.",
+    "..kwwwwk..m.",
+    ".kwwwwwwk.m.",
+    ".kwwwwwwk.m.",
+    ".kwwccwwk.m.",
+    ".kwwccwwk.m.",
+    ".kwwwwwwk.m.",
+    ".kwwwwwwk...",
+    ".kwwwwwwk...",
+    "..kwwwwk....",
+    "..kkkkkk...."
+  ],
+  warrior: [
+    ".....mm.....",
+    ".....mm.....",
+    ".kk..mm..kk.",
+    ".kmk.mm.kmk.",
+    "..kmmmmmmk..",
+    "..kmmmmmmk..",
+    ".kkmmmmmmkk.",
+    "kmmkaaaakmmk",
+    "kmmkaaaakmmk",
+    ".kkaaaaaakk.",
+    "..kaaaaaak..",
+    "..kbk..kbk..",
+    "..kkk..kkk.."
+  ]
 };
 function drawSprite(shape, pal, scale){
   const rows = SHAPES[shape];
