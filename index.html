@@ -1135,6 +1135,9 @@ function applyMode(){
   }else{
     bv.classList.remove("glmode");
   }
+  /* three.jsはキャンバスにインラインstyleでdisplay:blockを書くため、JSで明示的に切り替える */
+  const cv = document.querySelector("canvas.gl");
+  if(cv) cv.style.display = (state.settings.mode==="3d" && GL) ? "block" : "none";
   drawSprites();
 }
 function toggleMode(){
