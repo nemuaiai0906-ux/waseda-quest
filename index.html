@@ -46,24 +46,44 @@
   .battle.whiteflash::after{content:"";position:absolute;inset:0;background:#fff;animation:wf .25s forwards;z-index:9}
   @keyframes wf{0%{opacity:.9}100%{opacity:0}}
 
-  /* 3D背景 */
-  .bg-sky,.bg-ground,.cloud,.party3d{display:none}
-  .mode3d .bg-sky{display:block;position:absolute;inset:0;background:linear-gradient(#4fa8ee,#a8d8f8 55%,#d8eefc 70%)}
+  /* 3D背景（草原の街道シーン） */
+  .bg-sky,.bg-ground,.cloud,.party3d,.sun,.mtn,.fog{display:none}
+  .mode3d .bg-sky{display:block;position:absolute;inset:0;background:linear-gradient(#2e7fd0 0%,#7ec0f0 38%,#cfeafc 58%)}
+  .mode3d .sun{display:block;position:absolute;top:10px;left:16px;width:100px;height:100px;
+    background:radial-gradient(circle,rgba(255,250,220,.95) 0 16%,rgba(255,240,180,.35) 38%,transparent 68%)}
+  .mode3d .mtn{display:block;position:absolute;left:0;right:0;height:24%}
+  .mode3d .mtn2{bottom:55%;background:linear-gradient(#8cb2d8,#b0d0ea);
+    clip-path:polygon(0 100%,6% 62%,18% 88%,30% 52%,45% 90%,58% 60%,70% 92%,82% 58%,92% 84%,100% 64%,100% 100%)}
+  .mode3d .mtn1{bottom:56%;background:linear-gradient(#5f86b8,#7ba3cc);
+    clip-path:polygon(0 100%,0 70%,10% 38%,20% 72%,33% 22%,46% 78%,58% 45%,72% 88%,84% 30%,94% 70%,100% 55%,100% 100%)}
   .mode3d .bg-ground{
-    display:block;position:absolute;bottom:-8%;left:-25%;width:150%;height:62%;
-    background-image:conic-gradient(#aab4ba 25%,#98a2a8 0 50%,#aab4ba 0 75%,#98a2a8 0);
-    background-size:52px 52px;
-    transform:perspective(430px) rotateX(57deg);transform-origin:50% 100%;
+    display:block;position:absolute;bottom:-6%;left:-30%;width:160%;height:64%;
+    background:
+      linear-gradient(90deg,transparent 0 41%,#cfa86a 41% 43%,#dcb87c 43% 57%,#cfa86a 57% 59%,transparent 59%),
+      repeating-linear-gradient(0deg,#4e9b48 0 12px,#58a951 12px 24px);
+    transform:perspective(420px) rotateX(56deg);transform-origin:50% 100%;
   }
-  .mode3d .cloud{display:block;position:absolute;background:#fff;border-radius:99px;opacity:.85;filter:blur(1px)}
-  .mode3d .c1{width:90px;height:26px;top:18px;left:8%;animation:drift 26s linear infinite}
-  .mode3d .c2{width:60px;height:18px;top:46px;left:60%;animation:drift 34s linear infinite}
-  .mode3d .c3{width:110px;height:30px;top:8px;left:75%;animation:drift 30s linear infinite}
-  @keyframes drift{from{transform:translateX(0)}to{transform:translateX(-560px)}}
+  .mode3d .fog{display:block;position:absolute;left:0;right:0;bottom:48%;height:10%;
+    background:linear-gradient(rgba(230,245,255,.55),transparent)}
+  .mode3d .cloud{display:block;position:absolute;background:#fff;border-radius:99px;opacity:.92}
+  .mode3d .cloud::before{content:"";position:absolute;width:52%;height:150%;background:#fff;border-radius:50%;top:-72%;left:16%}
+  .mode3d .cloud::after{content:"";position:absolute;width:38%;height:115%;background:#fff;border-radius:50%;top:-48%;right:12%}
+  .mode3d .c1{width:92px;height:24px;top:30px;left:8%;animation:drift 30s linear infinite}
+  .mode3d .c2{width:60px;height:17px;top:62px;left:58%;animation:drift 40s linear infinite}
+  .mode3d .c3{width:110px;height:28px;top:14px;left:78%;animation:drift 34s linear infinite}
+  @keyframes drift{from{transform:translateX(0)}to{transform:translateX(-620px)}}
+
+  /* 斬撃エフェクト */
+  .slash{position:absolute;inset:-16px;z-index:9;pointer-events:none}
+  .slash::before,.slash::after{content:"";position:absolute;inset:0;opacity:0;
+    background:linear-gradient(45deg,transparent 42%,rgba(255,255,255,.95) 48%,#ffe27a 52%,transparent 58%);
+    animation:slashA .32s ease-out forwards}
+  .slash::after{background:linear-gradient(-45deg,transparent 42%,rgba(255,255,255,.95) 48%,#ffe27a 52%,transparent 58%);animation-delay:.09s}
+  @keyframes slashA{0%{opacity:0;transform:scale(.3)}25%{opacity:1}100%{opacity:0;transform:scale(1.25)}}
 
   /* 魔物 */
   .stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:2}
-  .mode3d .stage{align-items:flex-end;padding-bottom:96px}
+  .mode3d .stage{align-items:flex-end;padding-bottom:92px}
   .sprite-wrap{position:relative;text-align:center}
   .sprite-wrap canvas{display:block;margin:0 auto;image-rendering:pixelated}
   .mode3d .sprite-wrap canvas{animation:bob 2.4s ease-in-out infinite}
@@ -75,10 +95,12 @@
   .sprite-wrap.dead canvas{animation:vanish 1s forwards}
   @keyframes vanish{0%{opacity:1}100%{opacity:0;transform:translateY(8px) scaleY(.6)}}
 
-  /* 3D パーティ */
-  .mode3d .party3d{display:flex;position:absolute;bottom:14px;left:0;right:0;justify-content:center;gap:26px;z-index:3}
-  .party3d .hero{text-align:center}
-  .party3d .hero canvas{animation:bob 2s ease-in-out infinite}
+  /* 3D パーティ（後ろ姿・手前ほど大きく） */
+  .mode3d .party3d{display:flex;position:absolute;bottom:10px;left:0;right:0;justify-content:center;gap:30px;z-index:3}
+  .party3d .hero{text-align:center;position:relative}
+  .party3d .hero canvas{position:relative;z-index:1;animation:bob 2s ease-in-out infinite}
+  .party3d .h-shadow{width:34px;height:9px;background:rgba(0,0,30,.3);border-radius:50%;margin:-5px auto 0}
+  .party3d .pos0,.party3d .pos3{transform:translateY(7px) scale(1.12)}
   .party3d .hero:nth-child(2) canvas{animation-delay:.3s}
   .party3d .hero:nth-child(3) canvas{animation-delay:.6s}
   .party3d .hero:nth-child(4) canvas{animation-delay:.9s}
@@ -192,7 +214,11 @@
     <!-- バトル画面 -->
     <div class="battle" id="battleView">
       <div class="bg-sky"></div>
+      <div class="sun"></div>
+      <div class="mtn mtn2"></div>
+      <div class="mtn mtn1"></div>
       <div class="bg-ground"></div>
+      <div class="fog"></div>
       <div class="cloud c1"></div><div class="cloud c2"></div><div class="cloud c3"></div>
       <div class="ehp">
         <div class="lab" id="ehpLab">HP</div>
@@ -358,17 +384,32 @@ const WEEKLY = [
 function T(s,t,xp){ return {s:s,t:t,xp:xp}; }
 
 const MONSTERS = [
-  {e:"👹",n:"たんごゴブリン"},{e:"🧟",n:"ぶんぽうゾンビ"},{e:"🐉",n:"ちょうぶんドラゴン"},
-  {e:"🦂",n:"けいさんミスサソリ"},{e:"👻",n:"こぶんのおんりょう"},{e:"🐙",n:"きじゅつクラーケン"},
-  {e:"🗿",n:"あんきゴーレム"},{e:"🦇",n:"よふかしバンパイア"},{e:"🐺",n:"サボりウルフ"},
-  {e:"🕷️",n:"スマホぐも"},{e:"🧌",n:"さきのばしトロール"},{e:"🦅",n:"あせりのハーピー"}
+  {n:"たんごゴブリン",     s:"blob",   p:{a:"#d94f4f",b:"#a32f2f"}},
+  {n:"けいさんミスサソリ", s:"blob",   p:{a:"#e08a3c",b:"#a85f1f"}},
+  {n:"スマホぐも",         s:"blob",   p:{a:"#3fa8a0",b:"#2a7a74"}},
+  {n:"こぶんのおんりょう", s:"ghost",  p:{a:"#cdd6f0",b:"#9aa6cc"}},
+  {n:"きじゅつクラーケン", s:"ghost",  p:{a:"#9a5fd0",b:"#6f3fa0"}},
+  {n:"よふかしバンパイア", s:"ghost",  p:{a:"#5a5fae",b:"#3a3f80"}},
+  {n:"ちょうぶんドラゴン", s:"dragon", p:{a:"#4fae5a",b:"#357f3f",e:"#ffd24a"}},
+  {n:"あせりのハーピー",   s:"dragon", p:{a:"#e06a4a",b:"#a8442a",e:"#fff"}},
+  {n:"サボりウルフ",       s:"dragon", p:{a:"#8a93a8",b:"#5f6880",e:"#ffd24a"}},
+  {n:"あんきゴーレム",     s:"golem",  p:{a:"#9aa0a8",b:"#6f757f",e:"#7adfff"}},
+  {n:"ぶんぽうゾンビ",     s:"golem",  p:{a:"#7fae5f",b:"#567f3a",e:"#ff5a5a"}},
+  {n:"さきのばしトロール", s:"golem",  p:{a:"#b08a5f",b:"#80603a",e:"#ffd24a"}}
 ];
 const BOSSES = [
-  {e:"💀",n:"だいまおうデッドライン"},{e:"🐲",n:"ふくしゅうりゅうレックス"},
-  {e:"😈",n:"もしのあくまアーカイヴ"},{e:"🔥",n:"えんていバーンアウト"}
+  {n:"だいまおうデッドライン", s:"demon", p:{a:"#8a8f9f",b:"#3a2a50",e:"#ff4a4a"}},
+  {n:"ふくしゅうりゅうレックス", s:"demon", p:{a:"#4fae5a",b:"#2a5f80",e:"#ffd24a"}},
+  {n:"もしのあくまアーカイヴ", s:"demon", p:{a:"#9a5fd0",b:"#3f2a60",e:"#7adfff"}},
+  {n:"えんていバーンアウト",   s:"demon", p:{a:"#e0533c",b:"#6f1f10",e:"#ffe27a"}}
 ];
 const TITLES = ["見習い受験生","駆け出し挑戦者","単語ハンター","文法の騎士","長文剣士","赤本の狩人","記述の魔導士","過去問マスター","都の西北ナイト","政経の勇者","早稲田の覇者"];
-const HEROES = ["🧑‍🎓","🧙","🛡️","🏹"];
+const HEROES = [
+  {s:"warrior", p:{k:"#10131f",m:"#aab4c8",b:"#5f4a3a"}},
+  {s:"hero",    p:{k:"#10131f",a:"#6f4a2a",c:"#d04a4a",b:"#3a4a8a"}},
+  {s:"priest",  p:{k:"#10131f",w:"#e8e4d8",c:"#d0a83c"}},
+  {s:"mage",    p:{k:"#10131f",h:"#6f3fa0",a:"#e0b48a",r:"#4a3f8a"}}
+];
 
 /* ================= state ================= */
 const KEY = "wasedaQuestV1";
@@ -410,16 +451,146 @@ function levelInfo(xp){
 }
 function titleFor(lv){ return TITLES[Math.min(TITLES.length-1, Math.floor((lv-1)/3))]; }
 
-/* ================= ドット絵スプライト（絵文字→ピクセル化） ================= */
-function pixelSprite(emoji, px, scale){
+/* ================= 自作ドット絵スプライト =================
+   左右対称定義：各行は「左半分＋中央1列」。sym()でミラー展開する */
+function sym(rows){ return rows.map(r => r + [...r.slice(0,-1)].reverse().join("")); }
+const SHAPES = {
+  blob: sym([
+    "....kkkkk",
+    "..kkaaaaa",
+    ".kaaaaaaa",
+    ".kaakkaaa",
+    ".kaakkaaa",
+    "kaaaaaaaa",
+    "kaaaaakkk",
+    "kaaaaaaaa",
+    ".kaaaaaaa",
+    ".kkaabbaa",
+    "...kkkkkk"
+  ]),
+  ghost: sym([
+    "....kkkkk",
+    "...kaaaaa",
+    "..kaaaaaa",
+    "..kaakkaa",
+    "..kaakkaa",
+    "..kaaaaaa",
+    "..kaaaakk",
+    "..kaaaaaa",
+    "..kabaaaa",
+    "..kabaaaa",
+    "..kak.kaa",
+    "..k...k.."
+  ]),
+  dragon: sym([
+    "......kkk",
+    ".k...kaaa",
+    ".kk.kaaea",
+    ".kakkaaaa",
+    "kaaakaaaa",
+    "kaaakaakk",
+    "kaabkaaaa",
+    ".kabkaaaa",
+    "..kkaaaaa",
+    "...kabbaa",
+    "...kkaakk",
+    "....kkkkk"
+  ]),
+  golem: sym([
+    "..kkkkkkk",
+    ".kaaaaaaa",
+    ".kaaeeaaa",
+    ".kaaaaaaa",
+    "kkaaaaaaa",
+    "kabaaabaa",
+    "kabaaabaa",
+    "kkaaaaaaa",
+    ".kaabaaba",
+    ".kaaaaaaa",
+    "..kaaak..",
+    "..kkkkk.."
+  ]),
+  demon: sym([
+    ".k........",
+    ".kk....kkk",
+    "..kk..kaaa",
+    "...kkkaaaa",
+    "...kaaeeaa",
+    "...kaaaaaa",
+    "...kaakkaa",
+    "..kkaaaaaa",
+    ".kbkaaaaaa",
+    ".kbkaaaaaa",
+    "kbbkaaaaaa",
+    "kbbkaaaaaa",
+    "kbbkkaaaaa",
+    ".kbbkaaaaa",
+    ".kkkkkkkkk"
+  ]),
+  hero: sym([
+    "....kk",
+    "...kaa",
+    "...kaa",
+    "..kkcc",
+    ".kcccc",
+    ".kcccc",
+    ".kcccc",
+    ".kcccc",
+    ".kkccc",
+    "...kbb",
+    "...kkk"
+  ]),
+  mage: sym([
+    ".....k",
+    "....kh",
+    "...khh",
+    "..khhh",
+    ".khhhh",
+    "..kaaa",
+    "..krrr",
+    ".krrrr",
+    ".krrrr",
+    ".krrrr",
+    "..krrr",
+    "..kkkk"
+  ]),
+  priest: sym([
+    "....kk",
+    "..kkww",
+    ".kwwww",
+    ".kwwwc",
+    ".kwwwc",
+    ".kwwwc",
+    ".kwwwc",
+    ".kwwwc",
+    ".kwwww",
+    "..kwww",
+    "..kkkk"
+  ]),
+  warrior: sym([
+    ".k....",
+    ".kk.kk",
+    "..kmmm",
+    "..kmmm",
+    ".kkmmm",
+    ".kmmmm",
+    ".kmmmm",
+    ".kmmmm",
+    "..kmmm",
+    "..kbbb",
+    "..kkkk"
+  ])
+};
+function drawSprite(shape, pal, scale){
+  const rows = SHAPES[shape];
+  const w = rows[0].length, h = rows.length;
   const c = document.createElement("canvas");
-  c.width = px; c.height = px;
+  c.width = w*scale; c.height = h*scale;
   const ctx = c.getContext("2d");
-  ctx.font = (px-4)+"px serif";
-  ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText(emoji, px/2, px/2+2);
-  c.style.width = (px*scale)+"px"; c.style.height = (px*scale)+"px";
-  c.style.imageRendering = "pixelated";
+  rows.forEach((row,y)=>{ [...row].forEach((ch,x)=>{
+    const col = pal[ch];
+    if(col){ ctx.fillStyle = col; ctx.fillRect(x*scale, y*scale, scale, scale); }
+  }); });
   return c;
 }
 
@@ -507,13 +678,16 @@ function drawSprites(){
   const wrap = document.getElementById("spriteWrap");
   wrap.querySelectorAll("canvas").forEach(c=>c.remove());
   const is3d = state.settings.mode==="3d";
-  const spr = pixelSprite(currentMonster.e, 24, is3d?6:7);
+  const pal = Object.assign({k:"#10131f"}, currentMonster.p);
+  const spr = drawSprite(currentMonster.s, pal, is3d?7:9);
   wrap.insertBefore(spr, wrap.firstChild);
   const party = document.getElementById("party3d");
   party.innerHTML = "";
-  HEROES.forEach(h=>{
-    const d=document.createElement("div"); d.className="hero";
-    d.appendChild(pixelSprite(h,16,3));
+  HEROES.forEach((h,i)=>{
+    const d=document.createElement("div"); d.className="hero pos"+i;
+    d.appendChild(drawSprite(h.s, h.p, 4));
+    const sh=document.createElement("div"); sh.className="h-shadow";
+    d.appendChild(sh);
     party.appendChild(d);
   });
 }
@@ -613,6 +787,10 @@ function attackAnim(dmg){
   bv.classList.add("shake","whiteflash");
   const sw = document.getElementById("spriteWrap");
   sw.classList.remove("hitflash"); void sw.offsetWidth; sw.classList.add("hitflash");
+  const sl = document.createElement("div");
+  sl.className = "slash";
+  sw.appendChild(sl);
+  setTimeout(()=>sl.remove(), 450);
   const fly = document.createElement("div");
   fly.className="dmg"; fly.textContent=dmg;
   fly.style.left = (42+seedHash(""+performance.now())%16)+"%";
