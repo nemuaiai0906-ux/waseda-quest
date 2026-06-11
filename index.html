@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>早稲田政経クエスト 🗡️ ToDoの魔物を討伐せよ</title>
+<style>
+  :root{
+    --bg:#0d0f1a; --panel:#161a2e; --panel2:#1e2440; --line:#2c3357;
+    --text:#e8eaf6; --sub:#8b93b8; --gold:#fbbf24; --hp:#ef4444; --hpbg:#3b1219;
+    --xp:#a78bfa; --green:#34d399; --blue:#60a5fa; --pink:#f472b6; --orange:#fb923c;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--text);font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic",sans-serif;min-height:100vh}
+  .wrap{max-width:560px;margin:0 auto;padding:14px 14px 90px}
+
+  /* ===== header ===== */
+  .hud{background:linear-gradient(135deg,#1a1f3a,#141831);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-bottom:12px}
+  .hud-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .lv{font-size:22px;font-weight:800;color:var(--gold)}
+  .title-badge{font-size:12px;color:var(--sub);margin-top:2px}
+  .streak{font-size:14px;font-weight:700;color:var(--orange);text-align:right}
+  .streak small{display:block;color:var(--sub);font-weight:400;font-size:11px}
+  .xpbar{height:10px;background:#262b4a;border-radius:6px;margin-top:10px;overflow:hidden}
+  .xpbar>div{height:100%;background:linear-gradient(90deg,#7c3aed,var(--xp));border-radius:6px;transition:width .4s}
+  .xptext{font-size:11px;color:var(--sub);margin-top:4px;text-align:right}
+  .countdowns{display:flex;gap:8px;margin-top:10px}
+  .cd{flex:1;background:#11142a;border:1px solid var(--line);border-radius:10px;padding:7px 10px;text-align:center}
+  .cd b{font-size:18px;color:var(--text)}
+  .cd span{display:block;font-size:10px;color:var(--sub);margin-top:1px}
+  .phase-chip{display:inline-block;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;margin-top:10px}
+
+  /* ===== monster ===== */
+  .monster{background:linear-gradient(180deg,#1c1430,#13101f);border:1px solid #3b2a63;border-radius:16px;padding:18px 16px 16px;text-align:center;margin-bottom:12px;position:relative;overflow:hidden}
+  .monster.boss{border-color:#7f1d1d;background:linear-gradient(180deg,#2a1020,#160a12)}
+  .m-emoji{font-size:64px;line-height:1;display:inline-block;transition:transform .1s;filter:drop-shadow(0 6px 16px rgba(124,58,237,.45))}
+  .monster.boss .m-emoji{filter:drop-shadow(0 6px 18px rgba(239,68,68,.5))}
+  .m-emoji.hit{animation:shake .35s}
+  .m-emoji.dead{filter:grayscale(1);opacity:.35;transform:rotate(110deg) scale(.85)}
+  @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-9px) rotate(-6deg)}40%{transform:translateX(8px) rotate(5deg)}60%{transform:translateX(-6px)}80%{transform:translateX(5px)}}
+  .m-name{font-size:16px;font-weight:800;margin-top:8px}
+  .m-name .boss-tag{color:#f87171;font-size:11px;border:1px solid #7f1d1d;border-radius:6px;padding:1px 6px;margin-right:6px;vertical-align:2px}
+  .hpbar{height:16px;background:var(--hpbg);border-radius:8px;margin-top:10px;overflow:hidden;border:1px solid #4c1d24}
+  .hpbar>div{height:100%;background:linear-gradient(90deg,#dc2626,#f87171);transition:width .45s;border-radius:7px}
+  .hptext{font-size:12px;color:var(--sub);margin-top:5px}
+  .dmg{position:absolute;font-weight:900;font-size:26px;color:#fbbf24;text-shadow:0 2px 6px rgba(0,0,0,.6);pointer-events:none;animation:dmgfly .8s forwards}
+  @keyframes dmgfly{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-60px) scale(1.4)}}
+  .defeated-banner{margin-top:10px;font-size:14px;font-weight:800;color:var(--gold)}
+
+  /* ===== tasks ===== */
+  .section-h{font-size:13px;font-weight:700;color:var(--sub);margin:14px 4px 8px;display:flex;justify-content:space-between;align-items:center}
+  .task{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all .15s;user-select:none}
+  .task:active{transform:scale(.985)}
+  .task.done{opacity:.55;background:#12162b}
+  .task.done .t-title{text-decoration:line-through;color:var(--sub)}
+  .checkbox{width:26px;height:26px;border-radius:8px;border:2px solid #3d4570;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .15s}
+  .task.done .checkbox{background:var(--green);border-color:var(--green);color:#06281c}
+  .t-body{flex:1;min-width:0}
+  .t-title{font-size:14px;font-weight:600;line-height:1.45}
+  .t-meta{display:flex;gap:6px;margin-top:4px;align-items:center}
+  .chip{font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px}
+  .t-xp{font-size:12px;font-weight:800;color:var(--xp);flex-shrink:0}
+  .addrow{display:flex;gap:8px;margin-top:4px}
+  .addrow input{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:11px 13px;color:var(--text);font-size:14px;outline:none}
+  .addrow button{background:#7c3aed;border:none;border-radius:11px;color:#fff;font-weight:700;padding:0 18px;font-size:14px;cursor:pointer}
+
+  /* ===== victory overlay ===== */
+  .overlay{position:fixed;inset:0;background:rgba(8,9,18,.88);display:none;align-items:center;justify-content:center;z-index:50;backdrop-filter:blur(4px)}
+  .overlay.show{display:flex}
+  .v-card{text-align:center;padding:30px;animation:pop .45s cubic-bezier(.2,1.6,.4,1)}
+  @keyframes pop{0%{transform:scale(.5);opacity:0}100%{transform:scale(1);opacity:1}}
+  .v-emoji{font-size:80px}
+  .v-title{font-size:28px;font-weight:900;color:var(--gold);margin:12px 0 6px;letter-spacing:2px}
+  .v-sub{color:var(--text);font-size:15px;line-height:1.9}
+  .v-lvup{font-size:20px;font-weight:900;color:var(--green);margin-top:10px}
+  .v-btn{margin-top:22px;background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#3b2403;border:none;border-radius:12px;padding:13px 38px;font-size:16px;font-weight:800;cursor:pointer}
+  .confetti{position:fixed;top:-20px;font-size:22px;animation:fall linear forwards;z-index:51;pointer-events:none}
+  @keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
+
+  /* ===== tabs ===== */
+  .tabbar{position:fixed;bottom:0;left:0;right:0;background:rgba(13,15,26,.96);border-top:1px solid var(--line);display:flex;z-index:40;backdrop-filter:blur(8px)}
+  .tabbar button{flex:1;background:none;border:none;color:var(--sub);padding:11px 0 max(11px, env(safe-area-inset-bottom));font-size:11px;cursor:pointer;font-weight:600}
+  .tabbar button .ti{display:block;font-size:21px;margin-bottom:2px}
+  .tabbar button.active{color:var(--gold)}
+  .page{display:none}.page.show{display:block}
+
+  /* ===== record page ===== */
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:13px;text-align:center}
+  .stat b{font-size:22px;display:block}
+  .stat span{font-size:11px;color:var(--sub)}
+  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+  .cal .dow{text-align:center;font-size:10px;color:var(--sub);padding:3px 0}
+  .day{aspect-ratio:1;border-radius:9px;background:var(--panel);border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;color:var(--sub)}
+  .day .de{font-size:15px;line-height:1}
+  .day.win{background:#152a1e;border-color:#1d5c3a}
+  .day.partial{background:#2a2415;border-color:#5c4a1d}
+  .day.today{outline:2px solid var(--gold)}
+  .day.future{opacity:.25}
+
+  /* ===== plan page ===== */
+  .ph{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:15px;margin-bottom:10px}
+  .ph.now{border-color:var(--gold)}
+  .ph h3{font-size:15px;display:flex;align-items:center;gap:8px}
+  .ph .range{font-size:11px;color:var(--sub);margin:3px 0 8px}
+  .ph ul{list-style:none}
+  .ph li{font-size:13px;line-height:1.8;color:#c6cbe8;padding-left:1.1em;text-indent:-1.1em}
+  .ph li b{color:var(--text)}
+  .nowtag{font-size:10px;background:var(--gold);color:#3b2403;font-weight:800;border-radius:6px;padding:2px 7px}
+  .note{font-size:12px;color:var(--sub);line-height:1.8;margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HUD -->
+  <div class="hud">
+    <div class="hud-top">
+      <div>
+        <div class="lv">Lv.<span id="lv">1</span></div>
+        <div class="title-badge" id="titleBadge">称号：見習い受験生</div>
+      </div>
+      <div class="streak">🔥 <span id="streak">0</span>日連続討伐<small>最高記録 <span id="bestStreak">0</span>日</small></div>
+    </div>
+    <div class="xpbar"><div id="xpfill" style="width:0%"></div></div>
+    <div class="xptext">次のレベルまで <span id="xpneed">100</span> XP</div>
+    <div class="countdowns">
+      <div class="cd"><b id="cdKyote">-</b><span>共通テストまで（1/16）</span></div>
+      <div class="cd"><b id="cdSeikei">-</b><span>早稲田政経 入試まで（2/20）</span></div>
+    </div>
+    <span class="phase-chip" id="phaseChip"></span>
+  </div>
+
+  <!-- ===== QUEST PAGE ===== -->
+  <div class="page show" id="page-quest">
+    <div class="monster" id="monsterCard">
+      <div class="m-emoji" id="mEmoji">👹</div>
+      <div class="m-name" id="mName"></div>
+      <div class="hpbar"><div id="hpfill" style="width:100%"></div></div>
+      <div class="hptext">HP <span id="hpNow">0</span> / <span id="hpMax">0</span></div>
+      <div class="defeated-banner" id="defeatedBanner" style="display:none">⚔️ 討伐完了！今日もよく戦った！</div>
+    </div>
+
+    <div class="section-h"><span id="dateLabel"></span><span id="progressLabel"></span></div>
+    <div id="taskList"></div>
+
+    <div class="section-h"><span>＋ 追加クエスト（自分で足す）</span></div>
+    <div class="addrow">
+      <input id="customInput" type="text" placeholder="例：英作文の添削直し" maxlength="50">
+      <button onclick="addCustom()">追加</button>
+    </div>
+  </div>
+
+  <!-- ===== RECORD PAGE ===== -->
+  <div class="page" id="page-record">
+    <div class="stats">
+      <div class="stat"><b id="stTotal">0</b><span>討伐した魔物</span></div>
+      <div class="stat"><b id="stTasks">0</b><span>倒したタスク数</span></div>
+      <div class="stat"><b id="stXp">0</b><span>総獲得XP</span></div>
+      <div class="stat"><b id="stRate">0%</b><span>直近30日 討伐率</span></div>
+    </div>
+    <div class="section-h"><span>冒険の記録（直近5週間）</span></div>
+    <div class="cal" id="cal"></div>
+    <div class="note">🟩 全討伐（タスク全部クリア）　🟨 一部討伐　討伐を毎日続けると🔥連続記録が伸びる。1日でも逃すとリセット。魔物は毎日復活する——逃げるな。</div>
+  </div>
+
+  <!-- ===== PLAN PAGE ===== -->
+  <div class="page" id="page-plan">
+    <div class="section-h"><span>📜 作戦書 — 早稲田政経 合格ロードマップ</span></div>
+    <div id="planList"></div>
+    <div class="note">この作戦書はアップロードされた4つのPDF（合格ロードマップ／参考書ルート／時期別教材スケジュール／週間メニュー）をもとに構成。毎日のクエストは「今日の日付 → 時期 → 曜日」から自動生成される。<br><br>⚠️ 入試日程（共通テスト 2027/1/16-17、政経 一般選抜 2027/2/20想定）は必ず最新の募集要項で確認すること。</div>
+  </div>
+
+</div>
+
+<!-- victory overlay -->
+<div class="overlay" id="overlay">
+  <div class="v-card">
+    <div class="v-emoji" id="vEmoji">⚔️</div>
+    <div class="v-title">討伐完了！</div>
+    <div class="v-sub" id="vSub"></div>
+    <div class="v-lvup" id="vLvup" style="display:none"></div>
+    <button class="v-btn" onclick="closeOverlay()">経験値を受け取る</button>
+  </div>
+</div>
+
+<!-- tab bar -->
+<div class="tabbar">
+  <button class="active" data-page="quest" onclick="showPage('quest',this)"><span class="ti">⚔️</span>今日のクエスト</button>
+  <button data-page="record" onclick="showPage('record',this)"><span class="ti">📖</span>冒険の記録</button>
+  <button data-page="plan" onclick="showPage('plan',this)"><span class="ti">📜</span>作戦書</button>
+</div>
+
+<script>
+/* =========================================================
+   早稲田政経クエスト
+   PDFの学習計画（ロードマップ/参考書ルート/時期別スケジュール/週間メニュー）
+   を時期×曜日のクエストデータに変換して毎日のToDo＝魔物を生成する
+========================================================= */
+
+const KYOTE = new Date(2027,0,16);     // 共通テスト 2027/1/16
+const SEIKEI = new Date(2027,1,20);    // 早稲田政経 一般選抜 2027/2/20(想定)
+
+const SUBJECT_COLORS = {
+  "英語":["#1e3a5f","#7dd3fc"], "現代文":["#3f2d1e","#fdba74"], "古文":["#3a1e3f","#e9a3f5"],
+  "漢文":["#1e3f2d","#86efac"], "数学":["#1e2a5f","#a5b4fc"], "総合問題":["#4a1e2e","#fda4af"],
+  "共テ":["#3f3a1e","#fde047"], "過去問":["#4a1e1e","#fca5a5"], "自由":["#2e2e3e","#cbd5e1"]
+};
+
+const PHASES = [
+  { name:"基礎固め期", start:null, end:new Date(2026,7,31), color:"#34d399",
+    books:["<b>英語</b>：ターゲット1900／Vintage／ポレポレ／やっておきたい英語長文300",
+           "<b>現代文</b>：入試現代文へのアクセス 基本編",
+           "<b>古文</b>：古文単語315／ステップアップノート30／富井の古文読解",
+           "<b>漢文</b>：漢文早覚え速答法",
+           "<b>数学ⅠA</b>：基礎問題精講＋計算トレーニング毎日"],
+    goal:"8月末までに全科目の土台を完成させる。単語と文法は「秒で出る」レベルに。" },
+  { name:"実力完成期", start:new Date(2026,8,1), end:new Date(2026,10,30), color:"#60a5fa",
+    books:["<b>英語</b>：長文ポラリス2／英作文ハイパートレーニング／速読英熟語",
+           "<b>現代文</b>：現代文読解力の開発講座",
+           "<b>古文</b>:古文ポラリス／共テ過去問",
+           "<b>数学ⅠA</b>：文系の数学 重要事項完全習得編",
+           "<b>総合問題</b>：政経サンプル問題・過去問研究／資料読解＋日本語記述トレ開始"],
+    goal:"入試レベルの演習に移行。土曜は政経の総合問題に毎週触れる。" },
+  { name:"共通テスト対策期", start:new Date(2026,11,1), end:new Date(2027,0,17), color:"#fbbf24",
+    books:["<b>全科目</b>：共通テスト過去問＋予想問題パック",
+           "<b>英語R/L</b>：時間配分の型を固定する","<b>数学ⅠA</b>：大問別の弱点演習",
+           "<b>国語</b>：解く順番と時間戦略を本番形式で固定"],
+    goal:"政経は共テ(英・国・数ⅠA・選択)＋総合問題。共テで高得点を取る者が圧倒的に有利。" },
+  { name:"早稲田直前期", start:new Date(2027,0,18), end:new Date(2027,1,22), color:"#f87171",
+    books:["<b>総合問題</b>：政経過去問＋サンプル問題を全年度、時間を計って演習→記述添削",
+           "<b>英語</b>：早稲田他学部の長文で負荷維持／自由英作文の仕上げ",
+           "<b>全科目</b>：間違いノート総点検。新しい参考書には手を出さない"],
+    goal:"2/20の本番に全てを合わせる。週1回は本番シミュレーション。" }
+];
+
+/* ---- 毎日タスク（時期別） ---- */
+const DAILY = [
+  [ T("英語","ターゲット1900 100語（前日分の復習込み）",10),
+    T("古文","古文単語315 20語",10),
+    T("数学","計算トレーニング10分",10) ],
+  [ T("英語","ターゲット1900 100語（派生語まで）",10),
+    T("古文","古文単語315 30語",10),
+    T("英語","速読英熟語 1章 シャドーイング",10) ],
+  [ T("英語","ターゲット1900 総復習100語",10),
+    T("古文","古文単語・文法 総復習30語",10),
+    T("共テ","リスニング 大問1つ",10) ],
+  [ T("英語","英単語・熟語 最終確認50語",10),
+    T("古文","古文単語・漢文句形の確認",10),
+    T("英語","長文音読15分（既読長文）",10) ]
+];
+
+/* ---- 曜日メニュー（時期別、日曜=BOSS） ---- */
+const WEEKLY = [
+  { // 基礎固め期
+    1:[T("英語","Vintage 文法2章",20),T("現代文","アクセス基本編 1題",20),T("数学","基礎問題精講ⅠA 4題",20)],
+    2:[T("英語","ポレポレ英文解釈 2題",20),T("古文","ステップアップノート 1章",20),T("数学","基礎問題精講ⅠA 4題",20)],
+    3:[T("英語","やっておきたい英語長文300 1題",20),T("漢文","早覚え速答法 1章",20),T("数学","今週分の解き直し",20)],
+    4:[T("英語","Vintage 文法2章",20),T("現代文","アクセス基本編 1題",20),T("数学","基礎問題精講ⅠA 4題",20)],
+    5:[T("英語","ポレポレ英文解釈 2題",20),T("古文","富井の古文読解 1章",20),T("数学","基礎問題精講ⅠA 4題",20)],
+    6:[T("英語","長文300 1題＋音読5回",20),T("英語","今週の文法ミス潰し",20),T("数学","今週の間違い直し",20)],
+    0:[T("英語","【週テスト】今週の英単語400語",30),T("英語","【週テスト】Vintage今週範囲",30),T("数学","【週テスト】今週の8題を解き直し",30),T("現代文","国語 今週の総復習",20)]
+  },
+  { // 実力完成期
+    1:[T("英語","長文ポラリス2 1題",20),T("現代文","開発講座 1題",25),T("数学","文系の数学 4題",20)],
+    2:[T("英語","英作文ハイパートレーニング 2課",20),T("古文","古文ポラリス 1題",20),T("数学","文系の数学 4題",20)],
+    3:[T("英語","ポラリス長文の復習＋音読5回",15),T("漢文","共テ過去問 1題",20),T("総合問題","資料読解トレーニング 1題",25)],
+    4:[T("英語","長文ポラリス2 1題",20),T("現代文","開発講座 1題",25),T("数学","文系の数学 4題",20)],
+    5:[T("英語","英作文 2課",20),T("古文","古文ポラリス 1題",20),T("数学","文系の数学 4題",20)],
+    6:[T("総合問題","政経 総合問題 過去問研究 1年分",30),T("英語","今週の長文 音読総まとめ",15),T("数学","今週の間違い直し",20)],
+    0:[T("英語","【週テスト】単語・熟語",30),T("総合問題","記述答案を書き直して完成形に",30),T("数学","【週テスト】今週の範囲",30),T("現代文","国語 今週の総復習",20)]
+  },
+  { // 共テ対策期
+    1:[T("共テ","英語R 過去問1回分（時間厳守）",30),T("数学","ⅠA 過去問 大問2つ",20)],
+    2:[T("共テ","国語 過去問1回分（時間厳守）",30),T("英語","昨日の英語Rを解き直し",15)],
+    3:[T("共テ","数学ⅠA 過去問1回分",30),T("現代文","国語の解き直し＋根拠確認",15)],
+    4:[T("共テ","英語R 過去問1回分",30),T("数学","数学の解き直し",15)],
+    5:[T("共テ","国語 過去問1回分",30),T("共テ","英語L 1回分",20)],
+    6:[T("共テ","予想問題パック 英国数 通し",40),T("自由","弱点大問の集中演習",20)],
+    0:[T("共テ","【本番セット】3科目を本番時間割で",50),T("自由","全科目の解き直しノート作成",30)]
+  },
+  { // 早稲田直前期
+    1:[T("過去問","政経 総合問題 過去問1年分（時間厳守）",40),T("総合問題","解き直し＋記述の添削・書き直し",20)],
+    2:[T("英語","早稲田レベル長文 1題",20),T("総合問題","日本語記述トレーニング",25)],
+    3:[T("過去問","早稲田他学部 英語過去問1年分",30),T("古文","過去問 1題",20)],
+    4:[T("過去問","政経 総合問題 過去問1年分",40),T("総合問題","解き直し＋論点整理",20)],
+    5:[T("英語","自由英作文 仕上げ2題",25),T("現代文","過去問 1題",20)],
+    6:[T("過去問","政経 本番シミュレーション（時間割通り）",50),T("自由","間違いノート総点検",20)],
+    0:[T("過去問","今週の過去問を全振り返り",30),T("自由","弱点トップ3を集中特訓",30),T("自由","来週の作戦を立てる",15)]
+  }
+];
+
+function T(s,t,xp){ return {s:s,t:t,xp:xp}; }
+
+/* ---- 魔物図鑑 ---- */
+const MONSTERS = [
+  {e:"👹",n:"単語喰らいのゴブリン"},{e:"🧟",n:"文法ゾンビ"},{e:"🐉",n:"長文ドラゴン"},
+  {e:"🦂",n:"計算ミスのサソリ"},{e:"👻",n:"古文の怨霊"},{e:"🐙",n:"記述クラーケン"},
+  {e:"🗿",n:"暗記ゴーレム"},{e:"🦇",n:"夜更かしヴァンパイア"},{e:"🐺",n:"サボりの誘惑ウルフ"},
+  {e:"🕷️",n:"スマホの蜘蛛"},{e:"🧌",n:"先延ばしトロール"},{e:"🦅",n:"焦りのハーピー"}
+];
+const BOSSES = [
+  {e:"💀",n:"週末の大魔王デッドライン"},{e:"🐲",n:"復習竜ウィークリーレックス"},
+  {e:"😈",n:"模試の悪魔アーカイヴ"},{e:"🔥",n:"炎帝バーンアウト"}
+];
+const TITLES = ["見習い受験生","駆け出し挑戦者","単語ハンター","文法の騎士","長文剣士","赤本の狩人","記述の魔導士","過去問マスター","都の西北ナイト","政経の勇者","早稲田の覇者"];
+
+/* ================= state ================= */
+const KEY = "wasedaQuestV1";
+let state = load();
+function load(){
+  try{ const s = JSON.parse(localStorage.getItem(KEY)); if(s) return s; }catch(e){}
+  return { xp:0, streak:0, bestStreak:0, lastDefeat:null, history:{}, custom:{} };
+}
+function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+
+/* ================= date helpers ================= */
+function today(){ return new Date(); }
+function dstr(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function phaseIndex(d){
+  for(let i=0;i<PHASES.length;i++){ if(d<=PHASES[i].end) return i; }
+  return PHASES.length-1;
+}
+function daysUntil(target){
+  const t0=new Date(); t0.setHours(0,0,0,0);
+  return Math.max(0, Math.round((target-t0)/86400000));
+}
+function seedHash(s){ let h=0; for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))>>>0;} return h; }
+
+/* ================= tasks of a day ================= */
+function tasksFor(dateStr){
+  const d = new Date(dateStr+"T12:00:00");
+  const pi = phaseIndex(d);
+  const wd = d.getDay();
+  const list = [];
+  DAILY[pi].forEach((t,i)=>list.push({id:"d"+pi+"-"+i, ...t}));
+  (WEEKLY[pi][wd]||[]).forEach((t,i)=>list.push({id:"w"+pi+"-"+wd+"-"+i, ...t}));
+  (state.custom[dateStr]||[]).forEach((t,i)=>list.push({id:"c-"+i, ...t}));
+  return list;
+}
+function dayRec(dateStr){
+  if(!state.history[dateStr]) state.history[dateStr]={done:[],defeated:false};
+  return state.history[dateStr];
+}
+
+/* ================= level ================= */
+function levelInfo(xp){
+  let lv=1, need=100, rest=xp;
+  while(rest>=need){ rest-=need; lv++; need=100+(lv-1)*50; }
+  return {lv:lv, cur:rest, need:need};
+}
+function titleFor(lv){ return TITLES[Math.min(TITLES.length-1, Math.floor((lv-1)/3))]; }
+
+/* ================= render ================= */
+const TODAY = dstr(today());
+
+function render(){
+  const d = today();
+  const pi = phaseIndex(d);
+  const ph = PHASES[pi];
+  const isBoss = d.getDay()===0;
+  const tasks = tasksFor(TODAY);
+  const rec = dayRec(TODAY);
+
+  // HUD
+  const li = levelInfo(state.xp);
+  document.getElementById("lv").textContent = li.lv;
+  document.getElementById("titleBadge").textContent = "称号：" + titleFor(li.lv);
+  document.getElementById("xpfill").style.width = (li.cur/li.need*100)+"%";
+  document.getElementById("xpneed").textContent = (li.need-li.cur);
+  document.getElementById("streak").textContent = state.streak;
+  document.getElementById("bestStreak").textContent = state.bestStreak;
+  document.getElementById("cdKyote").textContent = daysUntil(KYOTE)+"日";
+  document.getElementById("cdSeikei").textContent = daysUntil(SEIKEI)+"日";
+  const chip = document.getElementById("phaseChip");
+  chip.textContent = "現在：" + ph.name;
+  chip.style.background = ph.color+"22"; chip.style.color = ph.color; chip.style.border = "1px solid "+ph.color+"55";
+
+  // monster
+  const pool = isBoss?BOSSES:MONSTERS;
+  const m = pool[seedHash(TODAY)%pool.length];
+  document.getElementById("mEmoji").textContent = m.e;
+  document.getElementById("mName").innerHTML = (isBoss?'<span class="boss-tag">BOSS</span>':'') + m.n;
+  document.getElementById("monsterCard").classList.toggle("boss", isBoss);
+
+  const hpMax = tasks.reduce((a,t)=>a+t.xp,0);
+  const hpNow = tasks.filter(t=>!rec.done.includes(t.id)).reduce((a,t)=>a+t.xp,0);
+  document.getElementById("hpMax").textContent = hpMax;
+  document.getElementById("hpNow").textContent = hpNow;
+  document.getElementById("hpfill").style.width = (hpMax? hpNow/hpMax*100:0)+"%";
+  document.getElementById("mEmoji").classList.toggle("dead", hpNow===0 && hpMax>0);
+  document.getElementById("defeatedBanner").style.display = (hpNow===0&&hpMax>0)?"block":"none";
+
+  // date / progress
+  const wnames=["日","月","火","水","木","金","土"];
+  document.getElementById("dateLabel").textContent = `${d.getMonth()+1}/${d.getDate()}（${wnames[d.getDay()]}）の討伐リスト`;
+  document.getElementById("progressLabel").textContent = `${tasks.filter(t=>rec.done.includes(t.id)).length} / ${tasks.length} 撃破`;
+
+  // tasks
+  const wrap = document.getElementById("taskList");
+  wrap.innerHTML = "";
+  tasks.forEach(t=>{
+    const done = rec.done.includes(t.id);
+    const el = document.createElement("div");
+    el.className = "task"+(done?" done":"");
+    const col = SUBJECT_COLORS[t.s]||SUBJECT_COLORS["自由"];
+    el.innerHTML = `<div class="checkbox">${done?"✓":""}</div>
+      <div class="t-body"><div class="t-title">${t.t}</div>
+      <div class="t-meta"><span class="chip" style="background:${col[0]};color:${col[1]}">${t.s}</span></div></div>
+      <div class="t-xp">⚔️${t.xp}</div>`;
+    el.onclick = ()=>toggle(t, el);
+    wrap.appendChild(el);
+  });
+
+  renderRecord();
+  renderPlan(pi);
+}
+
+/* ================= toggle / battle ================= */
+function toggle(task, el){
+  const rec = dayRec(TODAY);
+  const idx = rec.done.indexOf(task.id);
+  if(idx>=0){
+    rec.done.splice(idx,1);
+    state.xp = Math.max(0, state.xp - task.xp);
+  }else{
+    rec.done.push(task.id);
+    state.xp += task.xp;
+    hitAnim(task.xp);
+    const tasks = tasksFor(TODAY);
+    const allDone = tasks.every(t=>rec.done.includes(t.id));
+    if(allDone && !rec.defeated){
+      rec.defeated = true;
+      const isBoss = today().getDay()===0;
+      const bonus = isBoss?100:50;
+      state.xp += bonus;
+      updateStreak();
+      save();
+      setTimeout(()=>victory(bonus,isBoss), 450);
+      render();
+      return;
+    }
+  }
+  save(); render();
+}
+
+function updateStreak(){
+  const y = new Date(); y.setDate(y.getDate()-1);
+  if(state.lastDefeat === dstr(y)) state.streak += 1;
+  else if(state.lastDefeat !== TODAY) state.streak = 1;
+  state.lastDefeat = TODAY;
+  state.bestStreak = Math.max(state.bestStreak, state.streak);
+}
+
+function hitAnim(dmg){
+  const em = document.getElementById("mEmoji");
+  em.classList.remove("hit"); void em.offsetWidth; em.classList.add("hit");
+  const card = document.getElementById("monsterCard");
+  const fly = document.createElement("div");
+  fly.className = "dmg"; fly.textContent = "-"+dmg;
+  fly.style.left = (30+ (seedHash(""+performance.now())%40)) + "%";
+  fly.style.top = "30%";
+  card.appendChild(fly);
+  setTimeout(()=>fly.remove(), 850);
+  beep(220+dmg*4, .06);
+}
+
+/* ================= victory ================= */
+let prevLv = levelInfo(state.xp).lv;
+function victory(bonus, isBoss){
+  const li = levelInfo(state.xp);
+  document.getElementById("vEmoji").textContent = isBoss?"👑":"🏆";
+  document.getElementById("vSub").innerHTML =
+    `今日の魔物を討伐した！<br>討伐ボーナス <b style="color:var(--xp)">+${bonus} XP</b><br>🔥 連続討伐 <b style="color:var(--orange)">${state.streak}日</b>`;
+  const lvup = document.getElementById("vLvup");
+  if(li.lv > prevLv){
+    lvup.style.display="block";
+    lvup.textContent = `⬆ LEVEL UP! Lv.${li.lv} 「${titleFor(li.lv)}」`;
+    fanfare();
+  }else{ lvup.style.display="none"; beep(660,.15); setTimeout(()=>beep(880,.2),150); }
+  prevLv = li.lv;
+  document.getElementById("overlay").classList.add("show");
+  confetti();
+}
+function closeOverlay(){ document.getElementById("overlay").classList.remove("show"); }
+function confetti(){
+  const em=["🎉","✨","⭐","🎊","💫","🗡️"];
+  for(let i=0;i<24;i++){
+    const c=document.createElement("div");
+    c.className="confetti"; c.textContent=em[i%em.length];
+    c.style.left=(seedHash("c"+i+performance.now())%100)+"%";
+    c.style.animationDuration=(1.4+ (i%10)/8)+"s";
+    document.body.appendChild(c);
+    setTimeout(()=>c.remove(),2600);
+  }
+}
+
+/* ================= sound ================= */
+let actx=null;
+function beep(freq,dur){
+  try{
+    actx = actx||new (window.AudioContext||window.webkitAudioContext)();
+    const o=actx.createOscillator(), g=actx.createGain();
+    o.type="square"; o.frequency.value=freq;
+    g.gain.setValueAtTime(.08,actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(); o.stop(actx.currentTime+dur);
+  }catch(e){}
+}
+function fanfare(){ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.18),i*130)); }
+
+/* ================= custom tasks ================= */
+function addCustom(){
+  const inp = document.getElementById("customInput");
+  const v = inp.value.trim();
+  if(!v) return;
+  if(!state.custom[TODAY]) state.custom[TODAY]=[];
+  state.custom[TODAY].push({s:"自由", t:v, xp:15});
+  inp.value="";
+  save(); render();
+}
+document.getElementById("customInput").addEventListener("keydown",e=>{ if(e.key==="Enter") addCustom(); });
+
+/* ================= record page ================= */
+function renderRecord(){
+  let defeats=0, taskCount=0;
+  Object.values(state.history).forEach(h=>{ if(h.defeated)defeats++; taskCount+=h.done.length; });
+  document.getElementById("stTotal").textContent = defeats;
+  document.getElementById("stTasks").textContent = taskCount;
+  document.getElementById("stXp").textContent = state.xp;
+
+  let win30=0;
+  for(let i=0;i<30;i++){
+    const d=new Date(); d.setDate(d.getDate()-i);
+    const h=state.history[dstr(d)];
+    if(h&&h.defeated) win30++;
+  }
+  document.getElementById("stRate").textContent = Math.round(win30/30*100)+"%";
+
+  const cal=document.getElementById("cal");
+  cal.innerHTML="";
+  ["日","月","火","水","木","金","土"].forEach(w=>{
+    const e=document.createElement("div"); e.className="dow"; e.textContent=w; cal.appendChild(e);
+  });
+  const start=new Date(); start.setDate(start.getDate()-27-start.getDay()); // 5週グリッド先頭(日曜)
+  for(let i=0;i<35;i++){
+    const d=new Date(start); d.setDate(start.getDate()+i);
+    const ds=dstr(d);
+    const h=state.history[ds];
+    const cell=document.createElement("div");
+    let cls="day", emoji="";
+    if(d>today() && ds!==TODAY){ cls+=" future"; }
+    else if(h&&h.defeated){ cls+=" win"; emoji="⚔️"; }
+    else if(h&&h.done.length>0){ cls+=" partial"; emoji="🛡️"; }
+    if(ds===TODAY) cls+=" today";
+    cell.className=cls;
+    cell.innerHTML=`<span class="de">${emoji}</span>${d.getDate()}`;
+    cal.appendChild(cell);
+  }
+}
+
+/* ================= plan page ================= */
+function renderPlan(currentPi){
+  const wrap=document.getElementById("planList");
+  wrap.innerHTML="";
+  const fmt=d=>d?`${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`:"今";
+  PHASES.forEach((p,i)=>{
+    const div=document.createElement("div");
+    div.className="ph"+(i===currentPi?" now":"");
+    div.innerHTML=`<h3><span style="color:${p.color}">●</span> ${p.name} ${i===currentPi?'<span class="nowtag">いまここ</span>':''}</h3>
+      <div class="range">${fmt(p.start)} 〜 ${fmt(p.end)}</div>
+      <ul>${p.books.map(b=>`<li>・${b}</li>`).join("")}</ul>
+      <div class="range" style="margin-top:8px">🎯 ${p.goal}</div>`;
+    wrap.appendChild(div);
+  });
+}
+
+/* ================= tabs ================= */
+function showPage(name, btn){
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("show"));
+  document.getElementById("page-"+name).classList.add("show");
+  document.querySelectorAll(".tabbar button").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+}
+
+render();
+</script>
+</body>
+</html>
