@@ -4,237 +4,311 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>早稲田政経クエスト 🗡️ ToDoの魔物を討伐せよ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
 <style>
-  :root{
-    --bg:#0d0f1a; --panel:#161a2e; --panel2:#1e2440; --line:#2c3357;
-    --text:#e8eaf6; --sub:#8b93b8; --gold:#fbbf24; --hp:#ef4444; --hpbg:#3b1219;
-    --xp:#a78bfa; --green:#34d399; --blue:#60a5fa; --pink:#f472b6; --orange:#fb923c;
-  }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  body{background:var(--bg);color:var(--text);font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic",sans-serif;min-height:100vh}
-  .wrap{max-width:560px;margin:0 auto;padding:14px 14px 90px}
+  body{
+    background:#000;color:#fff;min-height:100vh;
+    font-family:"DotGothic16","Hiragino Kaku Gothic ProN",monospace;
+    image-rendering:pixelated;
+  }
+  .wrap{max-width:560px;margin:0 auto;padding:10px 10px 30px}
 
-  /* ===== header ===== */
-  .hud{background:linear-gradient(135deg,#1a1f3a,#141831);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-bottom:12px}
-  .hud-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
-  .lv{font-size:22px;font-weight:800;color:var(--gold)}
-  .title-badge{font-size:12px;color:var(--sub);margin-top:2px}
-  .streak{font-size:14px;font-weight:700;color:var(--orange);text-align:right}
-  .streak small{display:block;color:var(--sub);font-weight:400;font-size:11px}
-  .xpbar{height:10px;background:#262b4a;border-radius:6px;margin-top:10px;overflow:hidden}
-  .xpbar>div{height:100%;background:linear-gradient(90deg,#7c3aed,var(--xp));border-radius:6px;transition:width .4s}
-  .xptext{font-size:11px;color:var(--sub);margin-top:4px;text-align:right}
-  .countdowns{display:flex;gap:8px;margin-top:10px}
-  .cd{flex:1;background:#11142a;border:1px solid var(--line);border-radius:10px;padding:7px 10px;text-align:center}
-  .cd b{font-size:18px;color:var(--text)}
-  .cd span{display:block;font-size:10px;color:var(--sub);margin-top:1px}
-  .phase-chip{display:inline-block;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;margin-top:10px}
+  /* ===== DQ風ウィンドウ ===== */
+  .dqwin{
+    background:#000;border:3px solid #fff;border-radius:8px;
+    box-shadow:0 0 0 2px #000, inset 0 0 0 2px #000, inset 0 0 0 3px #fff;
+    padding:12px 14px;margin-bottom:10px;color:#fff;
+  }
+  .mode3d .dqwin{background:rgba(0,0,30,.78)}
+  .gold{color:#ffd24a}
+  .gray{color:#9aa0b5}
 
-  /* ===== monster ===== */
-  .monster{background:linear-gradient(180deg,#1c1430,#13101f);border:1px solid #3b2a63;border-radius:16px;padding:18px 16px 16px;text-align:center;margin-bottom:12px;position:relative;overflow:hidden}
-  .monster.boss{border-color:#7f1d1d;background:linear-gradient(180deg,#2a1020,#160a12)}
-  .m-emoji{font-size:64px;line-height:1;display:inline-block;transition:transform .1s;filter:drop-shadow(0 6px 16px rgba(124,58,237,.45))}
-  .monster.boss .m-emoji{filter:drop-shadow(0 6px 18px rgba(239,68,68,.5))}
-  .m-emoji.hit{animation:shake .35s}
-  .m-emoji.dead{filter:grayscale(1);opacity:.35;transform:rotate(110deg) scale(.85)}
-  @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-9px) rotate(-6deg)}40%{transform:translateX(8px) rotate(5deg)}60%{transform:translateX(-6px)}80%{transform:translateX(5px)}}
-  .m-name{font-size:16px;font-weight:800;margin-top:8px}
-  .m-name .boss-tag{color:#f87171;font-size:11px;border:1px solid #7f1d1d;border-radius:6px;padding:1px 6px;margin-right:6px;vertical-align:2px}
-  .hpbar{height:16px;background:var(--hpbg);border-radius:8px;margin-top:10px;overflow:hidden;border:1px solid #4c1d24}
-  .hpbar>div{height:100%;background:linear-gradient(90deg,#dc2626,#f87171);transition:width .45s;border-radius:7px}
-  .hptext{font-size:12px;color:var(--sub);margin-top:5px}
-  .dmg{position:absolute;font-weight:900;font-size:26px;color:#fbbf24;text-shadow:0 2px 6px rgba(0,0,0,.6);pointer-events:none;animation:dmgfly .8s forwards}
-  @keyframes dmgfly{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-60px) scale(1.4)}}
-  .defeated-banner{margin-top:10px;font-size:14px;font-weight:800;color:var(--gold)}
+  /* ===== ステータス窓（4列） ===== */
+  .stat4{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;text-align:center}
+  .stat4 .lab{font-size:11px;color:#9fe0ff}
+  .stat4 .val{font-size:18px;margin-top:2px}
+  .stat4 .val small{font-size:11px}
+  .subrow{display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-top:8px;gap:8px}
+  .xpbar{flex:1;height:8px;border:1px solid #fff;border-radius:3px;overflow:hidden;background:#15203a}
+  .xpbar>div{height:100%;background:linear-gradient(90deg,#2e9bff,#7ad0ff);transition:width .4s}
 
-  /* ===== tasks ===== */
-  .section-h{font-size:13px;font-weight:700;color:var(--sub);margin:14px 4px 8px;display:flex;justify-content:space-between;align-items:center}
-  .task{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all .15s;user-select:none}
-  .task:active{transform:scale(.985)}
-  .task.done{opacity:.55;background:#12162b}
-  .task.done .t-title{text-decoration:line-through;color:var(--sub)}
-  .checkbox{width:26px;height:26px;border-radius:8px;border:2px solid #3d4570;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .15s}
-  .task.done .checkbox{background:var(--green);border-color:var(--green);color:#06281c}
-  .t-body{flex:1;min-width:0}
-  .t-title{font-size:14px;font-weight:600;line-height:1.45}
-  .t-meta{display:flex;gap:6px;margin-top:4px;align-items:center}
-  .chip{font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px}
-  .t-xp{font-size:12px;font-weight:800;color:var(--xp);flex-shrink:0}
-  .addrow{display:flex;gap:8px;margin-top:4px}
-  .addrow input{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:11px 13px;color:var(--text);font-size:14px;outline:none}
-  .addrow button{background:#7c3aed;border:none;border-radius:11px;color:#fff;font-weight:700;padding:0 18px;font-size:14px;cursor:pointer}
+  /* ===== バトル画面 ===== */
+  .battle{
+    position:relative;height:300px;border:3px solid #fff;border-radius:8px;
+    box-shadow:0 0 0 2px #000, inset 0 0 0 2px #000, inset 0 0 0 3px #fff;
+    margin-bottom:10px;overflow:hidden;background:#000;
+  }
+  .battle.shake{animation:bshake .3s}
+  @keyframes bshake{0%,100%{transform:translate(0)}25%{transform:translate(-6px,2px)}50%{transform:translate(5px,-2px)}75%{transform:translate(-3px,1px)}}
+  .battle.whiteflash::after{content:"";position:absolute;inset:0;background:#fff;animation:wf .25s forwards;z-index:9}
+  @keyframes wf{0%{opacity:.9}100%{opacity:0}}
 
-  /* ===== victory overlay ===== */
-  .overlay{position:fixed;inset:0;background:rgba(8,9,18,.88);display:none;align-items:center;justify-content:center;z-index:50;backdrop-filter:blur(4px)}
-  .overlay.show{display:flex}
-  .v-card{text-align:center;padding:30px;animation:pop .45s cubic-bezier(.2,1.6,.4,1)}
-  @keyframes pop{0%{transform:scale(.5);opacity:0}100%{transform:scale(1);opacity:1}}
-  .v-emoji{font-size:80px}
-  .v-title{font-size:28px;font-weight:900;color:var(--gold);margin:12px 0 6px;letter-spacing:2px}
-  .v-sub{color:var(--text);font-size:15px;line-height:1.9}
-  .v-lvup{font-size:20px;font-weight:900;color:var(--green);margin-top:10px}
-  .v-btn{margin-top:22px;background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#3b2403;border:none;border-radius:12px;padding:13px 38px;font-size:16px;font-weight:800;cursor:pointer}
-  .confetti{position:fixed;top:-20px;font-size:22px;animation:fall linear forwards;z-index:51;pointer-events:none}
-  @keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
+  /* 3D背景 */
+  .bg-sky,.bg-ground,.cloud,.party3d{display:none}
+  .mode3d .bg-sky{display:block;position:absolute;inset:0;background:linear-gradient(#4fa8ee,#a8d8f8 55%,#d8eefc 70%)}
+  .mode3d .bg-ground{
+    display:block;position:absolute;bottom:-8%;left:-25%;width:150%;height:62%;
+    background-image:conic-gradient(#aab4ba 25%,#98a2a8 0 50%,#aab4ba 0 75%,#98a2a8 0);
+    background-size:52px 52px;
+    transform:perspective(430px) rotateX(57deg);transform-origin:50% 100%;
+  }
+  .mode3d .cloud{display:block;position:absolute;background:#fff;border-radius:99px;opacity:.85;filter:blur(1px)}
+  .mode3d .c1{width:90px;height:26px;top:18px;left:8%;animation:drift 26s linear infinite}
+  .mode3d .c2{width:60px;height:18px;top:46px;left:60%;animation:drift 34s linear infinite}
+  .mode3d .c3{width:110px;height:30px;top:8px;left:75%;animation:drift 30s linear infinite}
+  @keyframes drift{from{transform:translateX(0)}to{transform:translateX(-560px)}}
 
-  /* ===== tabs ===== */
-  .tabbar{position:fixed;bottom:0;left:0;right:0;background:rgba(13,15,26,.96);border-top:1px solid var(--line);display:flex;z-index:40;backdrop-filter:blur(8px)}
-  .tabbar button{flex:1;background:none;border:none;color:var(--sub);padding:11px 0 max(11px, env(safe-area-inset-bottom));font-size:11px;cursor:pointer;font-weight:600}
-  .tabbar button .ti{display:block;font-size:21px;margin-bottom:2px}
-  .tabbar button.active{color:var(--gold)}
+  /* 魔物 */
+  .stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:2}
+  .mode3d .stage{align-items:flex-end;padding-bottom:96px}
+  .sprite-wrap{position:relative;text-align:center}
+  .sprite-wrap canvas{display:block;margin:0 auto;image-rendering:pixelated}
+  .mode3d .sprite-wrap canvas{animation:bob 2.4s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+  .m-shadow{display:none}
+  .mode3d .m-shadow{display:block;width:110px;height:18px;background:rgba(0,0,30,.35);border-radius:50%;margin:-8px auto 0;filter:blur(2px)}
+  .sprite-wrap.hitflash canvas{animation:flick .35s steps(2) 2}
+  @keyframes flick{0%{opacity:1;filter:brightness(3)}50%{opacity:.2}100%{opacity:1;filter:none}}
+  .sprite-wrap.dead canvas{animation:vanish 1s forwards}
+  @keyframes vanish{0%{opacity:1}100%{opacity:0;transform:translateY(8px) scaleY(.6)}}
+
+  /* 3D パーティ */
+  .mode3d .party3d{display:flex;position:absolute;bottom:14px;left:0;right:0;justify-content:center;gap:26px;z-index:3}
+  .party3d .hero{text-align:center}
+  .party3d .hero canvas{animation:bob 2s ease-in-out infinite}
+  .party3d .hero:nth-child(2) canvas{animation-delay:.3s}
+  .party3d .hero:nth-child(3) canvas{animation-delay:.6s}
+  .party3d .hero:nth-child(4) canvas{animation-delay:.9s}
+
+  /* ダメージ数字 */
+  .dmg{position:absolute;font-size:30px;color:#fff;text-shadow:2px 2px 0 #000;z-index:8;animation:dmgfly .8s forwards;pointer-events:none}
+  @keyframes dmgfly{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-56px)}}
+
+  /* バトル内ボタン・敵HP */
+  .vbtns{position:absolute;top:8px;right:8px;display:flex;gap:6px;z-index:10}
+  .vbtns button{
+    font-family:inherit;background:#000;color:#fff;border:2px solid #fff;border-radius:6px;
+    padding:4px 10px;font-size:12px;cursor:pointer;
+  }
+  .mode3d .vbtns button{background:rgba(0,0,30,.7)}
+  .ehp{position:absolute;left:12px;top:10px;z-index:10;width:130px}
+  .ehp .lab{font-size:10px;text-shadow:1px 1px 0 #000}
+  .ehp .bar{height:9px;border:2px solid #fff;border-radius:3px;background:#3a0d12;overflow:hidden;box-shadow:1px 1px 0 #000}
+  .ehp .bar>div{height:100%;background:linear-gradient(90deg,#e23b3b,#ff8a5c);transition:width .4s}
+
+  /* ===== メッセージ窓 ===== */
+  .msgwin{min-height:86px;font-size:14px;line-height:1.9}
+  .msgwin .line::before{content:"＊「";color:#9fe0ff}
+  .msgwin .line.sys::before{content:"▶ ";color:#ffd24a}
+  .msgwin .blink{animation:blink 1s steps(2) infinite}
+  @keyframes blink{50%{opacity:0}}
+
+  /* ===== コマンド窓 ===== */
+  .cmdrow{display:grid;grid-template-columns:1fr 1.4fr;gap:10px}
+  .cmdwin{padding:10px 12px}
+  .cmd{font-size:15px;padding:5px 4px 5px 22px;position:relative;cursor:pointer;user-select:none}
+  .cmd:hover::before,.cmd:active::before{content:"▶";position:absolute;left:2px}
+  .enemywin{font-size:14px;display:flex;align-items:center;justify-content:space-between}
+  .countwin{font-size:12px;line-height:2}
+
+  /* ===== タスクリスト ===== */
+  .listtitle{font-size:13px;color:#9fe0ff;display:flex;justify-content:space-between;margin-bottom:8px}
+  .task{font-size:14px;line-height:1.6;padding:7px 4px 7px 24px;position:relative;cursor:pointer;user-select:none;border-bottom:1px dotted #2a3050}
+  .task:last-child{border-bottom:none}
+  .task .sub{color:#9fe0ff}
+  .task .xp{color:#ffd24a;font-size:12px}
+  .task.next::before{content:"▶";position:absolute;left:2px;animation:blink 1s steps(2) infinite}
+  .task:active{background:#15203a}
+  .task.done{color:#6b7090}
+  .task.done .sub,.task.done .xp{color:#6b7090}
+  .task.done::before{content:"✓";position:absolute;left:4px;color:#7adf9a}
+  .task.done .t{text-decoration:line-through}
+
+  .addrow{display:flex;gap:8px}
+  .addrow input{
+    flex:1;background:#000;border:2px solid #fff;border-radius:6px;color:#fff;
+    font-family:inherit;font-size:14px;padding:9px 10px;outline:none;
+  }
+  .mode3d .addrow input{background:rgba(0,0,30,.78)}
+  .addrow button{font-family:inherit;background:#000;color:#ffd24a;border:2px solid #fff;border-radius:6px;padding:0 16px;font-size:14px;cursor:pointer}
+
+  /* ===== ページ切替 ===== */
   .page{display:none}.page.show{display:block}
+  .backbtn{font-size:15px;padding:4px 4px 4px 22px;position:relative;cursor:pointer;color:#ffd24a;margin-bottom:6px}
+  .backbtn::before{content:"▶";position:absolute;left:2px}
 
-  /* ===== record page ===== */
-  .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
-  .stat{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:13px;text-align:center}
-  .stat b{font-size:22px;display:block}
-  .stat span{font-size:11px;color:var(--sub)}
-  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
-  .cal .dow{text-align:center;font-size:10px;color:var(--sub);padding:3px 0}
-  .day{aspect-ratio:1;border-radius:9px;background:var(--panel);border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;color:var(--sub)}
-  .day .de{font-size:15px;line-height:1}
-  .day.win{background:#152a1e;border-color:#1d5c3a}
-  .day.partial{background:#2a2415;border-color:#5c4a1d}
-  .day.today{outline:2px solid var(--gold)}
+  /* 記録 */
+  .stats2{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;line-height:2}
+  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:8px}
+  .cal .dow{text-align:center;font-size:10px;color:#9fe0ff}
+  .day{aspect-ratio:1;border:1px solid #3a4163;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:9px;color:#6b7090}
+  .day .de{font-size:13px;line-height:1.2}
+  .day.win{border-color:#7adf9a;color:#7adf9a}
+  .day.partial{border-color:#ffd24a;color:#ffd24a}
+  .day.today{background:#15203a;border-color:#fff;color:#fff}
   .day.future{opacity:.25}
 
-  /* ===== plan page ===== */
-  .ph{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:15px;margin-bottom:10px}
-  .ph.now{border-color:var(--gold)}
-  .ph h3{font-size:15px;display:flex;align-items:center;gap:8px}
-  .ph .range{font-size:11px;color:var(--sub);margin:3px 0 8px}
-  .ph ul{list-style:none}
-  .ph li{font-size:13px;line-height:1.8;color:#c6cbe8;padding-left:1.1em;text-indent:-1.1em}
-  .ph li b{color:var(--text)}
-  .nowtag{font-size:10px;background:var(--gold);color:#3b2403;font-weight:800;border-radius:6px;padding:2px 7px}
-  .note{font-size:12px;color:var(--sub);line-height:1.8;margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  /* 作戦書 */
+  .ph{margin-bottom:14px}
+  .ph h3{font-size:15px;color:#ffd24a}
+  .ph .range{font-size:11px;color:#9fe0ff;margin:2px 0 4px}
+  .ph li{list-style:none;font-size:13px;line-height:1.9;padding-left:1em;text-indent:-1em}
+  .ph li b{color:#9fe0ff;font-weight:normal}
+  .note{font-size:11px;color:#9aa0b5;line-height:1.9;margin-top:10px}
+
+  /* ===== 勝利オーバーレイ ===== */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+  .overlay.show{display:flex}
+  .v-win{max-width:420px;width:100%;font-size:15px;line-height:2.2;animation:pop .3s}
+  @keyframes pop{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+  .v-win .lvup{color:#7adf9a}
+  .v-ok{display:block;margin:14px auto 0;font-family:inherit;background:#000;color:#fff;border:2px solid #fff;border-radius:6px;padding:8px 40px;font-size:15px;cursor:pointer}
 </style>
 </head>
-<body>
+<body class="mode2d">
 <div class="wrap">
 
-  <!-- HUD -->
-  <div class="hud">
-    <div class="hud-top">
-      <div>
-        <div class="lv">Lv.<span id="lv">1</span></div>
-        <div class="title-badge" id="titleBadge">称号：見習い受験生</div>
-      </div>
-      <div class="streak">🔥 <span id="streak">0</span>日連続討伐<small>最高記録 <span id="bestStreak">0</span>日</small></div>
+  <!-- ステータス窓 -->
+  <div class="dqwin">
+    <div class="stat4">
+      <div><div class="lab">レベル</div><div class="val gold" id="lv">1</div></div>
+      <div><div class="lab">けいけんち</div><div class="val" id="xpTotal">0</div></div>
+      <div><div class="lab">れんぞく</div><div class="val" id="streak">0<small>日</small></div></div>
+      <div><div class="lab">政経まで</div><div class="val" id="cdSeikei">-<small>日</small></div></div>
     </div>
-    <div class="xpbar"><div id="xpfill" style="width:0%"></div></div>
-    <div class="xptext">次のレベルまで <span id="xpneed">100</span> XP</div>
-    <div class="countdowns">
-      <div class="cd"><b id="cdKyote">-</b><span>共通テストまで（1/16）</span></div>
-      <div class="cd"><b id="cdSeikei">-</b><span>早稲田政経 入試まで（2/20）</span></div>
+    <div class="subrow">
+      <span id="titleBadge">見習い受験生</span>
+      <div class="xpbar"><div id="xpfill" style="width:0%"></div></div>
+      <span>共テまで<span class="gold" id="cdKyote">-</span>日</span>
     </div>
-    <span class="phase-chip" id="phaseChip"></span>
   </div>
 
-  <!-- ===== QUEST PAGE ===== -->
+  <!-- ===== クエストページ ===== -->
   <div class="page show" id="page-quest">
-    <div class="monster" id="monsterCard">
-      <div class="m-emoji" id="mEmoji">👹</div>
-      <div class="m-name" id="mName"></div>
-      <div class="hpbar"><div id="hpfill" style="width:100%"></div></div>
-      <div class="hptext">HP <span id="hpNow">0</span> / <span id="hpMax">0</span></div>
-      <div class="defeated-banner" id="defeatedBanner" style="display:none">⚔️ 討伐完了！今日もよく戦った！</div>
+
+    <!-- バトル画面 -->
+    <div class="battle" id="battleView">
+      <div class="bg-sky"></div>
+      <div class="bg-ground"></div>
+      <div class="cloud c1"></div><div class="cloud c2"></div><div class="cloud c3"></div>
+      <div class="ehp">
+        <div class="lab" id="ehpLab">HP</div>
+        <div class="bar"><div id="ehpFill" style="width:100%"></div></div>
+      </div>
+      <div class="vbtns">
+        <button id="modeBtn" onclick="toggleMode()">3Dにする</button>
+        <button id="bgmBtn" onclick="toggleBgm()">♪ OFF</button>
+      </div>
+      <div class="stage"><div class="sprite-wrap" id="spriteWrap"><div class="m-shadow"></div></div></div>
+      <div class="party3d" id="party3d"></div>
     </div>
 
-    <div class="section-h"><span id="dateLabel"></span><span id="progressLabel"></span></div>
-    <div id="taskList"></div>
+    <!-- メッセージ窓 -->
+    <div class="dqwin msgwin" id="msgwin"></div>
 
-    <div class="section-h"><span>＋ 追加クエスト（自分で足す）</span></div>
-    <div class="addrow">
-      <input id="customInput" type="text" placeholder="例：英作文の添削直し" maxlength="50">
-      <button onclick="addCustom()">追加</button>
+    <!-- コマンド窓 + 敵窓 -->
+    <div class="cmdrow">
+      <div class="dqwin cmdwin">
+        <div class="cmd" onclick="cmdFight()">たたかう</div>
+        <div class="cmd" onclick="cmdItem()">どうぐ</div>
+        <div class="cmd" onclick="showPage('record');sfxMenu()">きろく</div>
+        <div class="cmd" onclick="showPage('plan');sfxMenu()">さくせん</div>
+      </div>
+      <div class="dqwin enemywin"><span id="enemyName">？？？</span><span id="enemyCount">－ 1ひき</span></div>
+    </div>
+
+    <!-- タスクリスト窓 -->
+    <div class="dqwin">
+      <div class="listtitle"><span id="dateLabel"></span><span id="progressLabel"></span></div>
+      <div id="taskList"></div>
+    </div>
+
+    <!-- どうぐ（追加クエスト） -->
+    <div class="dqwin">
+      <div class="listtitle"><span>どうぐぶくろ（クエスト追加）</span></div>
+      <div class="addrow">
+        <input id="customInput" type="text" placeholder="例：英作文の添削直し" maxlength="50">
+        <button onclick="addCustom()">追加</button>
+      </div>
     </div>
   </div>
 
-  <!-- ===== RECORD PAGE ===== -->
+  <!-- ===== 記録ページ ===== -->
   <div class="page" id="page-record">
-    <div class="stats">
-      <div class="stat"><b id="stTotal">0</b><span>討伐した魔物</span></div>
-      <div class="stat"><b id="stTasks">0</b><span>倒したタスク数</span></div>
-      <div class="stat"><b id="stXp">0</b><span>総獲得XP</span></div>
-      <div class="stat"><b id="stRate">0%</b><span>直近30日 討伐率</span></div>
+    <div class="dqwin">
+      <div class="backbtn" onclick="showPage('quest');sfxMenu()">もどる</div>
+      <div class="listtitle"><span>ぼうけんのきろく</span></div>
+      <div class="stats2">
+        <span>とうばつした魔物　<span class="gold" id="stTotal">0</span></span>
+        <span>たおしたタスク　<span class="gold" id="stTasks">0</span></span>
+        <span>さいこう連続　<span class="gold" id="stBest">0</span>日</span>
+        <span>30日とうばつ率　<span class="gold" id="stRate">0%</span></span>
+      </div>
+      <div class="cal" id="cal"></div>
+      <div class="note">⚔=全討伐　△=一部討伐。1日でも逃すと連続記録はリセット。魔物は毎日よみがえる——にげられない。</div>
     </div>
-    <div class="section-h"><span>冒険の記録（直近5週間）</span></div>
-    <div class="cal" id="cal"></div>
-    <div class="note">🟩 全討伐（タスク全部クリア）　🟨 一部討伐　討伐を毎日続けると🔥連続記録が伸びる。1日でも逃すとリセット。魔物は毎日復活する——逃げるな。</div>
   </div>
 
-  <!-- ===== PLAN PAGE ===== -->
+  <!-- ===== 作戦書ページ ===== -->
   <div class="page" id="page-plan">
-    <div class="section-h"><span>📜 作戦書 — 早稲田政経 合格ロードマップ</span></div>
-    <div id="planList"></div>
-    <div class="note">この作戦書はアップロードされた4つのPDF（合格ロードマップ／参考書ルート／時期別教材スケジュール／週間メニュー）をもとに構成。毎日のクエストは「今日の日付 → 時期 → 曜日」から自動生成される。<br><br>⚠️ 入試日程（共通テスト 2027/1/16-17、政経 一般選抜 2027/2/20想定）は必ず最新の募集要項で確認すること。</div>
+    <div class="dqwin">
+      <div class="backbtn" onclick="showPage('quest');sfxMenu()">もどる</div>
+      <div class="listtitle"><span>さくせんしょ — 早稲田政経 合格ロードマップ</span></div>
+      <div id="planList"></div>
+      <div class="note">4つのPDF（合格ロードマップ／参考書ルート／時期別教材スケジュール／週間メニュー）をもとに、「今日の日付 → 時期 → 曜日」でクエストを自動生成。入試日程（共テ2027/1/16-17、政経2/20想定）は必ず最新の募集要項で確認すること。</div>
+    </div>
   </div>
 
 </div>
 
-<!-- victory overlay -->
+<!-- 勝利オーバーレイ -->
 <div class="overlay" id="overlay">
-  <div class="v-card">
-    <div class="v-emoji" id="vEmoji">⚔️</div>
-    <div class="v-title">討伐完了！</div>
-    <div class="v-sub" id="vSub"></div>
-    <div class="v-lvup" id="vLvup" style="display:none"></div>
-    <button class="v-btn" onclick="closeOverlay()">経験値を受け取る</button>
+  <div class="dqwin v-win">
+    <div id="vBody"></div>
+    <button class="v-ok" onclick="closeOverlay()">▶ OK</button>
   </div>
-</div>
-
-<!-- tab bar -->
-<div class="tabbar">
-  <button class="active" data-page="quest" onclick="showPage('quest',this)"><span class="ti">⚔️</span>今日のクエスト</button>
-  <button data-page="record" onclick="showPage('record',this)"><span class="ti">📖</span>冒険の記録</button>
-  <button data-page="plan" onclick="showPage('plan',this)"><span class="ti">📜</span>作戦書</button>
 </div>
 
 <script>
 /* =========================================================
-   早稲田政経クエスト
-   PDFの学習計画（ロードマップ/参考書ルート/時期別スケジュール/週間メニュー）
-   を時期×曜日のクエストデータに変換して毎日のToDo＝魔物を生成する
+   早稲田政経クエスト v2 — ドラクエ風バトルUI（2D/3D切替・サウンド付き）
+   PDFの学習計画（時期×曜日）から毎日のToDo＝魔物を生成する
 ========================================================= */
 
-const KYOTE = new Date(2027,0,16);     // 共通テスト 2027/1/16
-const SEIKEI = new Date(2027,1,20);    // 早稲田政経 一般選抜 2027/2/20(想定)
-
-const SUBJECT_COLORS = {
-  "英語":["#1e3a5f","#7dd3fc"], "現代文":["#3f2d1e","#fdba74"], "古文":["#3a1e3f","#e9a3f5"],
-  "漢文":["#1e3f2d","#86efac"], "数学":["#1e2a5f","#a5b4fc"], "総合問題":["#4a1e2e","#fda4af"],
-  "共テ":["#3f3a1e","#fde047"], "過去問":["#4a1e1e","#fca5a5"], "自由":["#2e2e3e","#cbd5e1"]
-};
+const KYOTE = new Date(2027,0,16);
+const SEIKEI = new Date(2027,1,20);
 
 const PHASES = [
-  { name:"基礎固め期", start:null, end:new Date(2026,7,31), color:"#34d399",
+  { name:"基礎固め期", start:null, end:new Date(2026,7,31),
     books:["<b>英語</b>：ターゲット1900／Vintage／ポレポレ／やっておきたい英語長文300",
            "<b>現代文</b>：入試現代文へのアクセス 基本編",
            "<b>古文</b>：古文単語315／ステップアップノート30／富井の古文読解",
            "<b>漢文</b>：漢文早覚え速答法",
            "<b>数学ⅠA</b>：基礎問題精講＋計算トレーニング毎日"],
-    goal:"8月末までに全科目の土台を完成させる。単語と文法は「秒で出る」レベルに。" },
-  { name:"実力完成期", start:new Date(2026,8,1), end:new Date(2026,10,30), color:"#60a5fa",
+    goal:"8月末までに全科目の土台を完成。単語と文法は「秒で出る」レベルに。" },
+  { name:"実力完成期", start:new Date(2026,8,1), end:new Date(2026,10,30),
     books:["<b>英語</b>：長文ポラリス2／英作文ハイパートレーニング／速読英熟語",
            "<b>現代文</b>：現代文読解力の開発講座",
-           "<b>古文</b>:古文ポラリス／共テ過去問",
+           "<b>古文</b>：古文ポラリス／共テ過去問",
            "<b>数学ⅠA</b>：文系の数学 重要事項完全習得編",
            "<b>総合問題</b>：政経サンプル問題・過去問研究／資料読解＋日本語記述トレ開始"],
-    goal:"入試レベルの演習に移行。土曜は政経の総合問題に毎週触れる。" },
-  { name:"共通テスト対策期", start:new Date(2026,11,1), end:new Date(2027,0,17), color:"#fbbf24",
+    goal:"入試レベルの演習へ移行。土曜は政経の総合問題に毎週触れる。" },
+  { name:"共通テスト対策期", start:new Date(2026,11,1), end:new Date(2027,0,17),
     books:["<b>全科目</b>：共通テスト過去問＋予想問題パック",
-           "<b>英語R/L</b>：時間配分の型を固定する","<b>数学ⅠA</b>：大問別の弱点演習",
+           "<b>英語R/L</b>：時間配分の型を固定する",
+           "<b>数学ⅠA</b>：大問別の弱点演習",
            "<b>国語</b>：解く順番と時間戦略を本番形式で固定"],
-    goal:"政経は共テ(英・国・数ⅠA・選択)＋総合問題。共テで高得点を取る者が圧倒的に有利。" },
-  { name:"早稲田直前期", start:new Date(2027,0,18), end:new Date(2027,1,22), color:"#f87171",
+    goal:"政経は共テ＋総合問題。共テ高得点が圧倒的に有利。" },
+  { name:"早稲田直前期", start:new Date(2027,0,18), end:new Date(2027,1,22),
     books:["<b>総合問題</b>：政経過去問＋サンプル問題を全年度、時間を計って演習→記述添削",
            "<b>英語</b>：早稲田他学部の長文で負荷維持／自由英作文の仕上げ",
            "<b>全科目</b>：間違いノート総点検。新しい参考書には手を出さない"],
     goal:"2/20の本番に全てを合わせる。週1回は本番シミュレーション。" }
 ];
 
-/* ---- 毎日タスク（時期別） ---- */
 const DAILY = [
   [ T("英語","ターゲット1900 100語（前日分の復習込み）",10),
     T("古文","古文単語315 20語",10),
@@ -250,193 +324,273 @@ const DAILY = [
     T("英語","長文音読15分（既読長文）",10) ]
 ];
 
-/* ---- 曜日メニュー（時期別、日曜=BOSS） ---- */
 const WEEKLY = [
-  { // 基礎固め期
-    1:[T("英語","Vintage 文法2章",20),T("現代文","アクセス基本編 1題",20),T("数学","基礎問題精講ⅠA 4題",20)],
+  { 1:[T("英語","Vintage 文法2章",20),T("現代文","アクセス基本編 1題",20),T("数学","基礎問題精講ⅠA 4題",20)],
     2:[T("英語","ポレポレ英文解釈 2題",20),T("古文","ステップアップノート 1章",20),T("数学","基礎問題精講ⅠA 4題",20)],
     3:[T("英語","やっておきたい英語長文300 1題",20),T("漢文","早覚え速答法 1章",20),T("数学","今週分の解き直し",20)],
     4:[T("英語","Vintage 文法2章",20),T("現代文","アクセス基本編 1題",20),T("数学","基礎問題精講ⅠA 4題",20)],
     5:[T("英語","ポレポレ英文解釈 2題",20),T("古文","富井の古文読解 1章",20),T("数学","基礎問題精講ⅠA 4題",20)],
     6:[T("英語","長文300 1題＋音読5回",20),T("英語","今週の文法ミス潰し",20),T("数学","今週の間違い直し",20)],
-    0:[T("英語","【週テスト】今週の英単語400語",30),T("英語","【週テスト】Vintage今週範囲",30),T("数学","【週テスト】今週の8題を解き直し",30),T("現代文","国語 今週の総復習",20)]
-  },
-  { // 実力完成期
-    1:[T("英語","長文ポラリス2 1題",20),T("現代文","開発講座 1題",25),T("数学","文系の数学 4題",20)],
+    0:[T("英語","【週テスト】今週の英単語400語",30),T("英語","【週テスト】Vintage今週範囲",30),T("数学","【週テスト】今週の8題を解き直し",30),T("現代文","国語 今週の総復習",20)] },
+  { 1:[T("英語","長文ポラリス2 1題",20),T("現代文","開発講座 1題",25),T("数学","文系の数学 4題",20)],
     2:[T("英語","英作文ハイパートレーニング 2課",20),T("古文","古文ポラリス 1題",20),T("数学","文系の数学 4題",20)],
     3:[T("英語","ポラリス長文の復習＋音読5回",15),T("漢文","共テ過去問 1題",20),T("総合問題","資料読解トレーニング 1題",25)],
     4:[T("英語","長文ポラリス2 1題",20),T("現代文","開発講座 1題",25),T("数学","文系の数学 4題",20)],
     5:[T("英語","英作文 2課",20),T("古文","古文ポラリス 1題",20),T("数学","文系の数学 4題",20)],
     6:[T("総合問題","政経 総合問題 過去問研究 1年分",30),T("英語","今週の長文 音読総まとめ",15),T("数学","今週の間違い直し",20)],
-    0:[T("英語","【週テスト】単語・熟語",30),T("総合問題","記述答案を書き直して完成形に",30),T("数学","【週テスト】今週の範囲",30),T("現代文","国語 今週の総復習",20)]
-  },
-  { // 共テ対策期
-    1:[T("共テ","英語R 過去問1回分（時間厳守）",30),T("数学","ⅠA 過去問 大問2つ",20)],
+    0:[T("英語","【週テスト】単語・熟語",30),T("総合問題","記述答案を書き直して完成形に",30),T("数学","【週テスト】今週の範囲",30),T("現代文","国語 今週の総復習",20)] },
+  { 1:[T("共テ","英語R 過去問1回分（時間厳守）",30),T("数学","ⅠA 過去問 大問2つ",20)],
     2:[T("共テ","国語 過去問1回分（時間厳守）",30),T("英語","昨日の英語Rを解き直し",15)],
     3:[T("共テ","数学ⅠA 過去問1回分",30),T("現代文","国語の解き直し＋根拠確認",15)],
     4:[T("共テ","英語R 過去問1回分",30),T("数学","数学の解き直し",15)],
     5:[T("共テ","国語 過去問1回分",30),T("共テ","英語L 1回分",20)],
     6:[T("共テ","予想問題パック 英国数 通し",40),T("自由","弱点大問の集中演習",20)],
-    0:[T("共テ","【本番セット】3科目を本番時間割で",50),T("自由","全科目の解き直しノート作成",30)]
-  },
-  { // 早稲田直前期
-    1:[T("過去問","政経 総合問題 過去問1年分（時間厳守）",40),T("総合問題","解き直し＋記述の添削・書き直し",20)],
+    0:[T("共テ","【本番セット】3科目を本番時間割で",50),T("自由","全科目の解き直しノート作成",30)] },
+  { 1:[T("過去問","政経 総合問題 過去問1年分（時間厳守）",40),T("総合問題","解き直し＋記述の添削・書き直し",20)],
     2:[T("英語","早稲田レベル長文 1題",20),T("総合問題","日本語記述トレーニング",25)],
     3:[T("過去問","早稲田他学部 英語過去問1年分",30),T("古文","過去問 1題",20)],
     4:[T("過去問","政経 総合問題 過去問1年分",40),T("総合問題","解き直し＋論点整理",20)],
     5:[T("英語","自由英作文 仕上げ2題",25),T("現代文","過去問 1題",20)],
     6:[T("過去問","政経 本番シミュレーション（時間割通り）",50),T("自由","間違いノート総点検",20)],
-    0:[T("過去問","今週の過去問を全振り返り",30),T("自由","弱点トップ3を集中特訓",30),T("自由","来週の作戦を立てる",15)]
-  }
+    0:[T("過去問","今週の過去問を全振り返り",30),T("自由","弱点トップ3を集中特訓",30),T("自由","来週の作戦を立てる",15)] }
 ];
 
 function T(s,t,xp){ return {s:s,t:t,xp:xp}; }
 
-/* ---- 魔物図鑑 ---- */
 const MONSTERS = [
-  {e:"👹",n:"単語喰らいのゴブリン"},{e:"🧟",n:"文法ゾンビ"},{e:"🐉",n:"長文ドラゴン"},
-  {e:"🦂",n:"計算ミスのサソリ"},{e:"👻",n:"古文の怨霊"},{e:"🐙",n:"記述クラーケン"},
-  {e:"🗿",n:"暗記ゴーレム"},{e:"🦇",n:"夜更かしヴァンパイア"},{e:"🐺",n:"サボりの誘惑ウルフ"},
-  {e:"🕷️",n:"スマホの蜘蛛"},{e:"🧌",n:"先延ばしトロール"},{e:"🦅",n:"焦りのハーピー"}
+  {e:"👹",n:"たんごゴブリン"},{e:"🧟",n:"ぶんぽうゾンビ"},{e:"🐉",n:"ちょうぶんドラゴン"},
+  {e:"🦂",n:"けいさんミスサソリ"},{e:"👻",n:"こぶんのおんりょう"},{e:"🐙",n:"きじゅつクラーケン"},
+  {e:"🗿",n:"あんきゴーレム"},{e:"🦇",n:"よふかしバンパイア"},{e:"🐺",n:"サボりウルフ"},
+  {e:"🕷️",n:"スマホぐも"},{e:"🧌",n:"さきのばしトロール"},{e:"🦅",n:"あせりのハーピー"}
 ];
 const BOSSES = [
-  {e:"💀",n:"週末の大魔王デッドライン"},{e:"🐲",n:"復習竜ウィークリーレックス"},
-  {e:"😈",n:"模試の悪魔アーカイヴ"},{e:"🔥",n:"炎帝バーンアウト"}
+  {e:"💀",n:"だいまおうデッドライン"},{e:"🐲",n:"ふくしゅうりゅうレックス"},
+  {e:"😈",n:"もしのあくまアーカイヴ"},{e:"🔥",n:"えんていバーンアウト"}
 ];
 const TITLES = ["見習い受験生","駆け出し挑戦者","単語ハンター","文法の騎士","長文剣士","赤本の狩人","記述の魔導士","過去問マスター","都の西北ナイト","政経の勇者","早稲田の覇者"];
+const HEROES = ["🧑‍🎓","🧙","🛡️","🏹"];
 
 /* ================= state ================= */
 const KEY = "wasedaQuestV1";
 let state = load();
 function load(){
-  try{ const s = JSON.parse(localStorage.getItem(KEY)); if(s) return s; }catch(e){}
-  return { xp:0, streak:0, bestStreak:0, lastDefeat:null, history:{}, custom:{} };
+  let s = null;
+  try{ s = JSON.parse(localStorage.getItem(KEY)); }catch(e){}
+  if(!s) s = { xp:0, streak:0, bestStreak:0, lastDefeat:null, history:{}, custom:{} };
+  if(!s.settings) s.settings = { mode:"2d", bgm:false };
+  return s;
 }
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 
 /* ================= date helpers ================= */
 function today(){ return new Date(); }
 function dstr(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
-function phaseIndex(d){
-  for(let i=0;i<PHASES.length;i++){ if(d<=PHASES[i].end) return i; }
-  return PHASES.length-1;
-}
-function daysUntil(target){
-  const t0=new Date(); t0.setHours(0,0,0,0);
-  return Math.max(0, Math.round((target-t0)/86400000));
-}
+function phaseIndex(d){ for(let i=0;i<PHASES.length;i++){ if(d<=PHASES[i].end) return i; } return PHASES.length-1; }
+function daysUntil(t){ const t0=new Date(); t0.setHours(0,0,0,0); return Math.max(0, Math.round((t-t0)/86400000)); }
 function seedHash(s){ let h=0; for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))>>>0;} return h; }
+const TODAY = dstr(today());
 
-/* ================= tasks of a day ================= */
+/* ================= tasks ================= */
 function tasksFor(dateStr){
   const d = new Date(dateStr+"T12:00:00");
-  const pi = phaseIndex(d);
-  const wd = d.getDay();
+  const pi = phaseIndex(d), wd = d.getDay();
   const list = [];
   DAILY[pi].forEach((t,i)=>list.push({id:"d"+pi+"-"+i, ...t}));
   (WEEKLY[pi][wd]||[]).forEach((t,i)=>list.push({id:"w"+pi+"-"+wd+"-"+i, ...t}));
   (state.custom[dateStr]||[]).forEach((t,i)=>list.push({id:"c-"+i, ...t}));
   return list;
 }
-function dayRec(dateStr){
-  if(!state.history[dateStr]) state.history[dateStr]={done:[],defeated:false};
-  return state.history[dateStr];
-}
+function dayRec(ds){ if(!state.history[ds]) state.history[ds]={done:[],defeated:false}; return state.history[ds]; }
 
 /* ================= level ================= */
 function levelInfo(xp){
   let lv=1, need=100, rest=xp;
   while(rest>=need){ rest-=need; lv++; need=100+(lv-1)*50; }
-  return {lv:lv, cur:rest, need:need};
+  return {lv, cur:rest, need};
 }
 function titleFor(lv){ return TITLES[Math.min(TITLES.length-1, Math.floor((lv-1)/3))]; }
 
-/* ================= render ================= */
-const TODAY = dstr(today());
+/* ================= ドット絵スプライト（絵文字→ピクセル化） ================= */
+function pixelSprite(emoji, px, scale){
+  const c = document.createElement("canvas");
+  c.width = px; c.height = px;
+  const ctx = c.getContext("2d");
+  ctx.font = (px-4)+"px serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(emoji, px/2, px/2+2);
+  c.style.width = (px*scale)+"px"; c.style.height = (px*scale)+"px";
+  c.style.imageRendering = "pixelated";
+  return c;
+}
+
+/* ================= サウンド（オリジナル・チップチューン） ================= */
+let actx = null, bgmTimer = null;
+function audio(){ actx = actx || new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==="suspended") actx.resume(); return actx; }
+const NOTE = {};
+"C C# D D# E F F# G G# A A# B".split(" ").forEach((n,i)=>{ for(let o=1;o<8;o++) NOTE[n+o] = 440*Math.pow(2,(i-9)/12+(o-4)); });
+function tone(f, when, d, type, vol){
+  const a=audio(), o=a.createOscillator(), g=a.createGain();
+  o.type=type; o.frequency.value=f;
+  g.gain.setValueAtTime(vol, when);
+  g.gain.exponentialRampToValueAtTime(.0004, when+d);
+  o.connect(g); g.connect(a.destination);
+  o.start(when); o.stop(when+d);
+}
+function noiseBurst(when, d, vol){
+  const a=audio(), len=a.sampleRate*d, buf=a.createBuffer(1,len,a.sampleRate), ch=buf.getChannelData(0);
+  for(let i=0;i<len;i++) ch[i]=(Math.random()*2-1)*(1-i/len);
+  const src=a.createBufferSource(); src.buffer=buf;
+  const g=a.createGain(); g.gain.value=vol;
+  src.connect(g); g.connect(a.destination); src.start(when);
+}
+/* 効果音 */
+function sfxMenu(){ try{ tone(1300, audio().currentTime, .06, "square", .05); }catch(e){} }
+function sfxHit(){
+  try{
+    const a=audio(), t=a.currentTime;
+    const o=a.createOscillator(), g=a.createGain();
+    o.type="sawtooth"; o.frequency.setValueAtTime(420,t); o.frequency.exponentialRampToValueAtTime(60,t+.22);
+    g.gain.setValueAtTime(.12,t); g.gain.exponentialRampToValueAtTime(.001,t+.25);
+    o.connect(g); g.connect(a.destination); o.start(t); o.stop(t+.25);
+    noiseBurst(t,.14,.08);
+  }catch(e){}
+}
+function sfxCancel(){ try{ const t=audio().currentTime; tone(500,t,.07,"square",.05); tone(330,t+.07,.1,"square",.05);}catch(e){} }
+function sfxVictory(){ try{ const t=audio().currentTime; [[392,0],[392,.13],[392,.26],[523,.39],[659,.62],[784,.85]].forEach(([f,dt])=>tone(f,t+dt,.16,"square",.07)); }catch(e){} }
+function sfxLevelUp(){ try{ const t=audio().currentTime; [523,587,659,740,831,932,1047].forEach((f,i)=>tone(f,t+i*.09,.12,"square",.07)); }catch(e){} }
+/* BGM（オリジナル曲・Am 勇ましいループ） */
+const MEL = ["A4","C5","E5","A5","G5","E5","F5","D5","E5","C5","D5","B4","C5","A4","B4","E4",
+             "A4","C5","E5","A5","B5","A5","G5","E5","F5","A5","G5","F5","E5",null,"E5",null];
+const BAS = ["A2","E3","A2","E3","F2","C3","G2","D3","C3","G3","D3","A3","C3","E3","E2","E3",
+             "A2","E3","A2","E3","E2","B2","C3","G3","F2","C3","G2","D3","A2","E3","A2",null];
+function bgmLoop(){
+  if(!state.settings.bgm) return;
+  const a=audio(), t0=a.currentTime+.06, step=.16;
+  MEL.forEach((n,i)=>{ if(n) tone(NOTE[n], t0+i*step, step*.92, "square", .028); });
+  BAS.forEach((n,i)=>{ if(n) tone(NOTE[n], t0+i*step, step*.9, "triangle", .05); });
+  for(let i=0;i<MEL.length;i+=2) noiseBurst(t0+i*step, .03, .012);
+  bgmTimer = setTimeout(bgmLoop, MEL.length*step*1000 - 40);
+}
+function toggleBgm(){
+  state.settings.bgm = !state.settings.bgm; save();
+  document.getElementById("bgmBtn").textContent = state.settings.bgm ? "♪ ON" : "♪ OFF";
+  clearTimeout(bgmTimer);
+  if(state.settings.bgm){ audio(); bgmLoop(); }
+}
+
+/* ================= 2D/3D切替 ================= */
+function applyMode(){
+  document.body.className = state.settings.mode==="3d" ? "mode3d" : "mode2d";
+  document.getElementById("modeBtn").textContent = state.settings.mode==="3d" ? "2Dにする" : "3Dにする";
+  drawSprites();
+}
+function toggleMode(){
+  state.settings.mode = state.settings.mode==="3d" ? "2d" : "3d";
+  save(); sfxMenu(); applyMode();
+}
+
+/* ================= メッセージ窓 ================= */
+const msgLines = [];
+function msg(text, sys){
+  msgLines.push({t:text, sys:!!sys});
+  while(msgLines.length>4) msgLines.shift();
+  const w = document.getElementById("msgwin");
+  w.innerHTML = msgLines.map((l,i)=>
+    `<div class="line${l.sys?" sys":""}">${l.t}${i===msgLines.length-1?'<span class="blink">▼</span>':""}</div>`
+  ).join("");
+}
+
+/* ================= 描画 ================= */
+let currentMonster = null;
+function drawSprites(){
+  if(!currentMonster) return;
+  const wrap = document.getElementById("spriteWrap");
+  wrap.querySelectorAll("canvas").forEach(c=>c.remove());
+  const is3d = state.settings.mode==="3d";
+  const spr = pixelSprite(currentMonster.e, 24, is3d?6:7);
+  wrap.insertBefore(spr, wrap.firstChild);
+  const party = document.getElementById("party3d");
+  party.innerHTML = "";
+  HEROES.forEach(h=>{
+    const d=document.createElement("div"); d.className="hero";
+    d.appendChild(pixelSprite(h,16,3));
+    party.appendChild(d);
+  });
+}
 
 function render(){
   const d = today();
   const pi = phaseIndex(d);
-  const ph = PHASES[pi];
   const isBoss = d.getDay()===0;
   const tasks = tasksFor(TODAY);
   const rec = dayRec(TODAY);
 
-  // HUD
   const li = levelInfo(state.xp);
   document.getElementById("lv").textContent = li.lv;
-  document.getElementById("titleBadge").textContent = "称号：" + titleFor(li.lv);
+  document.getElementById("xpTotal").textContent = state.xp;
+  document.getElementById("titleBadge").textContent = titleFor(li.lv);
   document.getElementById("xpfill").style.width = (li.cur/li.need*100)+"%";
-  document.getElementById("xpneed").textContent = (li.need-li.cur);
-  document.getElementById("streak").textContent = state.streak;
-  document.getElementById("bestStreak").textContent = state.bestStreak;
-  document.getElementById("cdKyote").textContent = daysUntil(KYOTE)+"日";
-  document.getElementById("cdSeikei").textContent = daysUntil(SEIKEI)+"日";
-  const chip = document.getElementById("phaseChip");
-  chip.textContent = "現在：" + ph.name;
-  chip.style.background = ph.color+"22"; chip.style.color = ph.color; chip.style.border = "1px solid "+ph.color+"55";
+  document.getElementById("streak").innerHTML = state.streak+"<small>日</small>";
+  document.getElementById("cdKyote").textContent = daysUntil(KYOTE);
+  document.getElementById("cdSeikei").innerHTML = daysUntil(SEIKEI)+"<small>日</small>";
 
-  // monster
   const pool = isBoss?BOSSES:MONSTERS;
-  const m = pool[seedHash(TODAY)%pool.length];
-  document.getElementById("mEmoji").textContent = m.e;
-  document.getElementById("mName").innerHTML = (isBoss?'<span class="boss-tag">BOSS</span>':'') + m.n;
-  document.getElementById("monsterCard").classList.toggle("boss", isBoss);
+  currentMonster = pool[seedHash(TODAY)%pool.length];
+  document.getElementById("enemyName").textContent = (isBoss?"👑":"")+currentMonster.n;
 
   const hpMax = tasks.reduce((a,t)=>a+t.xp,0);
   const hpNow = tasks.filter(t=>!rec.done.includes(t.id)).reduce((a,t)=>a+t.xp,0);
-  document.getElementById("hpMax").textContent = hpMax;
-  document.getElementById("hpNow").textContent = hpNow;
-  document.getElementById("hpfill").style.width = (hpMax? hpNow/hpMax*100:0)+"%";
-  document.getElementById("mEmoji").classList.toggle("dead", hpNow===0 && hpMax>0);
-  document.getElementById("defeatedBanner").style.display = (hpNow===0&&hpMax>0)?"block":"none";
+  document.getElementById("ehpFill").style.width = (hpMax?hpNow/hpMax*100:0)+"%";
+  document.getElementById("ehpLab").textContent = `${currentMonster.n} HP ${hpNow}/${hpMax}`;
+  document.getElementById("enemyCount").textContent = hpNow===0&&hpMax>0 ? "－ 討伐ずみ" : "－ 1ひき";
+  document.getElementById("spriteWrap").classList.toggle("dead", hpNow===0&&hpMax>0);
 
-  // date / progress
   const wnames=["日","月","火","水","木","金","土"];
-  document.getElementById("dateLabel").textContent = `${d.getMonth()+1}/${d.getDate()}（${wnames[d.getDay()]}）の討伐リスト`;
-  document.getElementById("progressLabel").textContent = `${tasks.filter(t=>rec.done.includes(t.id)).length} / ${tasks.length} 撃破`;
+  document.getElementById("dateLabel").textContent = `${d.getMonth()+1}/${d.getDate()}（${wnames[d.getDay()]}）のとうばつリスト ─ ${PHASES[pi].name}`;
+  document.getElementById("progressLabel").textContent = `${tasks.filter(t=>rec.done.includes(t.id)).length}/${tasks.length}`;
 
-  // tasks
   const wrap = document.getElementById("taskList");
   wrap.innerHTML = "";
+  let nextMarked = false;
   tasks.forEach(t=>{
     const done = rec.done.includes(t.id);
     const el = document.createElement("div");
     el.className = "task"+(done?" done":"");
-    const col = SUBJECT_COLORS[t.s]||SUBJECT_COLORS["自由"];
-    el.innerHTML = `<div class="checkbox">${done?"✓":""}</div>
-      <div class="t-body"><div class="t-title">${t.t}</div>
-      <div class="t-meta"><span class="chip" style="background:${col[0]};color:${col[1]}">${t.s}</span></div></div>
-      <div class="t-xp">⚔️${t.xp}</div>`;
-    el.onclick = ()=>toggle(t, el);
+    if(!done && !nextMarked){ el.classList.add("next"); nextMarked=true; }
+    el.innerHTML = `<span class="sub">【${t.s}】</span><span class="t">${t.t}</span> <span class="xp">⚔${t.xp}</span>`;
+    el.onclick = ()=>toggle(t);
     wrap.appendChild(el);
   });
 
+  drawSprites();
   renderRecord();
   renderPlan(pi);
 }
 
-/* ================= toggle / battle ================= */
-function toggle(task, el){
+/* ================= バトル処理 ================= */
+function toggle(task){
   const rec = dayRec(TODAY);
   const idx = rec.done.indexOf(task.id);
   if(idx>=0){
     rec.done.splice(idx,1);
     state.xp = Math.max(0, state.xp - task.xp);
+    sfxCancel();
+    msg(`こうげきを とりけした！（−${task.xp}）`, true);
   }else{
     rec.done.push(task.id);
     state.xp += task.xp;
-    hitAnim(task.xp);
+    attackAnim(task.xp);
+    msg(`きみのこうげき！ ${currentMonster.n}に ${task.xp}の ダメージ！`, true);
     const tasks = tasksFor(TODAY);
-    const allDone = tasks.every(t=>rec.done.includes(t.id));
-    if(allDone && !rec.defeated){
+    if(tasks.every(t=>rec.done.includes(t.id)) && !rec.defeated){
       rec.defeated = true;
       const isBoss = today().getDay()===0;
       const bonus = isBoss?100:50;
+      const before = levelInfo(state.xp).lv;
       state.xp += bonus;
       updateStreak();
       save();
-      setTimeout(()=>victory(bonus,isBoss), 450);
+      setTimeout(()=>victory(bonus, isBoss, before), 700);
       render();
       return;
     }
@@ -452,65 +606,53 @@ function updateStreak(){
   state.bestStreak = Math.max(state.bestStreak, state.streak);
 }
 
-function hitAnim(dmg){
-  const em = document.getElementById("mEmoji");
-  em.classList.remove("hit"); void em.offsetWidth; em.classList.add("hit");
-  const card = document.getElementById("monsterCard");
+function attackAnim(dmg){
+  sfxHit();
+  const bv = document.getElementById("battleView");
+  bv.classList.remove("shake","whiteflash"); void bv.offsetWidth;
+  bv.classList.add("shake","whiteflash");
+  const sw = document.getElementById("spriteWrap");
+  sw.classList.remove("hitflash"); void sw.offsetWidth; sw.classList.add("hitflash");
   const fly = document.createElement("div");
-  fly.className = "dmg"; fly.textContent = "-"+dmg;
-  fly.style.left = (30+ (seedHash(""+performance.now())%40)) + "%";
-  fly.style.top = "30%";
-  card.appendChild(fly);
+  fly.className="dmg"; fly.textContent=dmg;
+  fly.style.left = (42+seedHash(""+performance.now())%16)+"%";
+  fly.style.top = "34%";
+  bv.appendChild(fly);
   setTimeout(()=>fly.remove(), 850);
-  beep(220+dmg*4, .06);
 }
 
-/* ================= victory ================= */
-let prevLv = levelInfo(state.xp).lv;
-function victory(bonus, isBoss){
+/* ================= 勝利 ================= */
+function victory(bonus, isBoss, beforeLv){
   const li = levelInfo(state.xp);
-  document.getElementById("vEmoji").textContent = isBoss?"👑":"🏆";
-  document.getElementById("vSub").innerHTML =
-    `今日の魔物を討伐した！<br>討伐ボーナス <b style="color:var(--xp)">+${bonus} XP</b><br>🔥 連続討伐 <b style="color:var(--orange)">${state.streak}日</b>`;
-  const lvup = document.getElementById("vLvup");
-  if(li.lv > prevLv){
-    lvup.style.display="block";
-    lvup.textContent = `⬆ LEVEL UP! Lv.${li.lv} 「${titleFor(li.lv)}」`;
-    fanfare();
-  }else{ lvup.style.display="none"; beep(660,.15); setTimeout(()=>beep(880,.2),150); }
-  prevLv = li.lv;
-  document.getElementById("overlay").classList.add("show");
-  confetti();
-}
-function closeOverlay(){ document.getElementById("overlay").classList.remove("show"); }
-function confetti(){
-  const em=["🎉","✨","⭐","🎊","💫","🗡️"];
-  for(let i=0;i<24;i++){
-    const c=document.createElement("div");
-    c.className="confetti"; c.textContent=em[i%em.length];
-    c.style.left=(seedHash("c"+i+performance.now())%100)+"%";
-    c.style.animationDuration=(1.4+ (i%10)/8)+"s";
-    document.body.appendChild(c);
-    setTimeout(()=>c.remove(),2600);
+  let html = `${isBoss?"👑 ボスの":""}${currentMonster.n}を やっつけた！<br>けいけんち <span class="gold">${bonus}ポイント</span> ボーナスかくとく！<br>🔥 れんぞくとうばつ <span class="gold">${state.streak}日</span>！`;
+  if(li.lv > beforeLv){
+    html += `<br><span class="lvup">きみは レベル${li.lv}に あがった！</span>`;
+    const nt = titleFor(li.lv), ot = titleFor(beforeLv);
+    if(nt!==ot) html += `<br><span class="lvup">しょうごう「${nt}」を てにいれた！</span>`;
+    sfxLevelUp();
+    setTimeout(sfxVictory, 700);
+  }else{
+    sfxVictory();
   }
+  msg(`${currentMonster.n}を やっつけた！`, true);
+  document.getElementById("vBody").innerHTML = html;
+  document.getElementById("overlay").classList.add("show");
 }
+function closeOverlay(){ sfxMenu(); document.getElementById("overlay").classList.remove("show"); }
 
-/* ================= sound ================= */
-let actx=null;
-function beep(freq,dur){
-  try{
-    actx = actx||new (window.AudioContext||window.webkitAudioContext)();
-    const o=actx.createOscillator(), g=actx.createGain();
-    o.type="square"; o.frequency.value=freq;
-    g.gain.setValueAtTime(.08,actx.currentTime);
-    g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+dur);
-    o.connect(g); g.connect(actx.destination);
-    o.start(); o.stop(actx.currentTime+dur);
-  }catch(e){}
+/* ================= コマンド ================= */
+function cmdFight(){
+  sfxMenu();
+  const next = document.querySelector(".task.next");
+  if(next){ next.scrollIntoView({behavior:"smooth", block:"center"}); msg("つぎの ターゲットに ロックオン！", true); }
+  else msg("きょうの魔物は もう たおした！ ゆっくりやすめ。", true);
 }
-function fanfare(){ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.18),i*130)); }
-
-/* ================= custom tasks ================= */
+function cmdItem(){
+  sfxMenu();
+  const inp = document.getElementById("customInput");
+  inp.scrollIntoView({behavior:"smooth", block:"center"});
+  setTimeout(()=>inp.focus(), 400);
+}
 function addCustom(){
   const inp = document.getElementById("customInput");
   const v = inp.value.trim();
@@ -518,73 +660,77 @@ function addCustom(){
   if(!state.custom[TODAY]) state.custom[TODAY]=[];
   state.custom[TODAY].push({s:"自由", t:v, xp:15});
   inp.value="";
+  sfxMenu();
+  msg(`あたらしいクエスト「${v}」が あらわれた！`, true);
   save(); render();
 }
 document.getElementById("customInput").addEventListener("keydown",e=>{ if(e.key==="Enter") addCustom(); });
 
-/* ================= record page ================= */
+/* ================= 記録 ================= */
 function renderRecord(){
   let defeats=0, taskCount=0;
   Object.values(state.history).forEach(h=>{ if(h.defeated)defeats++; taskCount+=h.done.length; });
   document.getElementById("stTotal").textContent = defeats;
   document.getElementById("stTasks").textContent = taskCount;
-  document.getElementById("stXp").textContent = state.xp;
-
+  document.getElementById("stBest").textContent = state.bestStreak;
   let win30=0;
-  for(let i=0;i<30;i++){
-    const d=new Date(); d.setDate(d.getDate()-i);
-    const h=state.history[dstr(d)];
-    if(h&&h.defeated) win30++;
-  }
+  for(let i=0;i<30;i++){ const d=new Date(); d.setDate(d.getDate()-i); const h=state.history[dstr(d)]; if(h&&h.defeated) win30++; }
   document.getElementById("stRate").textContent = Math.round(win30/30*100)+"%";
 
   const cal=document.getElementById("cal");
   cal.innerHTML="";
-  ["日","月","火","水","木","金","土"].forEach(w=>{
-    const e=document.createElement("div"); e.className="dow"; e.textContent=w; cal.appendChild(e);
-  });
-  const start=new Date(); start.setDate(start.getDate()-27-start.getDay()); // 5週グリッド先頭(日曜)
+  ["日","月","火","水","木","金","土"].forEach(w=>{ const e=document.createElement("div"); e.className="dow"; e.textContent=w; cal.appendChild(e); });
+  const start=new Date(); start.setDate(start.getDate()-27-start.getDay());
   for(let i=0;i<35;i++){
     const d=new Date(start); d.setDate(start.getDate()+i);
-    const ds=dstr(d);
-    const h=state.history[ds];
+    const ds=dstr(d), h=state.history[ds];
     const cell=document.createElement("div");
-    let cls="day", emoji="";
-    if(d>today() && ds!==TODAY){ cls+=" future"; }
-    else if(h&&h.defeated){ cls+=" win"; emoji="⚔️"; }
-    else if(h&&h.done.length>0){ cls+=" partial"; emoji="🛡️"; }
+    let cls="day", mark="";
+    if(d>today() && ds!==TODAY) cls+=" future";
+    else if(h&&h.defeated){ cls+=" win"; mark="⚔"; }
+    else if(h&&h.done.length>0){ cls+=" partial"; mark="△"; }
     if(ds===TODAY) cls+=" today";
     cell.className=cls;
-    cell.innerHTML=`<span class="de">${emoji}</span>${d.getDate()}`;
+    cell.innerHTML=`<span class="de">${mark}</span>${d.getDate()}`;
     cal.appendChild(cell);
   }
 }
 
-/* ================= plan page ================= */
+/* ================= 作戦書 ================= */
 function renderPlan(currentPi){
   const wrap=document.getElementById("planList");
   wrap.innerHTML="";
   const fmt=d=>d?`${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`:"今";
   PHASES.forEach((p,i)=>{
     const div=document.createElement("div");
-    div.className="ph"+(i===currentPi?" now":"");
-    div.innerHTML=`<h3><span style="color:${p.color}">●</span> ${p.name} ${i===currentPi?'<span class="nowtag">いまここ</span>':''}</h3>
+    div.className="ph";
+    div.innerHTML=`<h3>${i===currentPi?"▶ ":""}${p.name}${i===currentPi?'　<span style="font-size:11px">いまここ</span>':""}</h3>
       <div class="range">${fmt(p.start)} 〜 ${fmt(p.end)}</div>
       <ul>${p.books.map(b=>`<li>・${b}</li>`).join("")}</ul>
-      <div class="range" style="margin-top:8px">🎯 ${p.goal}</div>`;
+      <div class="range">🎯 ${p.goal}</div>`;
     wrap.appendChild(div);
   });
 }
 
-/* ================= tabs ================= */
-function showPage(name, btn){
+/* ================= ページ切替 ================= */
+function showPage(name){
   document.querySelectorAll(".page").forEach(p=>p.classList.remove("show"));
   document.getElementById("page-"+name).classList.add("show");
-  document.querySelectorAll(".tabbar button").forEach(b=>b.classList.remove("active"));
-  btn.classList.add("active");
+  window.scrollTo({top:0});
 }
 
+/* ================= 起動 ================= */
+applyMode();
 render();
+document.getElementById("bgmBtn").textContent = state.settings.bgm ? "♪ ON" : "♪ OFF";
+const isBossToday = today().getDay()===0;
+msg(`${isBossToday?"👑 ボス！ ":""}${currentMonster.n}が あらわれた！`, true);
+msg("コマンド？　▶たたかう で つぎのターゲットへ");
+/* BGMはユーザー操作後でないと再生できない（ブラウザ仕様）→ 初回タップで開始 */
+if(state.settings.bgm){
+  const kick = ()=>{ audio(); clearTimeout(bgmTimer); bgmLoop(); document.removeEventListener("pointerdown", kick); };
+  document.addEventListener("pointerdown", kick);
+}
 </script>
 </body>
 </html>
