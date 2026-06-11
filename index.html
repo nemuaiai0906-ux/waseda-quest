@@ -26,12 +26,27 @@
   .gold{color:#ffd24a}
   .gray{color:#9aa0b5}
 
-  /* ===== ステータス窓（4列） ===== */
-  .stat4{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;text-align:center}
-  .stat4 .lab{font-size:11px;color:#9fe0ff}
-  .stat4 .val{font-size:18px;margin-top:2px}
-  .stat4 .val small{font-size:11px}
+  /* ===== ステータス窓（HP/MPバー付き） ===== */
+  .bars{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center}
+  .bcell .lab{font-size:11px;color:#9fe0ff}
+  .bcell .val{font-size:18px;margin-top:2px}
+  .bcell .bar{height:9px;border:1px solid #fff;border-radius:3px;background:#1a2038;overflow:hidden;margin-top:6px}
+  .bcell .bar>div{height:100%;transition:width .3s}
+  .bcell .bar.hp>div{background:linear-gradient(90deg,#2faf5f,#7adf9a)}
+  .bcell .bar.mp>div{background:linear-gradient(90deg,#2f6faf,#7ab8df)}
+  .bcell .num{font-size:11px;margin-top:3px;color:#c6cbe8}
+  .ministats{display:flex;justify-content:space-between;font-size:11px;margin-top:9px;flex-wrap:wrap;gap:4px}
   .subrow{display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-top:8px;gap:8px}
+
+  /* ===== メニューモーダル（じゅもん/どうぐ/ぶきや） ===== */
+  .mtitle{font-size:13px;color:#9fe0ff;margin-bottom:6px;display:flex;justify-content:space-between}
+  .mrow{font-size:14px;line-height:1.6;padding:9px 4px 9px 24px;position:relative;cursor:pointer;user-select:none;border-bottom:1px dotted #2a3050}
+  .mrow:last-of-type{border-bottom:none}
+  .mrow:hover::before,.mrow:active::before{content:"▶";position:absolute;left:2px}
+  .mrow .cost{float:right;color:#ffd24a}
+  .mrow .mdesc{font-size:11px;color:#9aa0b5}
+  .mrow.disabled{opacity:.38;pointer-events:none}
+  .mrow.equipped .cost{color:#7adf9a}
   .xpbar{flex:1;height:8px;border:1px solid #fff;border-radius:3px;overflow:hidden;background:#15203a}
   .xpbar>div{height:100%;background:linear-gradient(90deg,#2e9bff,#7ad0ff);transition:width .4s}
 
@@ -129,9 +144,9 @@
   @keyframes blink{50%{opacity:0}}
 
   /* ===== コマンド窓 ===== */
-  .cmdrow{display:grid;grid-template-columns:1fr 1.4fr;gap:10px}
-  .cmdwin{padding:10px 12px}
-  .cmd{font-size:15px;padding:5px 4px 5px 22px;position:relative;cursor:pointer;user-select:none}
+  .cmdrow{display:grid;grid-template-columns:1.6fr 1fr;gap:10px}
+  .cmdwin{padding:10px 8px}
+  .cmd{font-size:14px;padding:6px 2px 6px 18px;position:relative;cursor:pointer;user-select:none;white-space:nowrap}
   .cmd:hover::before,.cmd:active::before{content:"▶";position:absolute;left:2px}
   .enemywin{font-size:14px;display:flex;align-items:center;justify-content:space-between}
   .countwin{font-size:12px;line-height:2}
@@ -195,16 +210,22 @@
 
   <!-- ステータス窓 -->
   <div class="dqwin">
-    <div class="stat4">
-      <div><div class="lab">レベル</div><div class="val gold" id="lv">1</div></div>
-      <div><div class="lab">けいけんち</div><div class="val" id="xpTotal">0</div></div>
-      <div><div class="lab">れんぞく</div><div class="val" id="streak">0<small>日</small></div></div>
-      <div><div class="lab">政経まで</div><div class="val" id="cdSeikei">-<small>日</small></div></div>
+    <div class="bars">
+      <div class="bcell"><div class="lab">レベル</div><div class="val gold" id="lv">1</div><div class="num" id="titleBadge">見習い受験生</div></div>
+      <div class="bcell"><div class="lab">HP</div><div class="bar hp"><div id="pHpFill" style="width:100%"></div></div><div class="num" id="pHpNum">-</div></div>
+      <div class="bcell"><div class="lab">MP</div><div class="bar mp"><div id="pMpFill" style="width:100%"></div></div><div class="num" id="pMpNum">-</div></div>
+      <div class="bcell"><div class="lab">こうげき</div><div class="val" id="atkNum">0</div><div class="num" id="weaponName">ひのきのぼう</div></div>
     </div>
     <div class="subrow">
-      <span id="titleBadge">見習い受験生</span>
+      <span>つぎのLvまで</span>
       <div class="xpbar"><div id="xpfill" style="width:0%"></div></div>
-      <span>共テまで<span class="gold" id="cdKyote">-</span>日</span>
+      <span class="gold" id="goldNum">0G</span>
+    </div>
+    <div class="ministats">
+      <span>🔥れんぞく <span class="gold" id="streak">0</span>日</span>
+      <span>⚔とうばつ <span class="gold" id="killCount">0</span>体</span>
+      <span>共テまで <span class="gold" id="cdKyote">-</span>日</span>
+      <span>政経まで <span class="gold" id="cdSeikei">-</span>日</span>
     </div>
   </div>
 
@@ -237,9 +258,11 @@
 
     <!-- コマンド窓 + 敵窓 -->
     <div class="cmdrow">
-      <div class="dqwin cmdwin">
+      <div class="dqwin cmdwin" style="display:grid;grid-template-columns:1fr 1fr;column-gap:4px">
         <div class="cmd" onclick="cmdFight()">たたかう</div>
-        <div class="cmd" onclick="cmdItem()">どうぐ</div>
+        <div class="cmd" onclick="openModal('spellModal')">じゅもん</div>
+        <div class="cmd" onclick="openModal('itemModal')">どうぐ</div>
+        <div class="cmd" onclick="openModal('shopModal')">ぶきや</div>
         <div class="cmd" onclick="showPage('record');sfxMenu()">きろく</div>
         <div class="cmd" onclick="showPage('plan');sfxMenu()">さくせん</div>
       </div>
@@ -252,13 +275,40 @@
       <div id="taskList"></div>
     </div>
 
-    <!-- どうぐ（追加クエスト） -->
+    <!-- クエスト追加 -->
     <div class="dqwin">
-      <div class="listtitle"><span>どうぐぶくろ（クエスト追加）</span></div>
+      <div class="listtitle"><span>クエストついか（じぶんで足す）</span></div>
       <div class="addrow">
         <input id="customInput" type="text" placeholder="例：英作文の添削直し" maxlength="50">
         <button onclick="addCustom()">追加</button>
       </div>
+    </div>
+  </div>
+
+  <!-- じゅもんモーダル -->
+  <div class="overlay" id="spellModal">
+    <div class="dqwin v-win">
+      <div class="mtitle"><span>じゅもん</span><span id="spellMpLabel">MP -</span></div>
+      <div id="spellList"></div>
+      <div class="mrow" onclick="closeModal('spellModal')">もどる</div>
+    </div>
+  </div>
+
+  <!-- どうぐモーダル -->
+  <div class="overlay" id="itemModal">
+    <div class="dqwin v-win">
+      <div class="mtitle"><span>どうぐぶくろ</span></div>
+      <div id="itemList"></div>
+      <div class="mrow" onclick="closeModal('itemModal')">もどる</div>
+    </div>
+  </div>
+
+  <!-- ぶきやモーダル -->
+  <div class="overlay" id="shopModal">
+    <div class="dqwin v-win">
+      <div class="mtitle"><span>ぶきのみせ</span><span class="gold" id="shopGold">0G</span></div>
+      <div id="shopList"></div>
+      <div class="mrow" onclick="closeModal('shopModal')">もどる</div>
     </div>
   </div>
 
@@ -404,6 +454,19 @@ const BOSSES = [
   {n:"えんていバーンアウト",   s:"demon", p:{a:"#e0533c",b:"#6f1f10",e:"#ffe27a"}}
 ];
 const TITLES = ["見習い受験生","駆け出し挑戦者","単語ハンター","文法の騎士","長文剣士","赤本の狩人","記述の魔導士","過去問マスター","都の西北ナイト","政経の勇者","早稲田の覇者"];
+
+const WEAPONS = [
+  {n:"ひのきのぼう",     atk:0,  cost:0},
+  {n:"どうのつるぎ",     atk:3,  cost:80},
+  {n:"はがねのつるぎ",   atk:7,  cost:250},
+  {n:"ほのおのつるぎ",   atk:14, cost:700},
+  {n:"らいじんのけん",   atk:25, cost:1800},
+  {n:"わせだのせいけん", atk:40, cost:4000}
+];
+const SPELLS = [
+  {n:"ヒール",     mp:6,  d:"HPをかいふくする"},
+  {n:"バイキルト", mp:10, d:"つぎのこうげきの ダメージ2ばい"}
+];
 const HEROES = [
   {s:"warrior", p:{k:"#10131f",m:"#b8c4d8",a:"#5f6880",b:"#3a3050"}},
   {s:"hero",    p:{k:"#10131f",h:"#e8a23c",s:"#f0c8a0",c:"#d04848",b:"#4a3f8a",m:"#d8e4f0",g:"#c8973c"}},
@@ -419,8 +482,16 @@ function load(){
   try{ s = JSON.parse(localStorage.getItem(KEY)); }catch(e){}
   if(!s) s = { xp:0, streak:0, bestStreak:0, lastDefeat:null, history:{}, custom:{} };
   if(!s.settings) s.settings = { mode:"2d", bgm:false };
+  if(s.gold === undefined){
+    s.gold = 0; s.weapon = 0; s.kills = 0; s.buff = false;
+    s.items = { herb:1, ether:1 };
+    s.hp = null; s.mp = null; s.monster = null; s.lastSeen = null;
+  }
   return s;
 }
+function maxHp(lv){ return 40 + lv*12; }
+function maxMp(lv){ return 10 + lv*5; }
+function atkNow(){ const lv = levelInfo(state.xp).lv; return lv*2 + WEAPONS[state.weapon].atk; }
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 
 /* ================= date helpers ================= */
@@ -450,6 +521,52 @@ function levelInfo(xp){
   return {lv, cur:rest, need};
 }
 function titleFor(lv){ return TITLES[Math.min(TITLES.length-1, Math.floor((lv-1)/3))]; }
+
+/* ================= 魔物の出現（連戦システム） ================= */
+function spawnMonster(forceBoss){
+  const lv = levelInfo(state.xp).lv;
+  const pi = phaseIndex(today());
+  const mult = [1, 1.3, 1.6, 2][pi];
+  const boss = !!forceBoss;
+  const pool = boss ? BOSSES : MONSTERS;
+  const m = pool[seedHash(TODAY+"-"+state.kills) % pool.length];
+  const hpMax = Math.round((70 + lv*10) * mult * (boss ? 2.5 : 1));
+  state.monster = { n:m.n, s:m.s, p:m.p, hp:hpMax, hpMax:hpMax, boss:boss };
+}
+
+/* 日をまたいだときの処理（夜のできごと） */
+function dailyTick(){
+  const lv = levelInfo(state.xp).lv;
+  if(state.hp === null){ state.hp = maxHp(lv); state.mp = maxMp(lv); }
+  if(!state.monster) spawnMonster(today().getDay()===0);
+  if(state.lastSeen && state.lastSeen !== TODAY){
+    const y = state.lastSeen;
+    const yTasks = tasksFor(y);
+    const yRec = state.history[y] || {done:[]};
+    const missed = yTasks.filter(t=>!yRec.done.includes(t.id)).length;
+    if(missed > 0){
+      const dmg = Math.min(Math.round(maxHp(lv)*0.6), missed*(4+lv*2));
+      state.hp = Math.max(0, state.hp - dmg);
+      msg(`ねているあいだに ${state.monster.n}のこうげき！ きみは ${dmg}の ダメージをうけた…（やりのこし ${missed}件）`, true);
+      if(state.hp <= 0){
+        state.gold = Math.floor(state.gold/2);
+        state.hp = maxHp(lv);
+        msg("きみは ちからつきた… きょうかいで いきかえった（しょじゴールドが はんぶんになった）", true);
+      }
+    }else{
+      const healed = Math.round(maxHp(lv)*0.35);
+      state.hp = Math.min(maxHp(lv), state.hp + healed);
+      state.mp = Math.min(maxMp(lv), state.mp + Math.round(maxMp(lv)*0.5));
+      msg("ぐっすり ねむった！ HPとMPが かいふくした！", true);
+    }
+    if(today().getDay()===0 && !state.monster.boss){
+      spawnMonster(true);
+      msg("👑 にちようび！ ボスが たちはだかった！", true);
+    }
+  }
+  state.lastSeen = TODAY;
+  save();
+}
 
 /* ================= 自作ドット絵スプライト =================
    左右対称定義：各行は「左半分＋中央1列」。sym()でミラー展開する */
@@ -637,6 +754,8 @@ function sfxHit(){
 }
 function sfxCancel(){ try{ const t=audio().currentTime; tone(500,t,.07,"square",.05); tone(330,t+.07,.1,"square",.05);}catch(e){} }
 function sfxVictory(){ try{ const t=audio().currentTime; [[392,0],[392,.13],[392,.26],[523,.39],[659,.62],[784,.85]].forEach(([f,dt])=>tone(f,t+dt,.16,"square",.07)); }catch(e){} }
+function sfxHeal(){ try{ const t=audio().currentTime; [523,659,784,1047].forEach((f,i)=>tone(f,t+i*.07,.14,"triangle",.07)); }catch(e){} }
+function sfxCoin(){ try{ const t=audio().currentTime; tone(988,t,.07,"square",.07); tone(1319,t+.08,.18,"square",.07); }catch(e){} }
 function sfxLevelUp(){ try{ const t=audio().currentTime; [523,587,659,740,831,932,1047].forEach((f,i)=>tone(f,t+i*.09,.12,"square",.07)); }catch(e){} }
 /* BGM（オリジナル曲・Am 勇ましいループ） */
 const MEL = ["A4","C5","E5","A5","G5","E5","F5","D5","E5","C5","D5","B4","C5","A4","B4","E4",
@@ -704,29 +823,33 @@ function drawSprites(){
 function render(){
   const d = today();
   const pi = phaseIndex(d);
-  const isBoss = d.getDay()===0;
   const tasks = tasksFor(TODAY);
   const rec = dayRec(TODAY);
 
   const li = levelInfo(state.xp);
   document.getElementById("lv").textContent = li.lv;
-  document.getElementById("xpTotal").textContent = state.xp;
   document.getElementById("titleBadge").textContent = titleFor(li.lv);
   document.getElementById("xpfill").style.width = (li.cur/li.need*100)+"%";
-  document.getElementById("streak").innerHTML = state.streak+"<small>日</small>";
+  document.getElementById("streak").textContent = state.streak;
+  document.getElementById("killCount").textContent = state.kills;
   document.getElementById("cdKyote").textContent = daysUntil(KYOTE);
-  document.getElementById("cdSeikei").innerHTML = daysUntil(SEIKEI)+"<small>日</small>";
+  document.getElementById("cdSeikei").textContent = daysUntil(SEIKEI);
+  document.getElementById("goldNum").textContent = state.gold + "G";
+  document.getElementById("pHpFill").style.width = (state.hp/maxHp(li.lv)*100)+"%";
+  document.getElementById("pHpNum").textContent = state.hp + "/" + maxHp(li.lv);
+  document.getElementById("pMpFill").style.width = (state.mp/maxMp(li.lv)*100)+"%";
+  document.getElementById("pMpNum").textContent = state.mp + "/" + maxMp(li.lv);
+  document.getElementById("atkNum").textContent = atkNow();
+  document.getElementById("weaponName").textContent = WEAPONS[state.weapon].n;
 
-  const pool = isBoss?BOSSES:MONSTERS;
-  currentMonster = pool[seedHash(TODAY)%pool.length];
-  document.getElementById("enemyName").textContent = (isBoss?"👑":"")+currentMonster.n;
-
-  const hpMax = tasks.reduce((a,t)=>a+t.xp,0);
-  const hpNow = tasks.filter(t=>!rec.done.includes(t.id)).reduce((a,t)=>a+t.xp,0);
-  document.getElementById("ehpFill").style.width = (hpMax?hpNow/hpMax*100:0)+"%";
-  document.getElementById("ehpLab").textContent = `${currentMonster.n} HP ${hpNow}/${hpMax}`;
-  document.getElementById("enemyCount").textContent = hpNow===0&&hpMax>0 ? "－ 討伐ずみ" : "－ 1ひき";
-  document.getElementById("spriteWrap").classList.toggle("dead", hpNow===0&&hpMax>0);
+  const m = state.monster;
+  currentMonster = m;
+  document.getElementById("enemyName").textContent = (m.boss?"👑":"")+m.n;
+  const hpShow = Math.max(0, m.hp);
+  document.getElementById("ehpFill").style.width = (hpShow/m.hpMax*100)+"%";
+  document.getElementById("ehpLab").textContent = `${m.n} HP ${hpShow}/${m.hpMax}`;
+  document.getElementById("enemyCount").textContent = "－ 1ひき";
+  document.getElementById("spriteWrap").classList.toggle("dead", m.hp<=0);
 
   const wnames=["日","月","火","水","木","金","土"];
   document.getElementById("dateLabel").textContent = `${d.getMonth()+1}/${d.getDate()}（${wnames[d.getDay()]}）のとうばつリスト ─ ${PHASES[pi].name}`;
@@ -758,27 +881,87 @@ function toggle(task){
     rec.done.splice(idx,1);
     state.xp = Math.max(0, state.xp - task.xp);
     sfxCancel();
-    msg(`こうげきを とりけした！（−${task.xp}）`, true);
-  }else{
-    rec.done.push(task.id);
-    state.xp += task.xp;
-    attackAnim(task.xp);
-    msg(`きみのこうげき！ ${currentMonster.n}に ${task.xp}の ダメージ！`, true);
-    const tasks = tasksFor(TODAY);
-    if(tasks.every(t=>rec.done.includes(t.id)) && !rec.defeated){
-      rec.defeated = true;
-      const isBoss = today().getDay()===0;
-      const bonus = isBoss?100:50;
-      const before = levelInfo(state.xp).lv;
-      state.xp += bonus;
-      updateStreak();
-      save();
-      setTimeout(()=>victory(bonus, isBoss, before), 700);
-      render();
-      return;
-    }
+    msg("チェックを とりけした！（あたえたダメージは もどらない）", true);
+    save(); render(); return;
   }
+
+  const beforeLv = levelInfo(state.xp).lv;
+  rec.done.push(task.id);
+  state.xp += task.xp;
+
+  if(!rec.dmg) rec.dmg = [];
+  if(!rec.dmg.includes(task.id)){
+    rec.dmg.push(task.id);
+    let dmg = task.xp + atkNow();
+    if(state.buff){ dmg *= 2; state.buff = false; msg("バイキルトの ちからが はじけた！", true); }
+    attackAnim(dmg);
+    state.monster.hp -= dmg;
+    msg(`きみのこうげき！ ${state.monster.n}に ${dmg}の ダメージ！`, true);
+    if(state.monster.hp <= 0){
+      setTimeout(()=>killMonster(beforeLv), 600);
+    }
+  }else{
+    msg("そのこうげきは すでに きまっている！", true);
+  }
+
+  const tasks = tasksFor(TODAY);
+  if(tasks.every(t=>rec.done.includes(t.id)) && !rec.defeated){
+    rec.defeated = true;
+    updateStreak();
+    msg(`🔥 きょうのノルマ ぜんぶたっせい！ れんぞく${state.streak}日め！`, true);
+  }
+
+  const afterLv = levelInfo(state.xp).lv;
+  if(afterLv > beforeLv) levelUpFlow(beforeLv, afterLv);
+
   save(); render();
+}
+
+/* 魔物をたおした！ → ほうしゅう & つぎの魔物 */
+function killMonster(beforeLv){
+  const lv = levelInfo(state.xp).lv;
+  const m = state.monster;
+  const gold = Math.round((15 + lv*3) * (m.boss ? 3 : 1));
+  const bonus = m.boss ? 100 : 30;
+  state.gold += gold;
+  state.kills += 1;
+  state.xp += bonus;
+
+  let dropTxt = "";
+  const roll = seedHash(TODAY+"k"+state.kills) % 100;
+  if(m.boss){ state.items.herb++; state.items.ether++; dropTxt = "やくそう と まほうのせいすい を てにいれた！"; }
+  else if(roll < 45){ state.items.herb++; dropTxt = "やくそう を てにいれた！"; }
+  else if(roll < 80){ state.items.ether++; dropTxt = "まほうのせいすい を てにいれた！"; }
+
+  let html = `${m.boss?"👑 ":""}${m.n}を やっつけた！<br>` +
+    `けいけんち <span class="gold">+${bonus}</span>　ゴールド <span class="gold">+${gold}G</span>`;
+  if(dropTxt) html += `<br>🎁 ${dropTxt}`;
+
+  const afterLv = levelInfo(state.xp).lv;
+  if(afterLv > beforeLv){
+    html += `<br><span class="lvup">きみは レベル${afterLv}に あがった！ HP・MPが ぜんかいふくした！</span>`;
+    const nt = titleFor(afterLv), ot = titleFor(beforeLv);
+    if(nt !== ot) html += `<br><span class="lvup">しょうごう「${nt}」を てにいれた！</span>`;
+    state.hp = maxHp(afterLv); state.mp = maxMp(afterLv);
+    sfxLevelUp(); setTimeout(sfxVictory, 700);
+  }else{
+    sfxVictory();
+  }
+
+  msg(`${m.n}を やっつけた！`, true);
+  spawnMonster(false);
+  document.getElementById("vBody").innerHTML = html;
+  document.getElementById("overlay").classList.add("show");
+  save(); render();
+}
+
+/* レベルアップ（タスクXPのみで上がった場合） */
+function levelUpFlow(beforeLv, afterLv){
+  state.hp = maxHp(afterLv); state.mp = maxMp(afterLv);
+  msg(`✨ きみは レベル${afterLv}に あがった！ HP・MPが ぜんかいふくした！`, true);
+  const nt = titleFor(afterLv), ot = titleFor(beforeLv);
+  if(nt !== ot) msg(`しょうごう「${nt}」を てにいれた！`, true);
+  sfxLevelUp();
 }
 
 function updateStreak(){
@@ -808,24 +991,116 @@ function attackAnim(dmg){
   setTimeout(()=>fly.remove(), 850);
 }
 
-/* ================= 勝利 ================= */
-function victory(bonus, isBoss, beforeLv){
-  const li = levelInfo(state.xp);
-  let html = `${isBoss?"👑 ボスの":""}${currentMonster.n}を やっつけた！<br>けいけんち <span class="gold">${bonus}ポイント</span> ボーナスかくとく！<br>🔥 れんぞくとうばつ <span class="gold">${state.streak}日</span>！`;
-  if(li.lv > beforeLv){
-    html += `<br><span class="lvup">きみは レベル${li.lv}に あがった！</span>`;
-    const nt = titleFor(li.lv), ot = titleFor(beforeLv);
-    if(nt!==ot) html += `<br><span class="lvup">しょうごう「${nt}」を てにいれた！</span>`;
-    sfxLevelUp();
-    setTimeout(sfxVictory, 700);
-  }else{
-    sfxVictory();
-  }
-  msg(`${currentMonster.n}を やっつけた！`, true);
-  document.getElementById("vBody").innerHTML = html;
-  document.getElementById("overlay").classList.add("show");
+/* ================= オーバーレイ/モーダル ================= */
+function closeOverlay(){
+  sfxMenu();
+  document.getElementById("overlay").classList.remove("show");
+  msg(`${state.monster.boss?"👑 ":""}${state.monster.n}が あらわれた！`, true);
+  render();
 }
-function closeOverlay(){ sfxMenu(); document.getElementById("overlay").classList.remove("show"); }
+function openModal(id){
+  sfxMenu();
+  if(id==="spellModal") renderSpells();
+  if(id==="itemModal") renderItems();
+  if(id==="shopModal") renderShop();
+  document.getElementById(id).classList.add("show");
+}
+function closeModal(id){ sfxMenu(); document.getElementById(id).classList.remove("show"); }
+
+/* ----- じゅもん ----- */
+function renderSpells(){
+  const lv = levelInfo(state.xp).lv;
+  document.getElementById("spellMpLabel").textContent = `MP ${state.mp}/${maxMp(lv)}`;
+  const wrap = document.getElementById("spellList");
+  wrap.innerHTML = "";
+  SPELLS.forEach((sp,i)=>{
+    const el = document.createElement("div");
+    el.className = "mrow" + (state.mp < sp.mp ? " disabled" : "");
+    el.innerHTML = `${sp.n} <span class="cost">MP${sp.mp}</span><div class="mdesc">${sp.d}</div>`;
+    el.onclick = ()=>castSpell(i);
+    wrap.appendChild(el);
+  });
+}
+function castSpell(i){
+  const sp = SPELLS[i];
+  if(state.mp < sp.mp){ msg("MPが たりない！", true); return; }
+  const lv = levelInfo(state.xp).lv;
+  state.mp -= sp.mp;
+  if(i===0){
+    const amount = 20 + lv*3;
+    state.hp = Math.min(maxHp(lv), state.hp + amount);
+    msg(`ヒール！ HPが ${amount} かいふくした！`, true);
+    sfxHeal();
+  }else{
+    state.buff = true;
+    msg("バイキルト！ つぎのこうげきの ダメージが 2ばいになる！", true);
+    sfxLevelUp();
+  }
+  closeModal("spellModal");
+  save(); render();
+}
+
+/* ----- どうぐ ----- */
+function renderItems(){
+  const wrap = document.getElementById("itemList");
+  wrap.innerHTML = "";
+  const defs = [
+    {key:"herb",  n:"やくそう",         d:"HPを 30 かいふくする"},
+    {key:"ether", n:"まほうのせいすい", d:"MPを 12 かいふくする"}
+  ];
+  defs.forEach(it=>{
+    const cnt = state.items[it.key];
+    const el = document.createElement("div");
+    el.className = "mrow" + (cnt<=0 ? " disabled" : "");
+    el.innerHTML = `${it.n} <span class="cost">×${cnt}</span><div class="mdesc">${it.d}</div>`;
+    el.onclick = ()=>useItem(it.key);
+    wrap.appendChild(el);
+  });
+}
+function useItem(key){
+  if(state.items[key] <= 0) return;
+  const lv = levelInfo(state.xp).lv;
+  state.items[key]--;
+  if(key==="herb"){
+    state.hp = Math.min(maxHp(lv), state.hp + 30);
+    msg("やくそうを つかった！ HPが 30 かいふくした！", true);
+  }else{
+    state.mp = Math.min(maxMp(lv), state.mp + 12);
+    msg("まほうのせいすいを のんだ！ MPが 12 かいふくした！", true);
+  }
+  sfxHeal();
+  closeModal("itemModal");
+  save(); render();
+}
+
+/* ----- ぶきや ----- */
+function renderShop(){
+  document.getElementById("shopGold").textContent = state.gold + "G";
+  const wrap = document.getElementById("shopList");
+  wrap.innerHTML = "";
+  WEAPONS.forEach((w,i)=>{
+    const el = document.createElement("div");
+    let cls = "mrow", tag;
+    if(i === state.weapon){ cls += " equipped"; tag = "そうびちゅう"; }
+    else if(i < state.weapon){ cls += " disabled"; tag = "こうにゅうずみ"; }
+    else if(state.gold < w.cost){ cls += " disabled"; tag = w.cost + "G"; }
+    else tag = w.cost + "G";
+    el.className = cls;
+    el.innerHTML = `${w.n} <span class="cost">${tag}</span><div class="mdesc">こうげき +${w.atk}</div>`;
+    if(i > state.weapon) el.onclick = ()=>buyWeapon(i);
+    wrap.appendChild(el);
+  });
+}
+function buyWeapon(i){
+  const w = WEAPONS[i];
+  if(state.gold < w.cost) { msg("ゴールドが たりない！", true); return; }
+  state.gold -= w.cost;
+  state.weapon = i;
+  msg(`${w.n}を こうにゅうして そうびした！ こうげきりょくが あがった！`, true);
+  sfxCoin();
+  renderShop();
+  save(); render();
+}
 
 /* ================= コマンド ================= */
 function cmdFight(){
@@ -833,12 +1108,6 @@ function cmdFight(){
   const next = document.querySelector(".task.next");
   if(next){ next.scrollIntoView({behavior:"smooth", block:"center"}); msg("つぎの ターゲットに ロックオン！", true); }
   else msg("きょうの魔物は もう たおした！ ゆっくりやすめ。", true);
-}
-function cmdItem(){
-  sfxMenu();
-  const inp = document.getElementById("customInput");
-  inp.scrollIntoView({behavior:"smooth", block:"center"});
-  setTimeout(()=>inp.focus(), 400);
 }
 function addCustom(){
   const inp = document.getElementById("customInput");
@@ -855,9 +1124,9 @@ document.getElementById("customInput").addEventListener("keydown",e=>{ if(e.key=
 
 /* ================= 記録 ================= */
 function renderRecord(){
-  let defeats=0, taskCount=0;
-  Object.values(state.history).forEach(h=>{ if(h.defeated)defeats++; taskCount+=h.done.length; });
-  document.getElementById("stTotal").textContent = defeats;
+  let taskCount=0;
+  Object.values(state.history).forEach(h=>{ taskCount+=h.done.length; });
+  document.getElementById("stTotal").textContent = state.kills;
   document.getElementById("stTasks").textContent = taskCount;
   document.getElementById("stBest").textContent = state.bestStreak;
   let win30=0;
@@ -907,11 +1176,11 @@ function showPage(name){
 }
 
 /* ================= 起動 ================= */
+dailyTick();
 applyMode();
 render();
 document.getElementById("bgmBtn").textContent = state.settings.bgm ? "♪ ON" : "♪ OFF";
-const isBossToday = today().getDay()===0;
-msg(`${isBossToday?"👑 ボス！ ":""}${currentMonster.n}が あらわれた！`, true);
+msg(`${state.monster.boss?"👑 ボス！ ":""}${state.monster.n}が あらわれた！`, true);
 msg("コマンド？　▶たたかう で つぎのターゲットへ");
 /* BGMはユーザー操作後でないと再生できない（ブラウザ仕様）→ 初回タップで開始 */
 if(state.settings.bgm){
