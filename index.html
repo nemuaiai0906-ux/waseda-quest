@@ -521,6 +521,28 @@ function load(){
     s.hp = null; s.mp = null; s.monster = null; s.lastSeen = null;
   }
   if(s.restDay === undefined) s.restDay = null;
+  /* 日別の討伐数/ゴールド記録は後から追加した機能。
+     それ以前の討伐分（全体合計との差分）を、記録開始前の最後の活動日に一括で割り当てる */
+  if(!s.dayStatsFixed){
+    s.dayStatsFixed = true;
+    const tracked = Object.values(s.history).reduce((a,h)=>a+(h.kills||0),0);
+    const untracked = (s.kills||0) - tracked;
+    if(untracked > 0){
+      const todayStr = dstr(new Date());
+      const days = Object.keys(s.history)
+        .filter(ds=>ds<todayStr && ((s.history[ds].done||[]).length>0 || s.history[ds].defeated))
+        .sort();
+      const target = days[days.length-1];
+      if(target){
+        const h = s.history[target];
+        h.kills = (h.kills||0) + untracked;
+        let lv=1, need=100, rest=s.xp||0;
+        while(rest>=need){ rest-=need; lv++; need=100+(lv-1)*50; }
+        h.gold = (h.gold||0) + untracked*(15+lv*3);
+        h.approx = true;
+      }
+    }
+  }
   return s;
 }
 function isResting(){ return state.restDay === TODAY; }
@@ -1855,7 +1877,7 @@ function showDay(ds){
   let html=`<div class="listtitle"><span>${d.getMonth()+1}/${d.getDate()}（${wn}）のきろく</span><span>${status}</span></div>`;
   html+=`<div class="stats2">
     <span>たおした魔物 <span class="gold">${h.kills||0}</span>体${h.boss?`（👑ボス${h.boss}）`:""}</span>
-    <span>かくとく <span class="gold">${h.gold||0}</span>G</span>
+    <span>かくとく <span class="gold">${h.gold||0}</span>G${h.approx?"（すいてい）":""}</span>
   </div>`;
   if(h.rest) html+=`<div class="note" style="margin-top:4px">🏨 この日は やどやに とまった</div>`;
   if(doneList.length||restList.length){
