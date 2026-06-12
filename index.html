@@ -804,6 +804,7 @@ function load(){
   }
   if(s.restDay === undefined) s.restDay = null;
   if(!s.dex) s.dex = {};
+  if(s.spawns === undefined) s.spawns = s.kills || 0;
   /* 武器ラインナップ拡張（v2）に伴う旧インデックスの引き継ぎ */
   if(!s.weaponV2){
     s.weaponV2 = true;
@@ -895,10 +896,12 @@ function spawnMonster(forceBoss){
   const lv = levelInfo(state.xp).lv;
   const pi = phaseIndex(today());
   const mult = [1, 1.3, 1.6, 2][pi];
+  /* 出現ごとにシードを進める（死亡後の再出現でも同じ魔物にならない） */
+  state.spawns = (state.spawns||0) + 1;
   /* 稀（10%）にボスが乱入する */
-  const boss = !!forceBoss || (mix(TODAY+"rare"+state.kills)%100 < 10);
+  const boss = !!forceBoss || (mix(TODAY+"rare"+state.spawns)%100 < 10);
   const pool = boss ? BOSSES : MONSTERS;
-  const m = pool[mix(TODAY+"m"+state.kills) % pool.length];
+  const m = pool[mix(TODAY+"m"+state.spawns) % pool.length];
   /* ボスはHP4倍の死闘。そのぶん報酬も特大 */
   const hpMax = Math.round((70 + lv*10) * mult * (boss ? 4 : 1));
   state.monster = { n:m.n, s:m.s, p:m.p, el:m.el||"none", hp:hpMax, hpMax:hpMax, boss:boss, fresh:true };
@@ -2610,7 +2613,7 @@ function renderDex(){
     const info = document.createElement("div");
     info.style.cssText = "font-size:13px;line-height:2.1";
     info.innerHTML =
-      `よわてん：${weak ? `${EL_ICON[weak]}${EL_NAME[weak]}（ダメージ1.5ばい）` : "とくになし"}<br>` +
+      `じゃくてん：${weak ? `${EL_ICON[weak]}${EL_NAME[weak]}（ダメージ1.5ばい）` : "とくになし"}<br>` +
       `たいせい：${res.length ? res.map(e=>EL_ICON[e]+EL_NAME[e]).join("・")+"（0.6ばい）" : "とくになし"}<br>` +
       `そうぐう：<span class="gold">${d.s}</span>回　とうばつ：<span class="gold">${d.k}</span>回<br>` +
       `すきなもの：${lore.like}<br>` +
