@@ -257,7 +257,7 @@
   /* ===== 勝利オーバーレイ ===== */
   .overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
   .overlay.show{display:flex}
-  .v-win{max-width:420px;width:100%;font-size:15px;line-height:2.2;animation:pop .3s}
+  .v-win{max-width:420px;width:100%;font-size:15px;line-height:2.2;animation:pop .3s;max-height:82vh;overflow-y:auto}
   @keyframes pop{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
   .v-win .lvup{color:#7adf9a}
   .v-ok{display:block;margin:14px auto 0;font-family:inherit;background:#000;color:#fff;border:2px solid #fff;border-radius:6px;padding:8px 40px;font-size:15px;cursor:pointer}
@@ -382,13 +382,8 @@
   <!-- ぼうけんのしょモーダル -->
   <div class="overlay" id="bookModal">
     <div class="dqwin v-win">
-      <div class="mtitle"><span>📖 ぼうけんのしょ</span><span id="bookCount"></span></div>
-      <div id="bookList"></div>
-      <div class="mrow" onclick="createBook()">＋ あたらしい しょを つくる</div>
-      <div class="mrow" onclick="renameBook()">✏ いまの しょの なまえを かえる</div>
-      <div class="mrow" onclick="saveSnap()">💾 セーブする（いまの状態を きろく）</div>
-      <div class="mrow" onclick="loadSnap()">📂 ロードする（セーブ地点に もどる）</div>
-      <div class="mrow" onclick="closeModal('bookModal')">もどる</div>
+      <div class="mtitle"><span id="bookTitle">📖 ぼうけんのしょ</span><span id="bookCount"></span></div>
+      <div id="bookBody"></div>
     </div>
   </div>
 
@@ -2076,26 +2071,99 @@ function openModal(id){
   if(shopOpen) leaveShop();
   if(id==="spellModal") renderSpells();
   if(id==="itemModal") renderItems();
-  if(id==="bookModal") renderBooks();
+  if(id==="bookModal"){ bookView = "main"; renderBooks(); }
   document.getElementById(id).classList.add("show");
 }
 
-/* ----- ぼうけんのしょ ----- */
+/* ----- ぼうけんのしょ（main / delete / save / load の4画面） ----- */
+let bookView = "main";
+function bookRow(body, html, cls, fn){
+  const el = document.createElement("div");
+  el.className = "mrow" + (cls ? " "+cls : "");
+  el.innerHTML = html;
+  if(fn) el.onclick = fn;
+  body.appendChild(el);
+}
+function slotKey(slot){ return "wqSnap_" + META.active + "_" + slot; }
+function migrateOldSnap(){
+  const old = localStorage.getItem("wqSnap_" + META.active);
+  if(old){
+    if(!localStorage.getItem(slotKey(1))){
+      try{ localStorage.setItem(slotKey(1), JSON.stringify({at:"(いぜんのセーブ)", state:JSON.parse(old)})); }catch(e){}
+    }
+    localStorage.removeItem("wqSnap_" + META.active);
+  }
+}
+function slotInfo(slot){
+  try{
+    const d = JSON.parse(localStorage.getItem(slotKey(slot)));
+    if(!d || !d.state) return null;
+    return { at:d.at, lv:levelInfo(d.state.xp||0).lv, gold:d.state.gold||0 };
+  }catch(e){ return null; }
+}
 function renderBooks(){
-  document.getElementById("bookCount").textContent = META.books.length + "さつ";
-  const wrap = document.getElementById("bookList");
-  wrap.innerHTML = "";
-  META.books.forEach(b=>{
-    const active = b.id === META.active;
-    const el = document.createElement("div");
-    el.className = "mrow" + (active ? " equipped" : "");
-    el.innerHTML = `${active?"▶ ":""}${b.name} <span class="cost">${active?"つかってる":"きりかえる"}</span>` +
-      `<div class="mdesc">${active?"いま ひらいている しょ":"タップで この しょに きりかえ"}${META.books.length>1?`　<span class="bdel" style="color:#f87171">［けす］</span>`:""}</div>`;
-    if(!active) el.onclick = ()=>switchBook(b.id);
-    const del = el.querySelector(".bdel");
-    if(del) del.onclick = (e)=>{ e.stopPropagation(); deleteBook(b.id); };
-    wrap.appendChild(el);
-  });
+  migrateOldSnap();
+  const body = document.getElementById("bookBody");
+  const title = document.getElementById("bookTitle");
+  const count = document.getElementById("bookCount");
+  body.innerHTML = "";
+  const backToMain = ()=>{ bookView="main"; sfxMenu(); renderBooks(); };
+
+  if(bookView === "main"){
+    title.textContent = "📖 ぼうけんのしょ";
+    count.textContent = META.books.length + "さつ";
+    META.books.forEach(b=>{
+      const active = b.id === META.active;
+      bookRow(body,
+        `${active?"▶ ":""}${b.name} <span class="cost">${active?"つかってる":"きりかえる"}</span><div class="mdesc">${active?"いま ひらいている しょ":"タップで この しょに きりかえ"}</div>`,
+        active?"equipped":"",
+        active?null:()=>switchBook(b.id));
+    });
+    bookRow(body, "＋ あたらしい しょを つくる", "", createBook);
+    bookRow(body, "✏ いまの しょの なまえを かえる", "", renameBook);
+    bookRow(body, "🗑 しょを けす", "", ()=>{ bookView="delete"; sfxMenu(); renderBooks(); });
+    bookRow(body, "💾 セーブする（スロット1〜99）", "", ()=>{ bookView="save"; sfxMenu(); renderBooks(); });
+    bookRow(body, "📂 ロードする", "", ()=>{ bookView="load"; sfxMenu(); renderBooks(); });
+    bookRow(body, "もどる", "", ()=>closeModal("bookModal"));
+
+  }else if(bookView === "delete"){
+    title.textContent = "🗑 しょを けす";
+    count.textContent = "";
+    META.books.forEach(b=>{
+      bookRow(body,
+        `${b.name}${b.id===META.active?"（つかってる）":""} <span class="cost" style="color:#f87171">けす</span>`,
+        META.books.length<=1?"disabled":"",
+        ()=>deleteBook(b.id));
+    });
+    if(META.books.length<=1) bookRow(body, `<div class="mdesc">さいごの1さつは けせない</div>`, "disabled");
+    bookRow(body, "もどる", "", backToMain);
+
+  }else if(bookView === "save"){
+    title.textContent = "💾 セーブする";
+    count.textContent = "スロットをえらぶ";
+    for(let s=1; s<=99; s++){
+      const info = slotInfo(s);
+      if(info){
+        bookRow(body, `スロット${s} <span class="cost">Lv${info.lv}・${info.gold}G</span><div class="mdesc">${info.at} ─ タップで うわがき</div>`, "", ()=>saveToSlot(s));
+      }else{
+        bookRow(body, `スロット${s} <span class="cost" style="color:#6b7090">あいてる</span>`, "", ()=>saveToSlot(s));
+      }
+    }
+    bookRow(body, "もどる", "", backToMain);
+
+  }else{ /* load */
+    title.textContent = "📂 ロードする";
+    count.textContent = "";
+    let any = false;
+    for(let s=1; s<=99; s++){
+      const info = slotInfo(s);
+      if(!info) continue;
+      any = true;
+      bookRow(body, `スロット${s} <span class="cost">Lv${info.lv}・${info.gold}G</span><div class="mdesc">${info.at} ─ タップで よみこむ</div>`, "", ()=>loadFromSlot(s));
+    }
+    if(!any) bookRow(body, `セーブが まだない<div class="mdesc">さきに「セーブする」で スロットに きろくしよう</div>`, "disabled");
+    bookRow(body, "もどる", "", backToMain);
+  }
 }
 function switchBook(id){
   save();
@@ -2124,24 +2192,32 @@ function deleteBook(id){
   if(!confirm(`「${b.name}」を けします。データは もとに もどせません。よろしいですか？`)) return;
   localStorage.removeItem(bookKey(id));
   localStorage.removeItem("wqSnap_"+id);
+  for(let s=1; s<=99; s++) localStorage.removeItem("wqSnap_"+id+"_"+s);
   META.books = META.books.filter(x=>x.id!==id);
   if(META.active === id){ META.active = META.books[0].id; saveMeta(); location.reload(); return; }
   saveMeta(); sfxCancel(); renderBooks();
 }
-/* セーブ＆ロード（書ごとのスナップショット） */
-function saveSnap(){
+/* セーブ＆ロード（スロット1〜99） */
+function saveToSlot(slot){
+  const info = slotInfo(slot);
+  if(info && !confirm(`スロット${slot}には すでにセーブがある（Lv${info.lv}・${info.at}）。うわがきしますか？`)) return;
   save();
-  localStorage.setItem("wqSnap_"+META.active, localStorage.getItem(bookKey(META.active)));
-  msg("💾 ぼうけんのきろくを セーブした！", true);
+  const now = new Date();
+  const at = `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+  localStorage.setItem(slotKey(slot), JSON.stringify({at, state}));
+  msg(`💾 スロット${slot}に セーブした！`, true);
   sfxHeal();
   closeModal("bookModal");
 }
-function loadSnap(){
-  const s = localStorage.getItem("wqSnap_"+META.active);
-  if(!s){ alert("この しょには まだ セーブが ない。さきに「セーブする」を つかおう。"); return; }
-  if(!confirm("セーブした地点に もどします。いまの進行は きえます。よろしいですか？")) return;
-  localStorage.setItem(bookKey(META.active), s);
-  location.reload();
+function loadFromSlot(slot){
+  const raw = localStorage.getItem(slotKey(slot));
+  if(!raw) return;
+  if(!confirm(`スロット${slot}の セーブを よみこみます。いまの進行は きえます。よろしいですか？`)) return;
+  try{
+    const d = JSON.parse(raw);
+    localStorage.setItem(bookKey(META.active), JSON.stringify(d.state));
+    location.reload();
+  }catch(e){ alert("セーブデータが よみこめなかった…"); }
 }
 function closeModal(id){ sfxMenu(); document.getElementById(id).classList.remove("show"); }
 
