@@ -66,6 +66,7 @@
   @keyframes wf{0%{opacity:.9}100%{opacity:0}}
   .battle.redflash::before{content:"";position:absolute;inset:0;background:#e22;animation:rf .4s forwards;z-index:9;pointer-events:none}
   @keyframes rf{0%{opacity:.55}100%{opacity:0}}
+  .battle.fireflash::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 70%,#ffb73c,#f80 55%,#d22 90%);animation:rf .5s forwards;z-index:9;pointer-events:none}
   .sprite-wrap.lunge canvas{animation:lungeA .45s ease-out}
   @keyframes lungeA{0%{transform:none}35%{transform:translateY(22px) scale(1.14)}100%{transform:none}}
 
@@ -674,7 +675,7 @@ function spawnMonster(forceBoss){
   const pool = boss ? BOSSES : MONSTERS;
   const m = pool[mix(TODAY+"m"+state.kills) % pool.length];
   const hpMax = Math.round((70 + lv*10) * mult * (boss ? 2.5 : 1));
-  state.monster = { n:m.n, s:m.s, p:m.p, hp:hpMax, hpMax:hpMax, boss:boss };
+  state.monster = { n:m.n, s:m.s, p:m.p, hp:hpMax, hpMax:hpMax, boss:boss, fresh:true };
 }
 
 /* 日をまたいだときの処理（夜のできごと） */
@@ -715,9 +716,11 @@ function dailyTick(){
     if(!state.monster){
       spawnMonster(today().getDay()===0);
       msg(`${state.monster.boss?"👑 ":""}${state.monster.n}が あらわれた！`, true);
+      bossEntrance();
     }else if(today().getDay()===0 && !state.monster.boss){
       spawnMonster(true);
       msg("👑 にちようび！ ボスが たちはだかった！", true);
+      bossEntrance();
     }
   }
   state.lastSeen = TODAY;
@@ -1430,6 +1433,24 @@ function sfxEnemyHit(){
     noiseBurst(t,.2,.1);
   }catch(e){}
 }
+/* 味方の呪文：キラキラと駆け上がる音 */
+function sfxSpell(){
+  try{
+    const t=audio().currentTime;
+    [660,880,1175,1568,2093].forEach((f,i)=>tone(f, t+i*.05, .14, "triangle", .06));
+    noiseBurst(t+.05, .18, .02);
+  }catch(e){}
+}
+/* 敵の呪文：不穏に沈む音 */
+function sfxEnemySpell(){
+  try{
+    const t=audio().currentTime;
+    [392,330,262,208].forEach((f,i)=>{
+      tone(f, t+i*.09, .2, "sawtooth", .05);
+      tone(f*1.5, t+i*.09, .2, "triangle", .03);
+    });
+  }catch(e){}
+}
 function sfxCoin(){ try{ const t=audio().currentTime; tone(988,t,.07,"square",.07); tone(1319,t+.08,.18,"square",.07); }catch(e){} }
 function sfxLevelUp(){ try{ const t=audio().currentTime; [523,587,659,740,831,932,1047].forEach((f,i)=>tone(f,t+i*.09,.12,"square",.07)); }catch(e){} }
 /* ================= BGM（オリジナル曲・魔物の種類ごとに変化） =================
@@ -1717,15 +1738,25 @@ function toggle(task){
     if(!rec.dmg.includes(task.id)){
       rec.dmg.push(task.id);
       let dmg = task.xp + atkNow();
-      if(state.buff){ dmg *= 2; state.buff = false; msg("バイキルトの ちからが はじけた！", true); }
-      attackAnim(dmg);
-      state.monster.hp -= dmg;
-      msg(`きみのこうげき！ ${state.monster.n}に ${dmg}の ダメージ！`, true);
-      if(state.monster.hp <= 0){
-        setTimeout(()=>killMonster(beforeLv), 600);
-      }else{
-        maybeCounter(dmg);
-      }
+      const buffed = state.buff;
+      if(state.buff) state.buff = false;
+      if(buffed) dmg *= 2;
+      /* ワンクッション：まず「きみのこうげき！」→ 一拍おいてヒット演出 */
+      msg("▶ きみの こうげき！", true);
+      sfxMenu();
+      setTimeout(()=>{
+        if(!state.monster) return;
+        if(buffed) msg("バイキルトの ちからが はじけた！", true);
+        attackAnim(dmg);
+        state.monster.hp -= dmg;
+        msg(`${state.monster.n}に ${dmg}の ダメージ！`, true);
+        save(); render();
+        if(state.monster.hp <= 0){
+          setTimeout(()=>killMonster(beforeLv), 600);
+        }else{
+          maybeCounter(dmg);
+        }
+      }, 700);
     }else{
       msg("そのこうげきは すでに きまっている！", true);
     }
@@ -1752,22 +1783,87 @@ function maybeCounter(dealt){
   if(Math.random()*100 >= p) return;
   setTimeout(counterAttack, 750);
 }
-function counterAttack(){
-  if(!state.monster || state.monster.hp<=0 || shopOpen) return;
+/* プレイヤー被ダメージの共通処理（HP0で教会送り） */
+function playerDamage(dmg, text){
   const lv = levelInfo(state.xp).lv;
-  const m = state.monster;
-  let dmg = Math.round((6 + lv*2) * (m.boss?1.8:1) * (0.8 + Math.random()*0.5));
-  const def = ARMORS[state.armor].def;
-  dmg = Math.max(1, dmg - def);
-  counterAnim();
   state.hp = Math.max(0, state.hp - dmg);
-  msg(`${m.n}の はんげき！ きみに ${dmg}の ダメージ！${def>0?`（よろいが ${def}けいげん）`:""}`, true);
+  msg(text, true);
   if(state.hp <= 0){
     state.gold = Math.floor(state.gold/2);
     state.hp = maxHp(lv);
     msg("きみは ちからつきた… きょうかいで いきかえった（しょじゴールドが はんぶんになった）", true);
   }
   save(); render();
+}
+function fireAnim(){
+  sfxEnemyHit();
+  const bv = document.getElementById("battleView");
+  bv.classList.remove("shake","fireflash"); void bv.offsetWidth;
+  bv.classList.add("shake","fireflash");
+  setTimeout(()=>bv.classList.remove("fireflash"), 520);
+}
+function counterAttack(){
+  if(!state.monster || state.monster.hp<=0 || shopOpen) return;
+  const lv = levelInfo(state.xp).lv;
+  const m = state.monster;
+  const def = ARMORS[state.armor].def;
+  const roll = Math.random();
+  if(roll < 0.22){
+    /* 炎の呪文（鎧は半分しか効かない） */
+    msg(`${m.n}は ${m.boss?"ベギラマ":"メラ"}を となえた！`, true);
+    sfxEnemySpell();
+    setTimeout(()=>{
+      if(!state.monster) return;
+      let dmg = Math.round((9 + lv*2.2) * (m.boss?1.7:1) * (0.85 + Math.random()*0.4));
+      dmg = Math.max(1, dmg - Math.floor(def/2));
+      fireAnim();
+      playerDamage(dmg, `ほのおが きみを やいた！ ${dmg}の ダメージ！`);
+    }, 750);
+  }else if(roll < 0.30 && m.hp < m.hpMax*0.6){
+    /* じこかいふく */
+    msg(`${m.n}は ホイミを となえた！`, true);
+    sfxEnemySpell();
+    setTimeout(()=>{
+      if(!state.monster) return;
+      const heal = Math.round(m.hpMax*0.2);
+      m.hp = Math.min(m.hpMax, m.hp + heal);
+      msg(`${m.n}の きずが ふさがっていく…！ HPが ${heal} かいふくした！`, true);
+      save(); render();
+    }, 750);
+  }else{
+    let dmg = Math.round((6 + lv*2) * (m.boss?1.8:1) * (0.8 + Math.random()*0.5));
+    dmg = Math.max(1, dmg - def);
+    counterAnim();
+    playerDamage(dmg, `${m.n}の はんげき！ きみに ${dmg}の ダメージ！${def>0?`（よろいが ${def}けいげん）`:""}`);
+  }
+}
+
+/* ===== ボスの登場攻撃（出現直後に一度だけ） ===== */
+function bossEntrance(){
+  const m = state.monster;
+  if(!m || !m.boss || !m.fresh) return;
+  m.fresh = false;
+  save();
+  setTimeout(()=>{
+    if(!state.monster || state.monster !== m || shopOpen) return;
+    const lv = levelInfo(state.xp).lv;
+    const def = ARMORS[state.armor].def;
+    if(Math.random() < 0.5){
+      msg(`${m.n}は とうじょうと どうじに ベギラマを はなった！`, true);
+      sfxEnemySpell();
+      setTimeout(()=>{
+        let dmg = Math.round((10 + lv*2.4) * (0.9 + Math.random()*0.3));
+        dmg = Math.max(1, dmg - Math.floor(def/2));
+        fireAnim();
+        playerDamage(dmg, `ほのおの あらしが きみを のみこんだ！ ${dmg}の ダメージ！`);
+      }, 750);
+    }else{
+      let dmg = Math.round((9 + lv*2.2) * (0.9 + Math.random()*0.3));
+      dmg = Math.max(1, dmg - def);
+      counterAnim();
+      playerDamage(dmg, `${m.n}の いかくの いちげき！ きみに ${dmg}の ダメージ！${def>0?`（よろいが ${def}けいげん）`:""}`);
+    }
+  }, 1000);
 }
 function counterAnim(){
   sfxEnemyHit();
@@ -1840,6 +1936,7 @@ function adventureOn(){
   msg(`${state.monster.boss?"👑 つよそうな けはい…！ ":""}${state.monster.n}が あらわれた！`, true);
   bgmRestart();
   save(); render();
+  bossEntrance();
 }
 function restAtInn(){
   sfxHeal();
@@ -1982,7 +2079,7 @@ function castSpell(i){
   }else if(i===1){
     state.buff = true;
     msg("バイキルト！ つぎのこうげきの ダメージが 2ばいになる！", true);
-    sfxLevelUp();
+    sfxSpell();
   }else if(i===2){
     const amount = 50 + lv*4;
     state.hp = Math.min(maxHp(lv), state.hp + amount);
@@ -1991,15 +2088,21 @@ function castSpell(i){
   }else if(i===3){
     state.scala = TODAY;
     msg("スカラ！ こんやの やしゅうダメージが はんげんする！", true);
-    sfxHeal();
+    sfxSpell();
   }else{
     const beforeLv = lv;
     const dmg = 40 + lv*2;
-    attackAnim(dmg);
-    state.monster.hp -= dmg;
-    msg(`メラミ！ ${state.monster.n}に ${dmg}の ダメージ！`, true);
-    if(state.monster.hp <= 0) setTimeout(()=>killMonster(beforeLv), 600);
-    else maybeCounter(dmg);
+    msg("▶ きみは メラミを となえた！", true);
+    sfxSpell();
+    setTimeout(()=>{
+      if(!state.monster || state.monster.hp<=0) return;
+      attackAnim(dmg);
+      state.monster.hp -= dmg;
+      msg(`ほのおが ${state.monster.n}を つつむ！ ${dmg}の ダメージ！`, true);
+      save(); render();
+      if(state.monster.hp <= 0) setTimeout(()=>killMonster(beforeLv), 600);
+      else maybeCounter(dmg);
+    }, 700);
   }
   closeModal("spellModal");
   save(); render();
@@ -2367,6 +2470,7 @@ document.getElementById("bgmBtn").textContent = state.settings.bgm ? "♪ ON" : 
 if(state.monster) msg(`${state.monster.boss?"👑 ボス！ ":""}${state.monster.n}が あらわれた！`, true);
 else if(isResting()) msg("🏨 きょうは やどで きゅうそくちゅう。タスクは じっくり ふくしゅうタイムだ。", true);
 msg("コマンド？　▶たたかう で つぎのターゲットへ");
+bossEntrance();
 /* BGMはユーザー操作後でないと再生できない（ブラウザ仕様）→ 初回タップで開始 */
 if(state.settings.bgm){
   const kick = ()=>{ audio(); bgmKill(); bgmLoop(); document.removeEventListener("pointerdown", kick); };
