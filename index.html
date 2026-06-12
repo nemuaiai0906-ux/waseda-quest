@@ -1489,25 +1489,24 @@ function bgmLoop(){
   else playChip(song,t0,step);
   bgmTimer = setTimeout(bgmLoop, 16*step*1000 - 40);
 }
-function bgmRestart(){
+/* 古いバスを完全に切断して破棄（予約済みの音はバスごと二度と鳴らない） */
+function bgmKill(){
   clearTimeout(bgmTimer);
+  if(bgmBus){
+    try{ bgmBus.gain.value = 0; bgmBus.disconnect(); }catch(e){}
+    bgmBus = null;
+  }
+  ORCH = null; /* 残響経路も古いバスに繋がっているため次回作り直す */
+}
+function bgmRestart(){
+  bgmKill();
   if(state.settings.bgm && actx && actx.state==="running") bgmLoop();
 }
 function toggleBgm(){
   state.settings.bgm = !state.settings.bgm; save();
   document.getElementById("bgmBtn").textContent = state.settings.bgm ? "♪ ON" : "♪ OFF";
-  clearTimeout(bgmTimer);
-  if(state.settings.bgm){
-    audio();
-    const g = bgmOut().gain;
-    g.cancelScheduledValues(audio().currentTime);
-    g.value = 1;
-    bgmLoop();
-  }else if(bgmBus){
-    /* 予約済みの音もバスごと即ミュート */
-    bgmBus.gain.cancelScheduledValues(audio().currentTime);
-    bgmBus.gain.value = 0;
-  }
+  bgmKill();
+  if(state.settings.bgm){ audio(); bgmLoop(); }
 }
 
 /* ================= 2D/3D切替 ================= */
@@ -2153,7 +2152,7 @@ else if(isResting()) msg("🏨 きょうは やどで きゅうそくちゅう�
 msg("コマンド？　▶たたかう で つぎのターゲットへ");
 /* BGMはユーザー操作後でないと再生できない（ブラウザ仕様）→ 初回タップで開始 */
 if(state.settings.bgm){
-  const kick = ()=>{ audio(); clearTimeout(bgmTimer); bgmLoop(); document.removeEventListener("pointerdown", kick); };
+  const kick = ()=>{ audio(); bgmKill(); bgmLoop(); document.removeEventListener("pointerdown", kick); };
   document.addEventListener("pointerdown", kick);
 }
 </script>
