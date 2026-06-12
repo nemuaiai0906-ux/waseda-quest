@@ -184,9 +184,27 @@
   .backbtn{font-size:15px;padding:4px 4px 4px 22px;position:relative;cursor:pointer;color:#ffd24a;margin-bottom:6px}
   .backbtn::before{content:"▶";position:absolute;left:2px}
 
+  /* ぶきやの店主 */
+  .keeper{display:flex;gap:12px;align-items:center;margin:4px 0 10px;padding-bottom:10px;border-bottom:1px dotted #2a3050}
+  .keeper canvas{image-rendering:pixelated;flex-shrink:0}
+  .kspeech{font-size:12px;line-height:1.9;color:#c6cbe8}
+
   /* 記録 */
   .stats2{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;line-height:2}
+  .calnav{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:14px;color:#9fe0ff}
+  .navbtn{cursor:pointer;padding:2px 14px;color:#ffd24a;user-select:none}
+  .navbtn:active{opacity:.6}
+  .navbtn.off{opacity:.25;pointer-events:none}
   .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:8px}
+  .day.clickable{cursor:pointer}
+  .day.sel{border-color:#ffd24a;color:#ffd24a}
+  .dtask{font-size:12px;line-height:1.7;padding:4px 0 4px 20px;position:relative;border-bottom:1px dotted #232a48}
+  .dtask:last-child{border-bottom:none}
+  .dtask::before{content:"✓";position:absolute;left:2px;color:#7adf9a}
+  .dtask.undone{color:#6b7090}
+  .dtask.undone::before{content:"・";color:#6b7090}
+  .dtask .sub{color:#9fe0ff}
+  .dtask.undone .sub{color:#6b7090}
   .cal .dow{text-align:center;font-size:10px;color:#9fe0ff}
   .day{aspect-ratio:1;border:1px solid #3a4163;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:9px;color:#6b7090}
   .day .de{font-size:13px;line-height:1.2}
@@ -314,6 +332,7 @@
   <div class="overlay" id="shopModal">
     <div class="dqwin v-win">
       <div class="mtitle"><span>ぶきのみせ</span><span class="gold" id="shopGold">0G</span></div>
+      <div class="keeper" id="keeperBox"></div>
       <div id="shopList"></div>
       <div class="mrow" onclick="closeModal('shopModal')">もどる</div>
     </div>
@@ -330,9 +349,15 @@
         <span>さいこう連続　<span class="gold" id="stBest">0</span>日</span>
         <span>30日とうばつ率　<span class="gold" id="stRate">0%</span></span>
       </div>
+      <div class="calnav">
+        <span class="navbtn" onclick="recNav(-1)">◀</span>
+        <span id="calMonth">-</span>
+        <span class="navbtn" onclick="recNav(1)">▶</span>
+      </div>
       <div class="cal" id="cal"></div>
-      <div class="note">⚔=全討伐　△=一部討伐。1日でも逃すと連続記録はリセット。魔物は毎日よみがえる——にげられない。</div>
+      <div class="note">日付をタップすると その日のきろくが ひらく。⚔=全達成　△=一部　🏨=やど泊。1日でも逃すと連続記録はリセット。</div>
     </div>
+    <div class="dqwin" id="dayDetail" style="display:none"></div>
   </div>
 
   <!-- ===== 作戦書ページ ===== -->
@@ -724,8 +749,24 @@ const SHAPES = {
     "..kaaaaaak..",
     "..kbk..kbk..",
     "..kkk..kkk.."
+  ],
+  shopkeep: [
+    "...kkkkk....",
+    "..khhhhhk...",
+    "..ksssssk...",
+    "..ksesesk...",
+    "..ksbbbsk...",
+    "...ksssk....",
+    ".kkccccckk..",
+    "kcckwwwkcck.",
+    "kcckwwwkcck.",
+    ".kskwwwksk..",
+    "..kwwwwwk...",
+    "..kbk.kbk...",
+    "..kkk.kkk..."
   ]
 };
+const KEEPER_PAL = {k:"#10131f",h:"#c0392b",s:"#f0c8a0",e:"#16121c",b:"#6f4a2a",c:"#3a6fb0",w:"#e8e0c8"};
 function drawSprite(shape, pal, scale){
   const rows = SHAPES[shape];
   const w = rows[0].length, h = rows.length;
@@ -1463,6 +1504,11 @@ function killMonster(beforeLv){
   state.gold += gold;
   state.kills += 1;
   state.xp += bonus;
+  /* 日別のきろく */
+  const drec = dayRec(TODAY);
+  drec.kills = (drec.kills||0) + 1;
+  drec.gold = (drec.gold||0) + gold;
+  if(m.boss) drec.boss = (drec.boss||0) + 1;
 
   let drops = [];
   const roll = mix(TODAY+"k"+state.kills) % 100;
@@ -1512,6 +1558,7 @@ function restAtInn(){
   const lv = levelInfo(state.xp).lv;
   state.hp = maxHp(lv); state.mp = maxMp(lv);
   state.restDay = TODAY;
+  dayRec(TODAY).rest = true;
   msg("🏨 やどやに とまった。HPとMPが ぜんかいふくした！", true);
   msg("あしたまで まものは あらわれない。のこりのタスクは やどで じっくり ふくしゅうしよう。");
   bgmRestart();
@@ -1681,6 +1728,14 @@ function useItem(key){
 /* ----- ぶきや ----- */
 function renderShop(){
   document.getElementById("shopGold").textContent = state.gold + "G";
+  const kb = document.getElementById("keeperBox");
+  if(!kb.querySelector("canvas")){
+    kb.appendChild(drawSprite("shopkeep", KEEPER_PAL, 5));
+    const sp = document.createElement("div");
+    sp.className = "kspeech";
+    sp.textContent = "いらっしゃい！ まものを たおした ゴールドで つよい ぶきを かっていきな！";
+    kb.appendChild(sp);
+  }
   const wrap = document.getElementById("shopList");
   wrap.innerHTML = "";
   WEAPONS.forEach((w,i)=>{
@@ -1728,6 +1783,23 @@ function addCustom(){
 document.getElementById("customInput").addEventListener("keydown",e=>{ if(e.key==="Enter") addCustom(); });
 
 /* ================= 記録 ================= */
+/* 月めくりカレンダー（全期間のきろく） */
+let recMonth = (()=>{ const m=new Date(); m.setDate(1); return m; })();
+let selDay = null;
+function monthIdx(d){ return d.getFullYear()*12 + d.getMonth(); }
+function minRecMonth(){
+  let min = TODAY;
+  Object.keys(state.history).forEach(ds=>{ if(ds < min) min = ds; });
+  const m = new Date(min+"T12:00:00"); m.setDate(1); return m;
+}
+function recNav(dir){
+  const m = new Date(recMonth); m.setMonth(m.getMonth()+dir);
+  const lo = monthIdx(minRecMonth()), hi = monthIdx(new Date());
+  if(monthIdx(m) < lo || monthIdx(m) > hi) return;
+  sfxMenu();
+  recMonth = m;
+  renderRecord();
+}
 function renderRecord(){
   let taskCount=0;
   Object.values(state.history).forEach(h=>{ taskCount+=h.done.length; });
@@ -1738,23 +1810,62 @@ function renderRecord(){
   for(let i=0;i<30;i++){ const d=new Date(); d.setDate(d.getDate()-i); const h=state.history[dstr(d)]; if(h&&h.defeated) win30++; }
   document.getElementById("stRate").textContent = Math.round(win30/30*100)+"%";
 
+  const y=recMonth.getFullYear(), mo=recMonth.getMonth();
+  document.getElementById("calMonth").textContent = y+"年"+(mo+1)+"月";
+  const navs=document.querySelectorAll(".navbtn");
+  navs[0].classList.toggle("off", monthIdx(recMonth)<=monthIdx(minRecMonth()));
+  navs[1].classList.toggle("off", monthIdx(recMonth)>=monthIdx(new Date()));
+
   const cal=document.getElementById("cal");
   cal.innerHTML="";
   ["日","月","火","水","木","金","土"].forEach(w=>{ const e=document.createElement("div"); e.className="dow"; e.textContent=w; cal.appendChild(e); });
-  const start=new Date(); start.setDate(start.getDate()-27-start.getDay());
-  for(let i=0;i<35;i++){
-    const d=new Date(start); d.setDate(start.getDate()+i);
+  const blanks=new Date(y,mo,1).getDay();
+  for(let i=0;i<blanks;i++){ const e=document.createElement("div"); cal.appendChild(e); }
+  const days=new Date(y,mo+1,0).getDate();
+  for(let day=1; day<=days; day++){
+    const d=new Date(y,mo,day,12);
     const ds=dstr(d), h=state.history[ds];
     const cell=document.createElement("div");
     let cls="day", mark="";
-    if(d>today() && ds!==TODAY) cls+=" future";
+    const future = ds>TODAY;
+    if(future) cls+=" future";
     else if(h&&h.defeated){ cls+=" win"; mark="⚔"; }
+    else if(h&&h.rest){ cls+=" partial"; mark="🏨"; }
     else if(h&&h.done.length>0){ cls+=" partial"; mark="△"; }
     if(ds===TODAY) cls+=" today";
+    if(ds===selDay) cls+=" sel";
+    if(!future){ cls+=" clickable"; cell.onclick=()=>showDay(ds); }
     cell.className=cls;
-    cell.innerHTML=`<span class="de">${mark}</span>${d.getDate()}`;
+    cell.innerHTML=`<span class="de">${mark}</span>${day}`;
     cal.appendChild(cell);
   }
+}
+/* 日付タップ → その日のきろく詳細 */
+function showDay(ds){
+  sfxMenu();
+  selDay = ds;
+  const el=document.getElementById("dayDetail");
+  const h=state.history[ds] || {done:[]};
+  const tasks=tasksFor(ds);
+  const d=new Date(ds+"T12:00:00");
+  const wn=["日","月","火","水","木","金","土"][d.getDay()];
+  const doneList=tasks.filter(t=>h.done.includes(t.id));
+  const restList=tasks.filter(t=>!h.done.includes(t.id));
+  const status = h.defeated ? "⚔ ノルマ全達成！" : (doneList.length ? "△ 一部達成" : "― きろくなし");
+  let html=`<div class="listtitle"><span>${d.getMonth()+1}/${d.getDate()}（${wn}）のきろく</span><span>${status}</span></div>`;
+  html+=`<div class="stats2">
+    <span>たおした魔物 <span class="gold">${h.kills||0}</span>体${h.boss?`（👑ボス${h.boss}）`:""}</span>
+    <span>かくとく <span class="gold">${h.gold||0}</span>G</span>
+  </div>`;
+  if(h.rest) html+=`<div class="note" style="margin-top:4px">🏨 この日は やどやに とまった</div>`;
+  if(doneList.length||restList.length){
+    html+=`<div class="listtitle" style="margin-top:10px"><span>クエスト ${doneList.length}/${tasks.length}</span></div>`;
+    doneList.forEach(t=>{ html+=`<div class="dtask"><span class="sub">【${t.s}】</span>${t.t}</div>`; });
+    restList.forEach(t=>{ html+=`<div class="dtask undone"><span class="sub">【${t.s}】</span>${t.t}</div>`; });
+  }
+  el.innerHTML=html;
+  el.style.display="block";
+  renderRecord();
 }
 
 /* ================= 作戦書 ================= */
