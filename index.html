@@ -687,9 +687,9 @@ const ITEMS_SHOP = [
   {key:"ether", n:"まほうのせいすい", d:"MPを 12 かいふくする",  cost:45}
 ];
 const SPELLS = [
-  {n:"ヒール",       mp:6,  cost:0,    type:"heal",     pow:20, d:"HPをかいふくする"},
+  {n:"ヒール",       mp:6,  cost:0,    type:"heal",     min:25, max:35, d:"HPを 25〜35 かいふくする"},
   {n:"バイキルト",   mp:10, cost:0,    type:"buff",     d:"つぎのこうげきの ダメージ2ばい"},
-  {n:"ベホイミ",     mp:14, cost:600,  type:"heal",     pow:50, d:"HPを おおきく かいふくする"},
+  {n:"ベホイミ",     mp:14, cost:600,  type:"heal",     min:50, max:75, d:"HPを 50〜75 かいふくする"},
   {n:"スカラ",       mp:8,  cost:500,  type:"guard",    d:"こんやの やしゅうダメージを はんげん"},
   {n:"ベホマ",       mp:26, cost:2600, type:"healfull", d:"HPを ぜんかいふくする"},
   {n:"メラミ",       mp:15, cost:1200, type:"atk", el:"fire",    pow:40, d:"🔥ほのおのダメージ（氷にばつぐん）"},
@@ -2686,7 +2686,8 @@ function castSpell(i){
   if(sp.type==="atk" && (!state.monster || state.monster.hp<=0 || isResting())){ msg("いまは まものが いない！", true); return; }
   state.mp -= sp.mp;
   if(sp.type==="heal"){
-    const amount = sp.pow + lv*3;
+    /* レベル非依存の固定レンジ回復（ベホイミの存在意義を守る） */
+    const amount = sp.min + Math.floor(Math.random() * (sp.max - sp.min + 1));
     state.hp = Math.min(maxHp(lv), state.hp + amount);
     msg(`${sp.n}！ HPが ${amount} かいふくした！`, true);
     sfxHeal();
