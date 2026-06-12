@@ -346,6 +346,7 @@
         <div class="cmd" onclick="showPage('record');sfxMenu()">きろく</div>
         <div class="cmd" onclick="showPage('plan');sfxMenu()">さくせん</div>
         <div class="cmd" onclick="openModal('bookModal')">ぼうけんのしょ</div>
+        <div class="cmd" onclick="openModal('dexModal')">ずかん</div>
       </div>
       <div class="dqwin enemywin"><span id="enemyName">？？？</span><span id="enemyCount">－ 1ひき</span></div>
     </div>
@@ -400,6 +401,14 @@
     <div class="dqwin v-win">
       <div class="mtitle"><span id="bookTitle">📖 ぼうけんのしょ</span><span id="bookCount"></span></div>
       <div id="bookBody"></div>
+    </div>
+  </div>
+
+  <!-- まもの図鑑モーダル -->
+  <div class="overlay" id="dexModal">
+    <div class="dqwin v-win">
+      <div class="mtitle"><span id="dexTitle">📕 まものずかん</span><span id="dexCount"></span></div>
+      <div id="dexBody"></div>
     </div>
   </div>
 
@@ -606,8 +615,57 @@ const BOSSES = [
   {n:"もしのあくまアーカイヴ",   s:"demon", el:"dark",    p:{a:"#9a5fd0",b:"#3f2a60",e:"#7adfff"}},
   {n:"ごうかくはばむゲートロン", s:"demon", el:"thunder", p:{a:"#6a6a88",b:"#2e2e44",e:"#ffe24a"}},
   {n:"ねむけのまじんスリープロス", s:"demon", el:"ice",   p:{a:"#7a90b8",b:"#3a4a68",e:"#c8e8ff"}},
-  {n:"げんかいとっぱバーンナウつよ", s:"demon", el:"fire", p:{a:"#c04028",b:"#501a10",e:"#ffb03c"}}
+  {n:"げんかいのおうエクスリミット", s:"demon", el:"fire", p:{a:"#c04028",b:"#501a10",e:"#ffb03c"}}
 ];
+/* ===== 図鑑の小話 ===== */
+const LORE = {
+  "たんごゴブリン":{like:"おぼえたての英単語",lore:"君が単語を忘れるたびに少し大きくなるという。テスト前夜に最も凶暴化する。"},
+  "ぶんぽうゾンビ":{like:"仮定法の誤用",lore:"生前は文法の教師だったらしい。不定詞と動名詞を間違えると低い唸り声を上げる。"},
+  "サボりウルフ":{like:"「あとでやる」という言葉",lore:"「5分だけ休憩」の5分を2時間に変える魔力を持つ。スマホの近くに単独で現れる。"},
+  "あんきゴーレム":{like:"丸暗記された年号",lore:"体の岩には歴代の受験生が忘れた公式が刻まれている。理解なき暗記を食べて育つ。"},
+  "スマホぐも":{like:"通知音",lore:"その糸は一度触れると30分は逃れられない。机の上に巣を張るのが得意。"},
+  "さきのばしトロール":{like:"明日",lore:"「今日はもう遅いから」が口癖。彼を倒した者だけが「今やる」の称号を得る。"},
+  "ほのおスライム":{like:"燃え尽きた参考書",lore:"やる気が出すぎた受験生の「三日坊主の炎」から生まれた。最初の3日だけ異常に強い。"},
+  "マグマゴーレム":{like:"徹夜の熱気",lore:"体温は夜更かしで茹だった脳の温度と同じ。氷の呪文で頭を冷やしてやろう。"},
+  "フレイムドラゴン":{like:"赤ペンのインク",lore:"採点で真っ赤になった答案の怨念の集合体。雷に打たれると採点ミスを認める。"},
+  "ひのたまゴースト":{like:"締め切り直前の焦り",lore:"提出期限の夜にだけ現れる。心拍数は上がるが、実害は意外と少ない。"},
+  "ねっけつハーピー":{like:"根性論",lore:"「気合があれば寝なくても大丈夫！」と叫びながら襲ってくる。計画的な学習者が天敵。"},
+  "かざんトロール":{like:"溜め込んだ課題",lore:"課題を溜めると体内のマグマが増える。噴火（現実逃避）する前に倒すべし。"},
+  "こおりスライム":{like:"冷めたやる気",lore:"三日坊主の炎が消えたあとに残る冷たい塊。炎の呪文で再点火できる。"},
+  "フロストゴースト":{like:"冬の朝の布団",lore:"「あと5分」と囁いて受験生を布団に縛り付ける。朝型人間には弱い。"},
+  "アイスドラゴン":{like:"完璧主義",lore:"「完璧にできないならやらない」という心の氷から生まれた。小さな一歩の雷に弱い。"},
+  "ゆきんこゴーレム":{like:"真っ白な答案",lore:"白紙答案を集めて体を作っている。何か書けば書くほど縮む。"},
+  "ふぶきのおんりょう":{like:"模試の判定",lore:"E判定の通知とともに現れる。だが判定は変えられる——それを最も恐れている。"},
+  "とうけつグモ":{like:"停滞した計画",lore:"スケジュール帳の空白に巣を張る。糸は「明日から本気出す」でできている。"},
+  "かみなりスライム":{like:"一夜漬け",lore:"瞬発力はあるが持続しない。テスト後3日で全てを忘れる体質。"},
+  "らいうんゴースト":{like:"集中切れの瞬間",lore:"集中が切れた0.5秒の隙に脳内へ侵入する。ポモドーロの休憩には入れない。"},
+  "サンダードラゴン":{like:"スピード勝負",lore:"「速いが雑」の化身。氷の冷静さに弱い。見直しという言葉を知らない。"},
+  "いかずちゴーレム":{like:"ケアレスミス",lore:"体の電気はすべて計算ミスの静電気。見直しをすると放電して弱る。"},
+  "プラズマバット":{like:"夜中のテンション",lore:"深夜2時の謎のやる気を吸って育つ。朝になると見る影もない。"},
+  "でんげきサソリ":{like:"マークシートのズレ",lore:"一問ズレて全部ズレる——あの絶望を毒針に込めている。"},
+  "ひかりのせいれい":{like:"正答のひらめき",lore:"実は受験生の味方をしたい。だが「分かったつもり」には容赦しない。"},
+  "セイントスライム":{like:"丁寧すぎるノート",lore:"美しすぎるノート作りに費やされた時間から生まれた。ノートは手段と知ると消える。"},
+  "ホーリードラゴン":{like:"満点の答案",lore:"100点にしか興味がない聖竜。苦手分野から逃げる闇を一瞬で見抜く。"},
+  "ひじりゴーレム":{like:"毎日の積み重ね",lore:"コツコツの化身。実は倒されるより、君の継続を見届けるのが好き。"},
+  "てんしのハーピー":{like:"ほめ言葉",lore:"「えらい！」と言いながら襲ってくる。承認欲求を食べて空を飛ぶ。"},
+  "せいなるまもの":{like:"合格発表の朝",lore:"その正体は誰も知らない。合格者だけが見たと言う。"},
+  "やみのおんりょう":{like:"見なかったことにした過去問",lore:"封印された過去問の恨み。解いて供養するしかない。"},
+  "ダークスライム":{like:"SNSの沼",lore:"30秒のつもりが1時間。その粘液はアルゴリズムでできている。"},
+  "ジゴクドラゴン":{like:"受験前夜の悪夢",lore:"「何も勉強していない状態で本番」という夢そのもの。準備だけが弱点。"},
+  "やみゴーレム":{like:"苦手分野",lore:"放置された苦手単元が固まって岩になった。光を当てて向き合えば崩れる。"},
+  "よふかしバンパイア":{like:"午前2時",lore:"「夜のほうが集中できる」と囁く。朝日と規則正しい生活が天敵。"},
+  "あんこくグモ":{like:"閉じたカーテン",lore:"こもった部屋の隅に巣を張る。換気と散歩で弱体化する。"},
+  "だいまおうデッドライン":{like:"守られなかった計画表",lore:"全ての締め切りの王。彼の前で「まだ時間はある」と言った者は必ず後悔する。"},
+  "えんていバーンアウト":{like:"無理な計画",lore:"頑張りすぎた者の前に現れる炎の帝。本当の倒し方は戦わずに休むこと…だが今日は戦うしかない。"},
+  "ひょうていフリーズロード":{like:"挫折の記憶",lore:"一度の失敗で全てを諦めさせる氷の帝。再挑戦の炎に弱い。"},
+  "らいていボルテクス":{like:"焦りの渦",lore:"「みんなはもっと進んでいる」という比較の雷を落とす。自分のペースこそ最大の盾。"},
+  "せいていルミナス":{like:"真の実力",lore:"光の帝は問う。「その知識、本番で使えるか？」と。ごまかしの効かない相手。"},
+  "ふくしゅうりゅうレックス":{like:"忘却曲線",lore:"復習を怠った者の前に何度でも蘇る竜。エビングハウスの天敵にして信奉者。"},
+  "もしのあくまアーカイヴ":{like:"判定欄",lore:"全受験生の模試結果を記録する悪魔。だが本番の結果だけは記録できない。"},
+  "ごうかくはばむゲートロン":{like:"試験会場の門",lore:"合格の門の前に立ちはだかる雷の門番。突破の鍵は解いた過去問の数。"},
+  "ねむけのまじんスリープロス":{like:"睡眠不足",lore:"眠気で全てを無に帰す魔人。皮肉にも、よく寝た者には絶対に勝てない。"},
+  "げんかいのおうエクスリミット":{like:"限界という言い訳",lore:"「もう限界」と言った回数だけ強くなる。本当の限界はまだ先だと知る者には弱い。"}
+};
 const TITLES = ["見習い受験生","駆け出し挑戦者","単語ハンター","文法の騎士","長文剣士","赤本の狩人","記述の魔導士","過去問マスター","都の西北ナイト","政経の勇者","早稲田の覇者"];
 
 /* ================= 属性システム ================= */
@@ -745,6 +803,7 @@ function load(){
     s.hp = null; s.mp = null; s.monster = null; s.lastSeen = null;
   }
   if(s.restDay === undefined) s.restDay = null;
+  if(!s.dex) s.dex = {};
   /* 武器ラインナップ拡張（v2）に伴う旧インデックスの引き継ぎ */
   if(!s.weaponV2){
     s.weaponV2 = true;
@@ -843,6 +902,9 @@ function spawnMonster(forceBoss){
   /* ボスはHP4倍の死闘。そのぶん報酬も特大 */
   const hpMax = Math.round((70 + lv*10) * mult * (boss ? 4 : 1));
   state.monster = { n:m.n, s:m.s, p:m.p, el:m.el||"none", hp:hpMax, hpMax:hpMax, boss:boss, fresh:true };
+  /* まもの図鑑に遭遇を記録 */
+  if(!state.dex[m.n]) state.dex[m.n] = { s:0, k:0 };
+  state.dex[m.n].s++;
 }
 
 /* 日をまたいだときの処理（夜のできごと） */
@@ -2324,6 +2386,9 @@ function killMonster(beforeLv){
   drec.kills = (drec.kills||0) + 1;
   drec.gold = (drec.gold||0) + gold;
   if(m.boss) drec.boss = (drec.boss||0) + 1;
+  /* まもの図鑑に討伐を記録 */
+  if(!state.dex[m.n]) state.dex[m.n] = { s:1, k:0 };
+  state.dex[m.n].k++;
 
   let drops = [];
   const roll = mix(TODAY+"k"+state.kills) % 100;
@@ -2472,7 +2537,86 @@ function openModal(id){
   if(id==="spellModal") renderSpells();
   if(id==="itemModal") renderItems();
   if(id==="bookModal"){ bookView = "main"; renderBooks(); }
+  if(id==="dexModal"){ dexSel = null; renderDex(); }
   document.getElementById(id).classList.add("show");
+}
+
+/* ----- まものずかん ----- */
+let dexSel = null;
+/* その属性の弱点（=ばつぐんを取れる属性）と耐性 */
+function weakOf(el){ return Object.keys(BEATS).find(k=>BEATS[k]===el) || null; }
+function resistsOf(el){
+  if(!el || el==="none") return [];
+  const r = [el];
+  if(BEATS[el] && BEATS[BEATS[el]] !== el) r.push(BEATS[el]); /* 三すくみは自属性+勝てる属性に耐性 */
+  return r;
+}
+function renderDex(){
+  const body = document.getElementById("dexBody");
+  const title = document.getElementById("dexTitle");
+  const count = document.getElementById("dexCount");
+  body.innerHTML = "";
+  const all = [...MONSTERS.map(m=>({...m, boss:false})), ...BOSSES.map(m=>({...m, boss:true}))];
+  const found = all.filter(m=>state.dex[m.n]).length;
+
+  if(dexSel === null){
+    /* 一覧 */
+    title.textContent = "📕 まものずかん";
+    count.textContent = `はっけん ${found}/${all.length}`;
+    const row = (html, cls, fn)=>{
+      const el = document.createElement("div");
+      el.className = "mrow" + (cls?" "+cls:"");
+      el.innerHTML = html;
+      if(fn) el.onclick = fn;
+      body.appendChild(el);
+    };
+    const section = (label)=>{
+      const h = document.createElement("div");
+      h.className = "listtitle"; h.style.marginTop = "8px";
+      h.innerHTML = `<span>${label}</span>`;
+      body.appendChild(h);
+    };
+    section("─ まもの ─");
+    all.forEach((m,i)=>{
+      if(i === MONSTERS.length) section("─ ボス ─");
+      const d = state.dex[m.n];
+      if(d){
+        row(`${m.boss?"👑":""}${EL_ICON[m.el]||""}${m.n} <span class="cost">⚔${d.k}</span>`, "", ()=>{ dexSel = m.n; sfxMenu(); renderDex(); });
+      }else{
+        row(`？？？ <span class="cost" style="color:#6b7090">みはっけん</span>`, "disabled");
+      }
+    });
+    row("もどる", "", ()=>closeModal("dexModal"));
+  }else{
+    /* 詳細 */
+    const m = all.find(x=>x.n === dexSel);
+    const d = state.dex[m.n] || {s:0,k:0};
+    const lore = LORE[m.n] || {like:"？？？", lore:"なぞにつつまれている。"};
+    title.textContent = `${m.boss?"👑":""}${m.n}`;
+    count.textContent = EL_ICON[m.el] ? `${EL_ICON[m.el]}${EL_NAME[m.el]}` : "むぞくせい";
+    const back = document.createElement("div");
+    back.className = "mrow";
+    back.textContent = "← ずかんに もどる";
+    back.onclick = ()=>{ dexSel = null; sfxMenu(); renderDex(); };
+    body.appendChild(back);
+    /* スプライト */
+    const spriteBox = document.createElement("div");
+    spriteBox.style.cssText = "text-align:center;padding:12px 0";
+    spriteBox.appendChild(drawSprite(m.s, Object.assign({k:"#10131f"}, m.p), 6));
+    body.appendChild(spriteBox);
+    /* データ */
+    const weak = weakOf(m.el);
+    const res = resistsOf(m.el);
+    const info = document.createElement("div");
+    info.style.cssText = "font-size:13px;line-height:2.1";
+    info.innerHTML =
+      `よわてん：${weak ? `${EL_ICON[weak]}${EL_NAME[weak]}（ダメージ1.5ばい）` : "とくになし"}<br>` +
+      `たいせい：${res.length ? res.map(e=>EL_ICON[e]+EL_NAME[e]).join("・")+"（0.6ばい）" : "とくになし"}<br>` +
+      `そうぐう：<span class="gold">${d.s}</span>回　とうばつ：<span class="gold">${d.k}</span>回<br>` +
+      `すきなもの：${lore.like}<br>` +
+      `<div class="note" style="margin-top:8px">${lore.lore}</div>`;
+    body.appendChild(info);
+  }
 }
 
 /* ----- ぼうけんのしょ（main / delete / save / load の4画面） ----- */
