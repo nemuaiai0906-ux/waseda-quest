@@ -34,7 +34,16 @@
   .bcell .bar{height:9px;border:1px solid #fff;border-radius:3px;background:#1a2038;overflow:hidden;margin-top:6px}
   .bcell .bar>div{height:100%;transition:width .3s}
   .bcell .bar.hp>div{background:linear-gradient(90deg,#2faf5f,#7adf9a)}
+  .bcell .bar.hp>div.warn{background:linear-gradient(90deg,#d8a020,#ffe24a)}
+  .bcell .bar.hp>div.danger{background:linear-gradient(90deg,#c02020,#ff6a5a)}
   .bcell .bar.mp>div{background:linear-gradient(90deg,#2f6faf,#7ab8df)}
+
+  /* 瀕死（HP20%以下）：画面のふちが赤くモヤモヤと明滅 */
+  #dangerVignette{position:fixed;inset:0;pointer-events:none;z-index:45;display:none;
+    background:radial-gradient(ellipse at center, transparent 52%, rgba(220,30,30,.5) 100%)}
+  body.dying #dangerVignette{display:block;animation:dangerPulse 1.1s ease-in-out infinite}
+  @keyframes dangerPulse{0%,100%{opacity:.3}50%{opacity:.9}}
+  body.dying #pHpNum{color:#ff6a5a;font-weight:bold}
   .bcell .num{font-size:11px;margin-top:3px;color:#c6cbe8}
   .ministats{display:flex;justify-content:space-between;font-size:11px;margin-top:9px;flex-wrap:wrap;gap:4px}
   .subrow{display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-top:8px;gap:8px}
@@ -264,6 +273,7 @@
 </style>
 </head>
 <body class="mode2d">
+<div id="dangerVignette"></div>
 <div class="wrap">
 
   <!-- ステータス窓 -->
@@ -1838,7 +1848,9 @@ function toggleBgm(){
 
 /* ================= 2D/3D切替 ================= */
 function applyMode(){
-  document.body.className = state.settings.mode==="3d" ? "mode3d" : "mode2d";
+  const is3d = state.settings.mode==="3d";
+  document.body.classList.toggle("mode3d", is3d);
+  document.body.classList.toggle("mode2d", !is3d);
   document.getElementById("modeBtn").textContent = state.settings.mode==="3d" ? "2Dにする" : "3Dにする";
   const bv = document.getElementById("battleView");
   if(state.settings.mode==="3d" && glReady()){
@@ -1920,7 +1932,13 @@ function render(){
     document.getElementById("cdSeikei").textContent = daysUntil(SEIKEI);
   }
   document.getElementById("goldNum").textContent = state.gold + "G";
-  document.getElementById("pHpFill").style.width = (state.hp/maxHp(li.lv)*100)+"%";
+  const hpFill = document.getElementById("pHpFill");
+  const hpRatio = state.hp / maxHp(li.lv);
+  hpFill.style.width = (hpRatio*100)+"%";
+  /* HP残量で色が変わる：50%以下=黄 / 20%以下=赤＋瀕死演出 */
+  hpFill.classList.toggle("warn", hpRatio <= 0.5 && hpRatio > 0.2);
+  hpFill.classList.toggle("danger", hpRatio <= 0.2);
+  document.body.classList.toggle("dying", hpRatio <= 0.2);
   document.getElementById("pHpNum").textContent = state.hp + "/" + maxHp(li.lv);
   document.getElementById("pMpFill").style.width = (state.mp/maxMp(li.lv)*100)+"%";
   document.getElementById("pMpNum").textContent = state.mp + "/" + maxMp(li.lv);
