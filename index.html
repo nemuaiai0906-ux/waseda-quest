@@ -443,6 +443,7 @@
   <div class="dqwin v-win">
     <div id="vBody"></div>
     <button class="v-ok" onclick="adventureOn()">⚔ ぼうけんを つづける</button>
+    <button class="v-ok" style="border-color:#ffd24a;color:#ffd24a" onclick="shopFromVictory()">🏠 しょうにんと とりひき</button>
     <button class="v-ok" style="border-color:#7ab8df;color:#9fe0ff" onclick="restAtInn()">🏨 やどやで やすむ（HP/MP全回復）</button>
   </div>
 </div>
@@ -1988,6 +1989,8 @@ function toggle(task){
     }
   }else if(isResting()){
     msg("🏨 やどの へやで じっくり ふくしゅうした！ けいけんちを えた！", true);
+  }else if(!state.monster){
+    msg("いまは たたかう あいてが いない。けいけんちだけ えた！", true);
   }
 
   const tasks = tasksFor(TODAY);
@@ -2184,7 +2187,7 @@ function restAtInn(){
   state.restDay = TODAY;
   dayRec(TODAY).rest = true;
   msg("🏨 やどやに とまった。HPとMPが ぜんかいふくした！", true);
-  msg("あしたまで まものは あらわれない。のこりのタスクは やどで じっくり ふくしゅうしよう。");
+  msg("あしたまで まものは あらわれない。やすんでいるあいだは しょうにんと とりひきも できるぞ。");
   bgmRestart();
   save(); render();
 }
@@ -2579,6 +2582,13 @@ const KEEPER_LINES = [
 ];
 function enterShop(){
   if(shopOpen) return;
+  /* バトル中は入店できない（討伐後 or 宿で休んでいる日だけOK） */
+  if(state.monster && state.monster.hp > 0 && !isResting()){
+    sfxCancel();
+    msg("たたかいの さいちゅうに みせには はいれない！", true);
+    msg("まものを たおすか、やどで やすんだあとに とりひきしよう。");
+    return;
+  }
   sfxMenu();
   shopOpen = true;
   document.getElementById("battleView").classList.add("shopmode");
@@ -2608,6 +2618,16 @@ function leaveShop(){
   msg("みせを でた。", true);
   bgmRestart();
   render();
+  /* 討伐直後の取引から出てきた場合は、もういちど選択肢を出す */
+  if(!state.monster && !isResting()){
+    document.getElementById("vBody").innerHTML = "とりひきは すんだか？<br><br>どうする？";
+    document.getElementById("overlay").classList.add("show");
+  }
+}
+/* 勝利画面から商人と取引 */
+function shopFromVictory(){
+  document.getElementById("overlay").classList.remove("show");
+  enterShop();
 }
 let shopTab = "w";
 function setShopTab(t){ shopTab = t; sfxMenu(); renderShop(); }
