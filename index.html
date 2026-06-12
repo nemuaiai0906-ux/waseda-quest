@@ -1331,20 +1331,27 @@ let actx = null, bgmTimer = null;
 function audio(){ actx = actx || new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==="suspended") actx.resume(); return actx; }
 const NOTE = {};
 "C C# D D# E F F# G G# A A# B".split(" ").forEach((n,i)=>{ for(let o=1;o<8;o++) NOTE[n+o] = 440*Math.pow(2,(i-9)/12+(o-4)); });
-function tone(f, when, d, type, vol){
+function tone(f, when, d, type, vol, dest){
   const a=audio(), o=a.createOscillator(), g=a.createGain();
   o.type=type; o.frequency.value=f;
   g.gain.setValueAtTime(vol, when);
   g.gain.exponentialRampToValueAtTime(.0004, when+d);
-  o.connect(g); g.connect(a.destination);
+  o.connect(g); g.connect(dest||a.destination);
   o.start(when); o.stop(when+d);
 }
-function noiseBurst(when, d, vol){
+function noiseBurst(when, d, vol, dest){
   const a=audio(), len=a.sampleRate*d, buf=a.createBuffer(1,len,a.sampleRate), ch=buf.getChannelData(0);
   for(let i=0;i<len;i++) ch[i]=(Math.random()*2-1)*(1-i/len);
   const src=a.createBufferSource(); src.buffer=buf;
   const g=a.createGain(); g.gain.value=vol;
-  src.connect(g); g.connect(a.destination); src.start(when);
+  src.connect(g); g.connect(dest||a.destination); src.start(when);
+}
+/* BGM専用バス：OFFにした瞬間ここを0にして即消音する（効果音は通らない） */
+let bgmBus = null;
+function bgmOut(){
+  const a=audio();
+  if(!bgmBus){ bgmBus=a.createGain(); bgmBus.gain.value=1; bgmBus.connect(a.destination); }
+  return bgmBus;
 }
 /* 効果音 */
 function sfxMenu(){ try{ tone(1300, audio().currentTime, .06, "square", .05); }catch(e){} }
@@ -1408,11 +1415,11 @@ function orchVerb(){
   if(ORCH) return ORCH;
   const verb=a.createConvolver(); verb.buffer=impulseBuffer(1.8);
   const wet=a.createGain(); wet.gain.value=.4;
-  verb.connect(wet); wet.connect(a.destination);
+  verb.connect(wet); wet.connect(bgmOut());
   ORCH={verb};
   return ORCH;
 }
-function orchOut(node){ node.connect(audio().destination); node.connect(orchVerb().verb); }
+function orchOut(node){ node.connect(bgmOut()); node.connect(orchVerb().verb); }
 function padNote(f,when,dur){
   const a=audio(), g=a.createGain(), lp=a.createBiquadFilter();
   lp.type="lowpass"; lp.frequency.value=750;
@@ -1461,16 +1468,17 @@ function timpani(when){
 
 /* --- 再生エンジン --- */
 function playChip(song,t0,step){
-  song.mel.forEach((n,i)=>{ if(n) tone(NOTE[n], t0+i*step, step*.92, "square", .028); });
-  song.bass.forEach((n,i)=>{ if(n) tone(NOTE[n], t0+i*2*step, step*1.8, "triangle", .05); });
-  for(let i=0;i<16;i+=2) noiseBurst(t0+i*step, .03, .012);
+  const bus = bgmOut();
+  song.mel.forEach((n,i)=>{ if(n) tone(NOTE[n], t0+i*step, step*.92, "square", .028, bus); });
+  song.bass.forEach((n,i)=>{ if(n) tone(NOTE[n], t0+i*2*step, step*1.8, "triangle", .05, bus); });
+  for(let i=0;i<16;i+=2) noiseBurst(t0+i*step, .03, .012, bus);
 }
 function playOrch(song,t0,step){
   song.chords.forEach((ch,b)=>{ ch.forEach(n=>padNote(NOTE[n], t0+b*4*step, 4*step)); });
   song.mel.forEach((n,i)=>{ if(n) leadNote(NOTE[n], t0+i*step, step*1.7); });
   song.bass.forEach((n,i)=>{ if(n) bassNote(NOTE[n], t0+i*2*step, step*1.9); });
   if(song.heavy){ for(let i=0;i<16;i+=4) timpani(t0+i*step); timpani(t0+14*step); }
-  else{ for(let i=0;i<16;i+=4) noiseBurst(t0+i*step, .05, .01); }
+  else{ for(let i=0;i<16;i+=4) noiseBurst(t0+i*step, .05, .01, bgmOut()); }
 }
 function bgmLoop(){
   if(!state.settings.bgm) return;
@@ -1489,7 +1497,17 @@ function toggleBgm(){
   state.settings.bgm = !state.settings.bgm; save();
   document.getElementById("bgmBtn").textContent = state.settings.bgm ? "♪ ON" : "♪ OFF";
   clearTimeout(bgmTimer);
-  if(state.settings.bgm){ audio(); bgmLoop(); }
+  if(state.settings.bgm){
+    audio();
+    const g = bgmOut().gain;
+    g.cancelScheduledValues(audio().currentTime);
+    g.value = 1;
+    bgmLoop();
+  }else if(bgmBus){
+    /* 予約済みの音もバスごと即ミュート */
+    bgmBus.gain.cancelScheduledValues(audio().currentTime);
+    bgmBus.gain.value = 0;
+  }
 }
 
 /* ================= 2D/3D切替 ================= */
