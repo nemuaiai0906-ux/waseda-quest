@@ -192,6 +192,7 @@
   /* 記録 */
   .stats2{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;line-height:2}
   .calnav{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:14px;color:#9fe0ff}
+  .monthrate{font-size:12px;color:#9fe0ff;text-align:center;margin-top:6px}
   .navbtn{cursor:pointer;padding:2px 14px;color:#ffd24a;user-select:none}
   .navbtn:active{opacity:.6}
   .navbtn.off{opacity:.25;pointer-events:none}
@@ -347,13 +348,14 @@
         <span>とうばつした魔物　<span class="gold" id="stTotal">0</span></span>
         <span>たおしたタスク　<span class="gold" id="stTasks">0</span></span>
         <span>さいこう連続　<span class="gold" id="stBest">0</span>日</span>
-        <span>30日とうばつ率　<span class="gold" id="stRate">0%</span></span>
+        <span id="stYearWrap">年とうばつ率　<span class="gold">-</span></span>
       </div>
       <div class="calnav">
         <span class="navbtn" onclick="recNav(-1)">◀</span>
         <span id="calMonth">-</span>
         <span class="navbtn" onclick="recNav(1)">▶</span>
       </div>
+      <div class="monthrate" id="monthRate"></div>
       <div class="cal" id="cal"></div>
       <div class="note">日付をタップすると その日のきろくが ひらく。⚔=全達成　△=一部　🏨=やど泊。1日でも逃すと連続記録はリセット。</div>
     </div>
@@ -1822,17 +1824,48 @@ function recNav(dir){
   recMonth = m;
   renderRecord();
 }
+/* 期間の討伐率（使い始めた日より前は分母に入れない） */
+function firstUseDate(){
+  let min = TODAY;
+  Object.keys(state.history).forEach(ds=>{ if(ds < min) min = ds; });
+  return min;
+}
+function rateBetween(startDs, endDs){
+  if(startDs > endDs) return null;
+  let n=0, win=0;
+  const d = new Date(startDs+"T12:00:00");
+  while(dstr(d) <= endDs){
+    n++;
+    const h = state.history[dstr(d)];
+    if(h && h.defeated) win++;
+    d.setDate(d.getDate()+1);
+  }
+  return { n, win, pct: Math.round(win/n*100) };
+}
 function renderRecord(){
   let taskCount=0;
   Object.values(state.history).forEach(h=>{ taskCount+=h.done.length; });
   document.getElementById("stTotal").textContent = state.kills;
   document.getElementById("stTasks").textContent = taskCount;
   document.getElementById("stBest").textContent = state.bestStreak;
-  let win30=0;
-  for(let i=0;i<30;i++){ const d=new Date(); d.setDate(d.getDate()-i); const h=state.history[dstr(d)]; if(h&&h.defeated) win30++; }
-  document.getElementById("stRate").textContent = Math.round(win30/30*100)+"%";
 
+  const fu = firstUseDate();
   const y=recMonth.getFullYear(), mo=recMonth.getMonth();
+
+  /* 表示中の月の年の討伐率 */
+  const yStart = y+"-01-01" > fu ? y+"-01-01" : fu;
+  const yEnd = (y+"-12-31") < TODAY ? y+"-12-31" : TODAY;
+  const yr = rateBetween(yStart, yEnd);
+  document.getElementById("stYearWrap").innerHTML =
+    yr ? `${y}年とうばつ率　<span class="gold">${yr.pct}%</span>` : `${y}年とうばつ率　<span class="gold">-</span>`;
+
+  /* 表示中の月の討伐率 */
+  const mStart = dstr(new Date(y,mo,1,12)) > fu ? dstr(new Date(y,mo,1,12)) : fu;
+  const mEnd = dstr(new Date(y,mo+1,0,12)) < TODAY ? dstr(new Date(y,mo+1,0,12)) : TODAY;
+  const mr = rateBetween(mStart, mEnd);
+  document.getElementById("monthRate").innerHTML =
+    mr ? `この月のとうばつ率 <span class="gold">${mr.pct}%</span>（⚔ ${mr.win}/${mr.n}日）` : "この月のきろくは まだない";
+
   document.getElementById("calMonth").textContent = y+"年"+(mo+1)+"月";
   const navs=document.querySelectorAll(".navbtn");
   navs[0].classList.toggle("off", monthIdx(recMonth)<=monthIdx(minRecMonth()));
