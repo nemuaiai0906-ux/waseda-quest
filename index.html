@@ -1606,6 +1606,69 @@ function sfxEnemyHit(){
     noiseBurst(t,.2,.1);
   }catch(e){}
 }
+/* 会心の一撃：鋭い炸裂音 */
+function sfxCrit(){
+  try{
+    const a=audio(), t=a.currentTime;
+    noiseBurst(t,.18,.16);
+    const o=a.createOscillator(), g=a.createGain();
+    o.type="square"; o.frequency.setValueAtTime(880,t); o.frequency.exponentialRampToValueAtTime(110,t+.25);
+    g.gain.setValueAtTime(.18,t); g.gain.exponentialRampToValueAtTime(.001,t+.3);
+    o.connect(g); g.connect(a.destination); o.start(t); o.stop(t+.3);
+    tone(1760,t+.02,.08,"square",.1);
+    noiseBurst(t+.12,.22,.12);
+  }catch(e){}
+}
+/* 痛恨の一撃：重い二段ドスン */
+function sfxPainful(){
+  try{
+    const a=audio(), t=a.currentTime;
+    [0,.14].forEach(dt=>{
+      const o=a.createOscillator(), g=a.createGain();
+      o.type="sawtooth"; o.frequency.setValueAtTime(140,t+dt); o.frequency.exponentialRampToValueAtTime(30,t+dt+.3);
+      g.gain.setValueAtTime(.2,t+dt); g.gain.exponentialRampToValueAtTime(.001,t+dt+.32);
+      o.connect(g); g.connect(a.destination); o.start(t+dt); o.stop(t+dt+.32);
+      noiseBurst(t+dt,.18,.12);
+    });
+  }catch(e){}
+}
+/* ミス：ヒュッという風切り音 */
+function sfxMiss(){
+  try{
+    const a=audio(), t=a.currentTime;
+    const len=a.sampleRate*.25, buf=a.createBuffer(1,len,a.sampleRate), ch=buf.getChannelData(0);
+    for(let i=0;i<len;i++) ch[i]=(Math.random()*2-1)*(1-i/len);
+    const src=a.createBufferSource(); src.buffer=buf;
+    const f=a.createBiquadFilter(); f.type="bandpass"; f.Q.value=2;
+    f.frequency.setValueAtTime(400,t); f.frequency.exponentialRampToValueAtTime(2400,t+.22);
+    const g=a.createGain(); g.gain.value=.12;
+    src.connect(f); f.connect(g); g.connect(a.destination); src.start(t);
+  }catch(e){}
+}
+/* 魔力暴走：うなりを上げる魔力 */
+function sfxSurge(){
+  try{
+    const a=audio(), t=a.currentTime;
+    [440,554,659,880,1109,1319].forEach((f,i)=>{
+      const o=a.createOscillator(), g=a.createGain();
+      o.type="sawtooth"; o.frequency.setValueAtTime(f,t+i*.05); o.frequency.linearRampToValueAtTime(f*1.06,t+i*.05+.2);
+      g.gain.setValueAtTime(.05,t+i*.05); g.gain.exponentialRampToValueAtTime(.001,t+i*.05+.25);
+      o.connect(g); g.connect(a.destination); o.start(t+i*.05); o.stop(t+i*.05+.26);
+    });
+    noiseBurst(t+.1,.3,.04);
+  }catch(e){}
+}
+/* 敵の攻撃をかわした（突進だけしてヒットなし） */
+function missDodge(){
+  sfxMiss();
+  if(state.settings.mode==="3d" && GL){
+    GL.lungeT = .45;
+  }else{
+    const sw = document.getElementById("spriteWrap");
+    sw.classList.remove("lunge"); void sw.offsetWidth; sw.classList.add("lunge");
+    setTimeout(()=>sw.classList.remove("lunge"), 500);
+  }
+}
 /* 味方の呪文：キラキラと駆け上がる音 */
 function sfxSpell(){
   try{
@@ -1972,16 +2035,31 @@ function toggle(task){
       setTimeout(()=>{
         if(!state.monster) return;
         if(buffed) msg("バイキルトの ちからが はじけた！", true);
-        attackAnim(dmg);
-        state.monster.hp -= dmg;
+        const roll = Math.random();
+        /* ミス（5%）：攻撃が空振り */
+        if(roll < 0.05){
+          missDodge();
+          msg(`ミス！ ${state.monster.n}に ひらりと かわされた！`, true);
+          save(); render();
+          return;
+        }
+        /* 会心の一撃（8%）：ダメージ1.5〜2倍 */
+        let final = dmg;
+        if(roll < 0.13){
+          final = Math.round(dmg * (1.5 + Math.random()*0.5));
+          sfxCrit();
+          msg("💥 かいしんの いちげき！！", true);
+        }
+        attackAnim(final);
+        state.monster.hp -= final;
         if(mult > 1) msg(`${EL_ICON[wEl]}こうかは ばつぐんだ！`, true);
         else if(mult < 1) msg("…こうかは いまひとつ。", true);
-        msg(`${state.monster.n}に ${dmg}の ダメージ！`, true);
+        msg(`${state.monster.n}に ${final}の ダメージ！`, true);
         save(); render();
         if(state.monster.hp <= 0){
           setTimeout(()=>killMonster(beforeLv), 600);
         }else{
-          maybeCounter(dmg);
+          maybeCounter(final);
         }
       }, 700);
     }else{
@@ -2053,6 +2131,12 @@ function counterAttack(){
     setTimeout(()=>{
       if(!state.monster) return;
       let dmg = Math.round((9 + lv*2.2) * (m.boss?2.0:1) * (0.85 + Math.random()*0.4) * res);
+      /* 敵の魔力暴走（8%）：呪文ダメージ2〜2.5倍 */
+      if(Math.random() < 0.08){
+        dmg = Math.round(dmg * (2 + Math.random()*0.5));
+        sfxSurge();
+        msg(`💥 ${m.n}の まりょくが ぼうそうしている！！`, true);
+      }
       dmg = Math.max(1, dmg - Math.floor(def/2));
       elemFlash(m.el);
       playerDamage(dmg, `${EL_ICON[m.el]}${spName}が きみを おそう！ ${dmg}の ダメージ！${res<1?"（よろいが ぞくせいを はんげん！）":""}`);
@@ -2069,8 +2153,21 @@ function counterAttack(){
       save(); render();
     }, 750);
   }else{
+    /* きみが ひらりと かわす（8%） */
+    if(Math.random() < 0.08){
+      missDodge();
+      msg(`${m.n}の はんげき！ しかし きみは ひらりと かわした！`, true);
+      save(); render();
+      return;
+    }
     let dmg = Math.round((6 + lv*2) * (m.boss?2.2:1) * (0.8 + Math.random()*0.5) * res);
     dmg = Math.max(1, dmg - def);
+    /* 痛恨の一撃（8%）：1.5〜2倍 */
+    if(Math.random() < 0.08){
+      dmg = Math.round(dmg * (1.5 + Math.random()*0.5));
+      sfxPainful();
+      msg("💢 つうこんの いちげき！！", true);
+    }
     counterAnim();
     playerDamage(dmg, `${m.n}の はんげき！ きみに ${dmg}の ダメージ！${def>0?`（よろいが ${def}けいげん）`:""}`);
   }
@@ -2093,13 +2190,29 @@ function bossEntrance(){
       sfxEnemySpell();
       setTimeout(()=>{
         let dmg = Math.round((10 + lv*2.6) * (0.9 + Math.random()*0.3) * res);
+        if(Math.random() < 0.08){
+          dmg = Math.round(dmg * (2 + Math.random()*0.5));
+          sfxSurge();
+          msg(`💥 ${m.n}の まりょくが ぼうそうしている！！`, true);
+        }
         dmg = Math.max(1, dmg - Math.floor(def/2));
         elemFlash(m.el);
         playerDamage(dmg, `${EL_ICON[m.el]}${spName}が きみを のみこんだ！ ${dmg}の ダメージ！${res<1?"（よろいが ぞくせいを はんげん！）":""}`);
       }, 750);
     }else{
+      if(Math.random() < 0.08){
+        missDodge();
+        msg(`${m.n}の いかくの いちげき！ しかし きみは ひらりと かわした！`, true);
+        save(); render();
+        return;
+      }
       let dmg = Math.round((9 + lv*2.4) * (0.9 + Math.random()*0.3) * res);
       dmg = Math.max(1, dmg - def);
+      if(Math.random() < 0.08){
+        dmg = Math.round(dmg * (1.5 + Math.random()*0.5));
+        sfxPainful();
+        msg("💢 つうこんの いちげき！！", true);
+      }
       counterAnim();
       playerDamage(dmg, `${m.n}の いかくの いちげき！ きみに ${dmg}の ダメージ！${def>0?`（よろいが ${def}けいげん）`:""}`);
     }
@@ -2522,14 +2635,21 @@ function castSpell(i){
     sfxCastEl(sp.el);
     setTimeout(()=>{
       if(!state.monster || state.monster.hp<=0) return;
-      attackAnim(dmg);
-      state.monster.hp -= dmg;
+      /* 魔力暴走（10%）：呪文ダメージ2〜2.5倍 */
+      let final = dmg;
+      if(Math.random() < 0.10){
+        final = Math.round(dmg * (2 + Math.random()*0.5));
+        sfxSurge();
+        msg("✨ まりょくが ぼうそうした！！ じゅもんの いりょくが はねあがる！", true);
+      }
+      attackAnim(final);
+      state.monster.hp -= final;
       if(mult > 1) msg(`${EL_ICON[sp.el]}こうかは ばつぐんだ！`, true);
       else if(mult < 1) msg("…こうかは いまひとつ。", true);
-      msg(`${EL_ICON[sp.el]}${sp.n}が ${state.monster.n}を つらぬく！ ${dmg}の ダメージ！`, true);
+      msg(`${EL_ICON[sp.el]}${sp.n}が ${state.monster.n}を つらぬく！ ${final}の ダメージ！`, true);
       save(); render();
       if(state.monster.hp <= 0) setTimeout(()=>killMonster(beforeLv), 600);
-      else maybeCounter(dmg);
+      else maybeCounter(final);
     }, 700);
   }
   closeModal("spellModal");
