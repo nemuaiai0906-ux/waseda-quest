@@ -368,6 +368,12 @@
         <button onclick="addCustom()">追加</button>
       </div>
     </div>
+
+    <!-- たおしたクエスト（討伐済み） -->
+    <div class="dqwin" id="doneWin" style="display:none">
+      <div class="listtitle"><span>⚔ たおしたクエスト</span><span id="doneCount"></span></div>
+      <div id="doneList"></div>
+    </div>
   </div>
 
   <!-- じゅもんモーダル -->
@@ -1884,14 +1890,16 @@ function render(){
   document.getElementById("dateLabel").textContent = `${d.getMonth()+1}/${d.getDate()}（${wnames[d.getDay()]}）のとうばつリスト ─ ${state.plan ? "じぶんの作戦" : PHASES[pi].name}`;
   document.getElementById("progressLabel").textContent = `${tasks.filter(t=>rec.done.includes(t.id)).length}/${tasks.length}`;
 
+  /* 未討伐 → クエスト追加 → 討伐済み の順に表示 */
   const wrap = document.getElementById("taskList");
   wrap.innerHTML = "";
+  const undoneTasks = tasks.filter(t=>!rec.done.includes(t.id));
+  const doneTasks = tasks.filter(t=>rec.done.includes(t.id));
   let nextMarked = false;
-  tasks.forEach(t=>{
-    const done = rec.done.includes(t.id);
+  undoneTasks.forEach(t=>{
     const el = document.createElement("div");
-    el.className = "task"+(done?" done":"");
-    if(!done && !nextMarked){ el.classList.add("next"); nextMarked=true; }
+    el.className = "task";
+    if(!nextMarked){ el.classList.add("next"); nextMarked=true; }
     el.innerHTML = `<span class="sub">【${t.s}】</span><span class="t">${t.t}</span> <span class="xp">⚔${t.xp}</span>`;
     el.onclick = ()=>toggle(t);
     wrap.appendChild(el);
@@ -1901,6 +1909,27 @@ function render(){
     hint.className = "note";
     hint.innerHTML = "まだ クエストがない。<b>さくせん</b> から 教材やスケジュールを とうろくして、まものに こうげきできるようにしよう！";
     wrap.appendChild(hint);
+  }else if(undoneTasks.length === 0 && tasks.length > 0){
+    const doneNote = document.createElement("div");
+    doneNote.className = "note";
+    doneNote.textContent = "🔥 きょうのクエストは ぜんぶ たおした！ よくやった！";
+    wrap.appendChild(doneNote);
+  }
+  const doneWin = document.getElementById("doneWin");
+  const doneList = document.getElementById("doneList");
+  if(doneTasks.length > 0){
+    doneWin.style.display = "";
+    document.getElementById("doneCount").textContent = doneTasks.length + "件";
+    doneList.innerHTML = "";
+    doneTasks.forEach(t=>{
+      const el = document.createElement("div");
+      el.className = "task done";
+      el.innerHTML = `<span class="sub">【${t.s}】</span><span class="t">${t.t}</span> <span class="xp">⚔${t.xp}</span>`;
+      el.onclick = ()=>toggle(t);
+      doneList.appendChild(el);
+    });
+  }else{
+    doneWin.style.display = "none";
   }
 
   drawSprites();
