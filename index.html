@@ -448,6 +448,15 @@
 
 </div>
 
+<!-- 教会（死亡）オーバーレイ -->
+<div class="overlay" id="deathOverlay" style="background:#000">
+  <div class="dqwin v-win" style="box-shadow:0 0 0 2px #000, inset 0 0 0 2px #000, inset 0 0 0 3px #c9a76b;border-color:#c9a76b">
+    <div class="mtitle"><span style="color:#e8d8a8">✝ きょうかい</span></div>
+    <div id="deathBody" style="line-height:2.2"></div>
+    <button class="v-ok" id="deathBtn" style="display:none;border-color:#c9a76b;color:#e8d8a8" onclick="leaveChurch()">✝ おいのりを して そとへ</button>
+  </div>
+</div>
+
 <!-- 勝利オーバーレイ -->
 <div class="overlay" id="overlay">
   <div class="dqwin v-win">
@@ -1730,9 +1739,13 @@ const SONGS = {
            chords:[["G3","B3","D4"],["C4","E4","G4"],["E3","G3","B3"],["D4","F#4","A4"]] },
   shop:  { bpm:120, mel:["G4","B4","D5","G5","F#5","D5","E5","C5","D5","B4","C5","A4","B4","G4","A4","D4"],
            bass:["G2","D3","C3","D3","G2","D3","C3","D3"],
-           chords:[["G3","B3","D4"],["C4","E4","G4"],["A3","C4","E4"],["D4","F#4","A4"]] }
+           chords:[["G3","B3","D4"],["C4","E4","G4"],["A3","C4","E4"],["D4","F#4","A4"]] },
+  church:{ bpm:66,  mel:["E5","G5","C5",null,"D5","E5","D5",null,"C5","E5","G4",null,"A4","B4","C5",null],
+           bass:["C3","C3","F2","F2","G2","G2","C3","C3"],
+           chords:[["C4","E4","G4"],["F3","A3","C4"],["G3","B3","D4"],["C4","E4","G4"]] }
 };
 function currentSongKey(){
+  if(churchOpen) return "church";
   if(shopOpen) return "shop";
   if(!state.monster || isResting()) return "rest";
   if(state.monster.boss) return "boss";
@@ -2110,17 +2123,62 @@ function maybeCounter(dealt){
   if(Math.random()*100 >= p) return;
   setTimeout(counterAttack, 750);
 }
-/* プレイヤー被ダメージの共通処理（HP0で教会送り） */
+/* プレイヤー被ダメージの共通処理（HP0で教会シーンへ） */
+let churchOpen = false;
 function playerDamage(dmg, text){
-  const lv = levelInfo(state.xp).lv;
   state.hp = Math.max(0, state.hp - dmg);
   msg(text, true);
   if(state.hp <= 0){
-    state.gold = Math.floor(state.gold/2);
-    state.hp = maxHp(lv);
-    msg("きみは ちからつきた… きょうかいで いきかえった（しょじゴールドが はんぶんになった）", true);
+    deathSequence();
+    return;
   }
   save(); render();
+}
+/* 死亡ジングル：物悲しい下降フレーズ */
+function sfxDeath(){
+  try{
+    const t = audio().currentTime;
+    [659,622,587,554,523,466,440,392].forEach((f,i)=>tone(f, t+i*.22, .26, "square", .07));
+    tone(110, t, 2.0, "triangle", .05);
+  }catch(e){}
+}
+/* 力尽きた → 暗転 → 教会で目覚める（バトルは中止） */
+function deathSequence(){
+  const lv = levelInfo(state.xp).lv;
+  state.monster = null;          /* バトル中止：魔物は去った */
+  state.gold = Math.floor(state.gold/2);
+  state.hp = maxHp(lv);
+  state.mp = maxMp(lv);
+  save();
+  bgmKill();
+  sfxDeath();
+  msg("きみは ちからつきた……", true);
+  const ov = document.getElementById("deathOverlay");
+  document.getElementById("deathBody").innerHTML =
+    `<div style="text-align:center;color:#ff6a5a;font-size:18px;padding:30px 0">きみは ちからつきた……</div>`;
+  document.getElementById("deathBtn").style.display = "none";
+  ov.classList.add("show");
+  setTimeout(()=>{
+    churchOpen = true;
+    bgmRestart();   /* 教会のBGM */
+    document.getElementById("deathBody").innerHTML =
+      `……<br>……ここは……？<br><br>` +
+      `✝ しんぷ「めを さましましたか。あなたは いちど ちからつきて、この きょうかいに はこばれたのです。」<br><br>` +
+      `✝ しんぷ「かいふくの おれいとして、しょじゴールドの はんぶんを きふして いただきました。」<br><br>` +
+      `✝ しんぷ「あせりは きんもつ。やすむことも ゆうしゃの つとめですよ。」`;
+    document.getElementById("deathBtn").style.display = "block";
+    render();
+  }, 2600);
+}
+function leaveChurch(){
+  sfxMenu();
+  churchOpen = false;
+  document.getElementById("deathOverlay").classList.remove("show");
+  msg("✝ きょうかいを あとにした。からだは すっかり かいふくしている。", true);
+  bgmRestart();
+  document.getElementById("vBody").innerHTML = "きょうかいの そとに でた。<br><br>どうする？";
+  document.getElementById("overlay").classList.add("show");
+  render();
 }
 /* 属性カラーのフラッシュ演出 */
 function elemFlash(el){
