@@ -527,60 +527,150 @@ const WEEKLY = [
 function T(s,t,xp){ return {s:s,t:t,xp:xp}; }
 
 const MONSTERS = [
-  {n:"たんごゴブリン",     s:"blob",   p:{a:"#d94f4f",b:"#a32f2f"}},
-  {n:"けいさんミスサソリ", s:"blob",   p:{a:"#e08a3c",b:"#a85f1f"}},
-  {n:"スマホぐも",         s:"blob",   p:{a:"#3fa8a0",b:"#2a7a74"}},
-  {n:"こぶんのおんりょう", s:"ghost",  p:{a:"#cdd6f0",b:"#9aa6cc"}},
-  {n:"きじゅつクラーケン", s:"ghost",  p:{a:"#9a5fd0",b:"#6f3fa0"}},
-  {n:"よふかしバンパイア", s:"ghost",  p:{a:"#5a5fae",b:"#3a3f80"}},
-  {n:"ちょうぶんドラゴン", s:"dragon", p:{a:"#4fae5a",b:"#357f3f",e:"#ffd24a"}},
-  {n:"あせりのハーピー",   s:"dragon", p:{a:"#e06a4a",b:"#a8442a",e:"#fff"}},
-  {n:"サボりウルフ",       s:"dragon", p:{a:"#8a93a8",b:"#5f6880",e:"#ffd24a"}},
-  {n:"あんきゴーレム",     s:"golem",  p:{a:"#9aa0a8",b:"#6f757f",e:"#7adfff"}},
-  {n:"ぶんぽうゾンビ",     s:"golem",  p:{a:"#7fae5f",b:"#567f3a",e:"#ff5a5a"}},
-  {n:"さきのばしトロール", s:"golem",  p:{a:"#b08a5f",b:"#80603a",e:"#ffd24a"}}
+  /* 無属性 */
+  {n:"たんごゴブリン",     s:"blob",   el:"none", p:{a:"#d94f4f",b:"#a32f2f"}},
+  {n:"ぶんぽうゾンビ",     s:"golem",  el:"none", p:{a:"#7fae5f",b:"#567f3a",e:"#ff5a5a"}},
+  {n:"サボりウルフ",       s:"dragon", el:"none", p:{a:"#8a93a8",b:"#5f6880",e:"#ffd24a"}},
+  {n:"あんきゴーレム",     s:"golem",  el:"none", p:{a:"#9aa0a8",b:"#6f757f",e:"#7adfff"}},
+  {n:"スマホぐも",         s:"blob",   el:"none", p:{a:"#3fa8a0",b:"#2a7a74"}},
+  {n:"さきのばしトロール", s:"golem",  el:"none", p:{a:"#b08a5f",b:"#80603a",e:"#ffd24a"}},
+  /* 炎 */
+  {n:"ほのおスライム",     s:"blob",   el:"fire", p:{a:"#e8603a",b:"#b03a20"}},
+  {n:"マグマゴーレム",     s:"golem",  el:"fire", p:{a:"#b04030",b:"#5f1f14",e:"#ffd24a"}},
+  {n:"フレイムドラゴン",   s:"dragon", el:"fire", p:{a:"#d04a30",b:"#8a2a1a",e:"#ffe27a"}},
+  {n:"ひのたまゴースト",   s:"ghost",  el:"fire", p:{a:"#f0a05a",b:"#c06a30"}},
+  {n:"ねっけつハーピー",   s:"dragon", el:"fire", p:{a:"#e87a3c",b:"#a8502a",e:"#fff"}},
+  {n:"かざんトロール",     s:"golem",  el:"fire", p:{a:"#8a3a2a",b:"#5a2418",e:"#ff8a3c"}},
+  /* 氷 */
+  {n:"こおりスライム",     s:"blob",   el:"ice", p:{a:"#7ac8e8",b:"#4a98c0"}},
+  {n:"フロストゴースト",   s:"ghost",  el:"ice", p:{a:"#d8ecf8",b:"#a8c8e0"}},
+  {n:"アイスドラゴン",     s:"dragon", el:"ice", p:{a:"#6ab8d8",b:"#3a80a8",e:"#fff"}},
+  {n:"ゆきんこゴーレム",   s:"golem",  el:"ice", p:{a:"#e8f0f8",b:"#b8ccd8",e:"#4a98c0"}},
+  {n:"ふぶきのおんりょう", s:"ghost",  el:"ice", p:{a:"#bcd8ec",b:"#8aa8c8"}},
+  {n:"とうけつグモ",       s:"blob",   el:"ice", p:{a:"#9ad0e0",b:"#5a98b0"}},
+  /* 雷 */
+  {n:"かみなりスライム",   s:"blob",   el:"thunder", p:{a:"#e8cc4a",b:"#b09020"}},
+  {n:"らいうんゴースト",   s:"ghost",  el:"thunder", p:{a:"#9a8ac8",b:"#6a5a98"}},
+  {n:"サンダードラゴン",   s:"dragon", el:"thunder", p:{a:"#d8c040",b:"#988420",e:"#fff"}},
+  {n:"いかずちゴーレム",   s:"golem",  el:"thunder", p:{a:"#787890",b:"#50506a",e:"#ffe24a"}},
+  {n:"プラズマバット",     s:"ghost",  el:"thunder", p:{a:"#b8a0e0",b:"#8068b0"}},
+  {n:"でんげきサソリ",     s:"blob",   el:"thunder", p:{a:"#d8a83c",b:"#a0781f"}},
+  /* 光 */
+  {n:"ひかりのせいれい",   s:"ghost",  el:"holy", p:{a:"#f8f0d8",b:"#e0cc98"}},
+  {n:"セイントスライム",   s:"blob",   el:"holy", p:{a:"#f0e8d0",b:"#c8b890"}},
+  {n:"ホーリードラゴン",   s:"dragon", el:"holy", p:{a:"#e8d8a8",b:"#b8a070",e:"#fff"}},
+  {n:"ひじりゴーレム",     s:"golem",  el:"holy", p:{a:"#d8cca8",b:"#a89870",e:"#ffe88a"}},
+  {n:"てんしのハーピー",   s:"dragon", el:"holy", p:{a:"#f0dca0",b:"#c0a868",e:"#fff"}},
+  {n:"せいなるまもの",     s:"blob",   el:"holy", p:{a:"#e8d890",b:"#b8a858"}},
+  /* 闇 */
+  {n:"やみのおんりょう",   s:"ghost",  el:"dark", p:{a:"#5a4a78",b:"#3a2e50"}},
+  {n:"ダークスライム",     s:"blob",   el:"dark", p:{a:"#5a3a6a",b:"#3a2444"}},
+  {n:"ジゴクドラゴン",     s:"dragon", el:"dark", p:{a:"#4a3050",b:"#2a1a30",e:"#ff4a4a"}},
+  {n:"やみゴーレム",       s:"golem",  el:"dark", p:{a:"#48405a",b:"#2e283a",e:"#b06aff"}},
+  {n:"よふかしバンパイア", s:"ghost",  el:"dark", p:{a:"#5a5fae",b:"#3a3f80"}},
+  {n:"あんこくグモ",       s:"blob",   el:"dark", p:{a:"#3a3a5a",b:"#24243a"}}
 ];
 const BOSSES = [
-  {n:"だいまおうデッドライン", s:"demon", p:{a:"#8a8f9f",b:"#3a2a50",e:"#ff4a4a"}},
-  {n:"ふくしゅうりゅうレックス", s:"demon", p:{a:"#4fae5a",b:"#2a5f80",e:"#ffd24a"}},
-  {n:"もしのあくまアーカイヴ", s:"demon", p:{a:"#9a5fd0",b:"#3f2a60",e:"#7adfff"}},
-  {n:"えんていバーンアウト",   s:"demon", p:{a:"#e0533c",b:"#6f1f10",e:"#ffe27a"}}
+  {n:"だいまおうデッドライン",   s:"demon", el:"dark",    p:{a:"#8a8f9f",b:"#3a2a50",e:"#ff4a4a"}},
+  {n:"えんていバーンアウト",     s:"demon", el:"fire",    p:{a:"#e0533c",b:"#6f1f10",e:"#ffe27a"}},
+  {n:"ひょうていフリーズロード", s:"demon", el:"ice",     p:{a:"#8ac8e8",b:"#2a5878",e:"#fff"}},
+  {n:"らいていボルテクス",       s:"demon", el:"thunder", p:{a:"#c8b040",b:"#3a3a20",e:"#fff"}},
+  {n:"せいていルミナス",         s:"demon", el:"holy",    p:{a:"#e8d8a0",b:"#a08850",e:"#fff"}},
+  {n:"ふくしゅうりゅうレックス", s:"demon", el:"none",    p:{a:"#4fae5a",b:"#2a5f80",e:"#ffd24a"}},
+  {n:"もしのあくまアーカイヴ",   s:"demon", el:"dark",    p:{a:"#9a5fd0",b:"#3f2a60",e:"#7adfff"}},
+  {n:"ごうかくはばむゲートロン", s:"demon", el:"thunder", p:{a:"#6a6a88",b:"#2e2e44",e:"#ffe24a"}},
+  {n:"ねむけのまじんスリープロス", s:"demon", el:"ice",   p:{a:"#7a90b8",b:"#3a4a68",e:"#c8e8ff"}},
+  {n:"げんかいとっぱバーンナウつよ", s:"demon", el:"fire", p:{a:"#c04028",b:"#501a10",e:"#ffb03c"}}
 ];
 const TITLES = ["見習い受験生","駆け出し挑戦者","単語ハンター","文法の騎士","長文剣士","赤本の狩人","記述の魔導士","過去問マスター","都の西北ナイト","政経の勇者","早稲田の覇者"];
 
+/* ================= 属性システム ================= */
+/* 炎>氷>雷>炎 の三すくみ ＋ 光⇔闇の相克 */
+const BEATS = { fire:"ice", ice:"thunder", thunder:"fire", holy:"dark", dark:"holy" };
+const EL_ICON = { none:"", fire:"🔥", ice:"❄️", thunder:"⚡", holy:"✨", dark:"🌑" };
+const EL_NAME = { none:"むぞくせい", fire:"ほのお", ice:"こおり", thunder:"いかずち", holy:"ひかり", dark:"やみ" };
+function elemMult(atkEl, defEl){
+  if(!atkEl || atkEl==="none" || !defEl || defEl==="none") return 1;
+  if(BEATS[atkEl] === defEl) return 1.5;
+  if(BEATS[defEl] === atkEl || atkEl === defEl) return 0.6;
+  return 1;
+}
+/* 鎧の属性耐性：同属性の攻撃を半減 */
+function armorRes(attackEl){
+  const ael = ARMORS[state.armor].el;
+  return (ael && ael !== "none" && ael === attackEl) ? 0.5 : 1;
+}
+const ENEMY_SPELL = {
+  fire:["メラ","ベギラマ"], ice:["ヒャド","マヒャド"], thunder:["デイン","ギガデイン"],
+  holy:["ギラ","ホーリーレイ"], dark:["ドルマ","ドルモーア"], none:["ねんりき","エナジーボルト"]
+};
+/* 属性ごとの風景（3Dバイオーム） */
+const BIOMES = {
+  none:    {sky:["#2e7fd0","#7ec0f0","#e2f1fc"], fog:0xe2f1fc, grass:["#4e9b48","#58a951","#3f8a3c"], path:["#d2b078","#c9a76b","#bfa066"], mtn:["#6f93bc","#7fa3c8"]},
+  fire:    {sky:["#3a1020","#7a2a1a","#f8a05a"], fog:0xf0b080, grass:["#5a3a2a","#6a4030","#4a2e20"], path:["#3a2a26","#46322c","#2e211c"], mtn:["#5a2a22","#7a3a2a"]},
+  ice:     {sky:["#3a6fa8","#9fc8e8","#eef6fc"], fog:0xeef6fc, grass:["#cfe0ea","#dceaf2","#bcd2e0"], path:["#9fb8c8","#aec5d4","#8fa8ba"], mtn:["#8fb0cc","#a8c8e0"]},
+  thunder: {sky:["#1a1a2e","#3a3a55","#6a6a88"], fog:0x55556e, grass:["#3a4030","#454c38","#2e3326"], path:["#4a4438","#565040","#3a342c"], mtn:["#3a3a50","#4a4a64"]},
+  holy:    {sky:["#c08a30","#e8c878","#fdf4dc"], fog:0xfdf4dc, grass:["#8aa050","#98b05a","#7a9046"], path:["#e0cfa0","#e8dab0","#d0bf90"], mtn:["#b09a6a","#c8b080"]},
+  dark:    {sky:["#100818","#2a1438","#52306a"], fog:0x3a2450, grass:["#2a2238","#332a44","#221c2e"], path:["#3a3048","#463a56","#2e2638"], mtn:["#3a2a50","#4c3866"]}
+};
+
 const WEAPONS = [
-  {n:"ひのきのぼう",     atk:0,  cost:0,    c:"#a8845c"},
-  {n:"どうのつるぎ",     atk:3,  cost:80,   c:"#c47f3a"},
-  {n:"てつのやり",       atk:5,  cost:160,  c:"#8a93a8"},
-  {n:"はがねのつるぎ",   atk:7,  cost:250,  c:"#c8d4e0"},
-  {n:"ルーンブレード",   atk:10, cost:420,  c:"#7a5fd0"},
-  {n:"ほのおのつるぎ",   atk:14, cost:700,  c:"#e0533c"},
-  {n:"こおりのやいば",   atk:18, cost:1100, c:"#7ad4ff"},
-  {n:"らいじんのけん",   atk:25, cost:1800, c:"#ffd24a"},
-  {n:"じごくのおおがま", atk:32, cost:2700, c:"#5a4a6a"},
-  {n:"おうじゃのけん",   atk:40, cost:4000, c:"#ffce4a"},
-  {n:"わせだのせいけん", atk:50, cost:6000, c:"#a81f2f"}
+  {n:"ひのきのぼう",         atk:0,  cost:0,    el:"none",    c:"#a8845c"},
+  {n:"どうのつるぎ",         atk:3,  cost:80,   el:"none",    c:"#c47f3a"},
+  {n:"せいどうのオノ",       atk:4,  cost:120,  el:"none",    c:"#b08a5c"},
+  {n:"てつのやり",           atk:6,  cost:180,  el:"none",    c:"#8a93a8"},
+  {n:"はがねのつるぎ",       atk:8,  cost:280,  el:"none",    c:"#c8d4e0"},
+  {n:"フレイムダガー",       atk:10, cost:380,  el:"fire",    c:"#e0703c"},
+  {n:"アイスランス",         atk:12, cost:480,  el:"ice",     c:"#8ad4f0"},
+  {n:"ルーンブレード",       atk:14, cost:650,  el:"none",    c:"#7a5fd0"},
+  {n:"サンダースピア",       atk:16, cost:850,  el:"thunder", c:"#f0d44a"},
+  {n:"ほのおのつるぎ",       atk:19, cost:1100, el:"fire",    c:"#e0533c"},
+  {n:"こおりのやいば",       atk:22, cost:1400, el:"ice",     c:"#7ad4ff"},
+  {n:"ホーリーロッド",       atk:25, cost:1800, el:"holy",    c:"#f0e0a0"},
+  {n:"シャドウファング",     atk:28, cost:2200, el:"dark",    c:"#5a4a6a"},
+  {n:"らいじんのけん",       atk:32, cost:2700, el:"thunder", c:"#ffd24a"},
+  {n:"ドラゴンキラー",       atk:36, cost:3300, el:"none",    c:"#c05a5a"},
+  {n:"じごくのおおがま",     atk:40, cost:4000, el:"dark",    c:"#3a2a44"},
+  {n:"クリスタルソード",     atk:44, cost:4800, el:"ice",     c:"#bce8f8"},
+  {n:"フェニックスブレード", atk:48, cost:5600, el:"fire",    c:"#f08a3c"},
+  {n:"ぎんがのつるぎ",       atk:52, cost:6500, el:"thunder", c:"#c8c8ff"},
+  {n:"おうじゃのけん",       atk:56, cost:7500, el:"holy",    c:"#ffce4a"},
+  {n:"やみのおうけん",       atk:60, cost:8800, el:"dark",    c:"#6a3a8a"},
+  {n:"わせだのせいけん",     atk:66, cost:9999, el:"holy",    c:"#a81f2f"}
 ];
 const ARMORS = [
-  {n:"ぬののふく",       def:0,  cost:0},
-  {n:"かわのよろい",     def:3,  cost:60},
-  {n:"くさりかたびら",   def:6,  cost:180},
-  {n:"てつのよろい",     def:10, cost:400},
-  {n:"はがねのよろい",   def:15, cost:900},
-  {n:"まほうのよろい",   def:20, cost:1600},
-  {n:"りゅうのよろい",   def:28, cost:3000},
-  {n:"わせだのせいい",   def:40, cost:5500}
+  {n:"ぬののふく",       def:0,  cost:0,    el:"none"},
+  {n:"かわのよろい",     def:3,  cost:60,   el:"none"},
+  {n:"くさりかたびら",   def:6,  cost:180,  el:"none"},
+  {n:"せいどうのよろい", def:8,  cost:280,  el:"none"},
+  {n:"てつのよろい",     def:11, cost:420,  el:"none"},
+  {n:"ほのおのマント",   def:13, cost:600,  el:"fire"},
+  {n:"こおりのよろい",   def:15, cost:800,  el:"ice"},
+  {n:"はがねのよろい",   def:18, cost:1000, el:"none"},
+  {n:"サンダーガード",   def:21, cost:1300, el:"thunder"},
+  {n:"まほうのよろい",   def:24, cost:1700, el:"none"},
+  {n:"ひかりのローブ",   def:27, cost:2200, el:"holy"},
+  {n:"やみのころも",     def:30, cost:2800, el:"dark"},
+  {n:"りゅうのよろい",   def:34, cost:3500, el:"fire"},
+  {n:"オーロラメイル",   def:38, cost:4400, el:"ice"},
+  {n:"けんじゃのころも", def:42, cost:5400, el:"holy"},
+  {n:"わせだのせいい",   def:48, cost:6800, el:"none"}
 ];
 const ITEMS_SHOP = [
   {key:"herb",  n:"やくそう",         d:"HPを 30 かいふくする",  cost:30},
   {key:"ether", n:"まほうのせいすい", d:"MPを 12 かいふくする",  cost:45}
 ];
 const SPELLS = [
-  {n:"ヒール",     mp:6,  d:"HPをかいふくする",                       cost:0},
-  {n:"バイキルト", mp:10, d:"つぎのこうげきの ダメージ2ばい",         cost:0},
-  {n:"ベホイミ",   mp:14, d:"HPを おおきく かいふくする",             cost:600},
-  {n:"スカラ",     mp:8,  d:"こんやの やしゅうダメージを はんげん",   cost:500},
-  {n:"メラミ",     mp:15, d:"まものに ほのおの ダメージ（40+Lv×2）",  cost:1200}
+  {n:"ヒール",       mp:6,  cost:0,    type:"heal",     pow:20, d:"HPをかいふくする"},
+  {n:"バイキルト",   mp:10, cost:0,    type:"buff",     d:"つぎのこうげきの ダメージ2ばい"},
+  {n:"ベホイミ",     mp:14, cost:600,  type:"heal",     pow:50, d:"HPを おおきく かいふくする"},
+  {n:"スカラ",       mp:8,  cost:500,  type:"guard",    d:"こんやの やしゅうダメージを はんげん"},
+  {n:"ベホマ",       mp:26, cost:2600, type:"healfull", d:"HPを ぜんかいふくする"},
+  {n:"メラミ",       mp:15, cost:1200, type:"atk", el:"fire",    pow:40, d:"🔥ほのおのダメージ（氷にばつぐん）"},
+  {n:"ヒャダルコ",   mp:15, cost:1200, type:"atk", el:"ice",     pow:40, d:"❄️こおりのダメージ（雷にばつぐん）"},
+  {n:"ライデイン",   mp:18, cost:1600, type:"atk", el:"thunder", pow:46, d:"⚡いかずちのダメージ（炎にばつぐん）"},
+  {n:"シャインレイ", mp:22, cost:2400, type:"atk", el:"holy",    pow:54, d:"✨ひかりのダメージ（闇にばつぐん）"},
+  {n:"ドルクマ",     mp:22, cost:2400, type:"atk", el:"dark",    pow:54, d:"🌑やみのダメージ（光にばつぐん）"}
 ];
 const HEROES = [
   {s:"warrior", p:{k:"#10131f",m:"#b8c4d8",a:"#5f6880",b:"#3a3050"}},
@@ -639,6 +729,13 @@ function load(){
     s.armor = 0;
     s.spellsOwned = [0,1];
     s.scala = null;
+  }
+  /* 属性大型アップデート（v3）：武器22種/防具16種/呪文10種への引き継ぎ */
+  if(!s.weaponV3){
+    s.weaponV3 = true;
+    s.weapon = ({0:0, 1:1, 2:3, 3:4, 4:7, 5:9, 6:10, 7:13, 8:15, 9:19, 10:21})[s.weapon] ?? 0;
+    s.armor  = ({0:0, 1:1, 2:2, 3:4, 4:7, 5:9, 6:12, 7:15})[s.armor] ?? 0;
+    if(Array.isArray(s.spellsOwned)) s.spellsOwned = s.spellsOwned.map(i => i===4 ? 5 : i);
   }
   /* 日別の討伐数/ゴールド記録は後から追加した機能。
      それ以前の討伐分（全体合計との差分）を、記録開始前の最後の活動日に一括で割り当てる */
@@ -717,8 +814,9 @@ function spawnMonster(forceBoss){
   const boss = !!forceBoss || (mix(TODAY+"rare"+state.kills)%100 < 10);
   const pool = boss ? BOSSES : MONSTERS;
   const m = pool[mix(TODAY+"m"+state.kills) % pool.length];
-  const hpMax = Math.round((70 + lv*10) * mult * (boss ? 2.5 : 1));
-  state.monster = { n:m.n, s:m.s, p:m.p, hp:hpMax, hpMax:hpMax, boss:boss, fresh:true };
+  /* ボスはHP4倍の死闘。そのぶん報酬も特大 */
+  const hpMax = Math.round((70 + lv*10) * mult * (boss ? 4 : 1));
+  state.monster = { n:m.n, s:m.s, p:m.p, el:m.el||"none", hp:hpMax, hpMax:hpMax, boss:boss, fresh:true };
 }
 
 /* 日をまたいだときの処理（夜のできごと） */
@@ -736,8 +834,10 @@ function dailyTick(){
       msg("🏨 やどやで あんぜんな よるを すごした。さあ、あたらしい あさだ！", true);
     }else if(missed > 0 && state.monster){
       let dmg = Math.min(Math.round(maxHp(lv)*0.6), missed*(4+lv*2));
+      dmg = Math.round(dmg * armorRes(state.monster.el));
       const def = ARMORS[state.armor].def;
       if(def > 0) dmg = Math.max(1, dmg - def);
+      dmg = Math.max(1, dmg);
       if(state.scala === y){
         dmg = Math.max(1, Math.ceil(dmg/2));
         msg("✨ スカラの まもりが ダメージを はんげんした！", true);
@@ -954,16 +1054,35 @@ function drawSprite(shape, pal, scale){
 let GL = null;
 function glReady(){ return typeof THREE !== "undefined"; }
 
-function makeGradientSky(){
+function skyTexture(cols){
   const cv=document.createElement("canvas"); cv.width=64; cv.height=256;
   const ctx=cv.getContext("2d");
   const g=ctx.createLinearGradient(0,0,0,256);
-  g.addColorStop(0,"#1e6fd0"); g.addColorStop(.45,"#7ec0f0"); g.addColorStop(.62,"#e2f1fc"); g.addColorStop(1,"#e2f1fc");
+  g.addColorStop(0,cols[0]); g.addColorStop(.45,cols[1]); g.addColorStop(.62,cols[2]); g.addColorStop(1,cols[2]);
   ctx.fillStyle=g; ctx.fillRect(0,0,64,256);
+  return new THREE.CanvasTexture(cv);
+}
+function makeGradientSky(cols){
   return new THREE.Mesh(
     new THREE.SphereGeometry(180,16,12),
-    new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(cv),side:THREE.BackSide,fog:false})
+    new THREE.MeshBasicMaterial({map:skyTexture(cols),side:THREE.BackSide,fog:false})
   );
+}
+/* 魔物の属性に合わせて風景を切り替える */
+function applyBiome(el){
+  if(!GL) return;
+  const key = BIOMES[el] ? el : "none";
+  if(GL.biome === key) return;
+  GL.biome = key;
+  const b = BIOMES[key];
+  GL.scene.fog.color.setHex(b.fog);
+  GL.sky.material.map = skyTexture(b.sky);
+  GL.sky.material.needsUpdate = true;
+  const g = makeGroundTex(b.grass[0], b.grass[1], b.grass[2]); g.repeat.set(40,40);
+  GL.grass.material.map = g; GL.grass.material.needsUpdate = true;
+  const p = makeGroundTex(b.path[0], b.path[1], b.path[2]); p.repeat.set(2,60);
+  GL.path.material.map = p; GL.path.material.needsUpdate = true;
+  GL.mtns.forEach((m,i)=>m.material.color.set(b.mtn[i%2]));
 }
 function makeGroundTex(base,s1,s2){
   const cv=document.createElement("canvas"); cv.width=128; cv.height=128;
@@ -1171,7 +1290,8 @@ function init3D(){
 
   const scene=new THREE.Scene();
   scene.fog=new THREE.Fog(0xe2f1fc,50,150);
-  scene.add(makeGradientSky());
+  const sky=makeGradientSky(BIOMES.none.sky);
+  scene.add(sky);
   scene.add(new THREE.HemisphereLight(0xbfdfff,0x4e7a40,.9));
   const sun=new THREE.DirectionalLight(0xfff2d0,1.15);
   sun.position.set(25,38,18);
@@ -1190,12 +1310,13 @@ function init3D(){
   path.rotation.x=-Math.PI/2; path.position.y=.02; path.receiveShadow=true; scene.add(path);
 
   /* 遠景の山なみ */
+  const mtns=[];
   for(let i=0;i<9;i++){
     const ang=Math.PI*(.15+.7*i/8);
     const r=95+(i%3)*18, h=18+((i*37)%14);
     const mt=new THREE.Mesh(new THREE.ConeGeometry(16+(i%4)*5,h,5),new THREE.MeshLambertMaterial({color:i%2?"#6f93bc":"#7fa3c8"}));
     mt.position.set(Math.cos(ang)*r, h/2-1, -Math.abs(Math.sin(ang))*r);
-    scene.add(mt);
+    scene.add(mt); mtns.push(mt);
   }
   /* 木と岩 */
   [[-13,-7,1],[12,-10,1.2],[-18,-20,1.5],[16,-24,1.3],[-10,-32,1.1],[20,-5,.9],[24,-16,1.4]].forEach(([x,z,s])=>scene.add(makeTree(x,z,s)));
@@ -1225,7 +1346,7 @@ function init3D(){
   camera.position.set(0,8.2,18);
   camera.lookAt(0,1.6,-12);
 
-  GL={renderer,scene,camera,heroGrps,clouds,monsterGrp:null,token:"",t:0,shake:0,deadAnim:0,lungeT:0,baseCam:camera.position.clone()};
+  GL={renderer,scene,camera,heroGrps,clouds,sky,grass,path,mtns,biome:"none",monsterGrp:null,token:"",t:0,shake:0,deadAnim:0,lungeT:0,baseCam:camera.position.clone()};
   glRefreshMonster();
   glLoop();
   window.addEventListener("resize",()=>{
@@ -1239,8 +1360,10 @@ function glRefreshMonster(){
   if(!state.monster){
     if(GL.monsterGrp){ GL.scene.remove(GL.monsterGrp); GL.monsterGrp=null; }
     GL.token="";
+    applyBiome("none");
     return;
   }
+  applyBiome(state.monster.el || "none");
   const token=state.monster.n+"/"+state.monster.hpMax+"/"+state.kills;
   if(GL.token===token && GL.monsterGrp) return;
   if(GL.monsterGrp) GL.scene.remove(GL.monsterGrp);
@@ -1395,9 +1518,9 @@ function initShop3D(){
   /* 壁の武器棚（全武器が並ぶ） */
   const board = new THREE.Mesh(new THREE.BoxGeometry(15,.25,1.1), smat("#5f3f24"));
   board.position.set(0,5.2,-8.3); sc.add(board);
-  WEAPONS.slice(1).forEach((w,i)=>{
+  WEAPONS.slice(1, 12).forEach((w,i)=>{
     const s = sword3D(w.c);
-    s.position.set(-6.3 + i*1.4, 5.45, -8.2);
+    s.position.set(-6.3 + i*1.3, 5.45, -8.2);
     s.rotation.z = (i%2 ? -1 : 1) * .06;
     sc.add(s);
   });
@@ -1500,18 +1623,25 @@ function sfxLevelUp(){ try{ const t=audio().currentTime; [523,587,659,740,831,93
    2D: チップチューン / 3D: オーケストラ風シンセ（リバーブ付き）
    mel=8分音符16歩, bass=4分音符8歩, chords=1小節4つ */
 const SONGS = {
-  blob:  { bpm:138, mel:["C5","E5","G5","E5","A5","G5","E5","C5","D5","F5","A5","F5","G5","E5","D5","C5"],
-           bass:["C3","G3","F3","C4","D3","A3","G3","G2"],
-           chords:[["C4","E4","G4"],["F4","A4","C5"],["D4","F4","A4"],["G4","B4","D5"]] },
-  ghost: { bpm:100, mel:["A4","C5","B4","A4","E5",null,"D5","C5","B4","D5","C5","B4","A4",null,"G#4",null],
-           bass:["A2","E3","A2","E3","F2","C3","E2","B2"],
-           chords:[["A3","C4","E4"],["A3","C4","E4"],["F3","A3","C4"],["E3","G#3","B3"]] },
-  dragon:{ bpm:144, mel:["D5","F5","A5","F5","G5","A5","G5","F5","E5","G5","F5","E5","D5","E5","F5","A4"],
-           bass:["D3","A3","D3","A3","C3","G3","A2","E3"],
-           chords:[["D4","F4","A4"],["A#3","D4","F4"],["C4","E4","G4"],["A3","C#4","E4"]] },
-  golem: { bpm:96,  mel:["E4","G4","E4","B3","E4","G4","A4","G4","F#4","A4","F#4","D4","E4",null,"B3",null],
-           bass:["E2","E2","B2","B2","C3","C3","B2","B2"],
-           chords:[["E3","G3","B3"],["E3","G3","B3"],["C3","E3","G3"],["B2","D#3","F#3"]] },
+  /* 属性別の戦闘曲（6曲） */
+  bt_none:    { bpm:138, mel:["C5","E5","G5","E5","A5","G5","E5","C5","D5","F5","A5","F5","G5","E5","D5","C5"],
+                bass:["C3","G3","F3","C4","D3","A3","G3","G2"],
+                chords:[["C4","E4","G4"],["F4","A4","C5"],["D4","F4","A4"],["G4","B4","D5"]] },
+  bt_fire:    { bpm:148, mel:["D5","F5","A5","F5","G5","A5","G5","F5","E5","G5","F5","E5","D5","E5","F5","A4"],
+                bass:["D3","A3","D3","A3","C3","G3","A2","E3"],
+                chords:[["D4","F4","A4"],["A#3","D4","F4"],["C4","E4","G4"],["A3","C#4","E4"]] },
+  bt_ice:     { bpm:112, mel:["E5","C5","A4","C5","D5","B4","G4","B4","C5","A4","E4","A4","B4",null,"E5",null],
+                bass:["A2","E3","G2","D3","F2","C3","E2","B2"],
+                chords:[["A3","C4","E4"],["G3","B3","D4"],["F3","A3","C4"],["E3","G#3","B3"]] },
+  bt_thunder: { bpm:96,  mel:["E4","G4","E4","B3","E4","G4","A4","G4","F#4","A4","F#4","D4","E4",null,"B3",null],
+                bass:["E2","E2","B2","B2","C3","C3","B2","B2"],
+                chords:[["E3","G3","B3"],["E3","G3","B3"],["C3","E3","G3"],["B2","D#3","F#3"]] },
+  bt_holy:    { bpm:90,  mel:["G4","C5","E5","G5","E5","C5","D5",null,"F5","E5","D5","C5","B4",null,"C5",null],
+                bass:["C3","G3","F3","C3","D3","G2","C3","G2"],
+                chords:[["C4","E4","G4"],["F3","A3","C4"],["G3","B3","D4"],["C4","E4","G4"]] },
+  bt_dark:    { bpm:100, mel:["A4","C5","B4","A4","E5",null,"D5","C5","B4","D5","C5","B4","A4",null,"G#4",null],
+                bass:["A2","E3","A2","E3","F2","C3","E2","B2"],
+                chords:[["A3","C4","E4"],["A3","C4","E4"],["F3","A3","C4"],["E3","G#3","B3"]] },
   boss:  { bpm:152, mel:["D5","D5","A4","D5","F5","E5","D5","C#5","D5","E5","F5","G5","A5","G5","F5","E5"],
            bass:["D3","D3","A#2","A#2","C3","C3","A2","A2"],
            chords:[["D4","F4","A4"],["A#3","D4","F4"],["C4","E4","G4"],["A3","C#4","E4"]], heavy:true },
@@ -1525,7 +1655,8 @@ const SONGS = {
 function currentSongKey(){
   if(shopOpen) return "shop";
   if(!state.monster || isResting()) return "rest";
-  return state.monster.boss ? "boss" : state.monster.s;
+  if(state.monster.boss) return "boss";
+  return "bt_" + (state.monster.el || "none");
 }
 
 /* --- オーケストラ風の音色（3D用） --- */
@@ -1736,10 +1867,10 @@ function render(){
     document.getElementById("enemyCount").textContent = "";
   }else if(m){
     ehpEl.style.visibility = "visible";
-    document.getElementById("enemyName").textContent = (m.boss?"👑":"")+m.n;
+    document.getElementById("enemyName").textContent = (m.boss?"👑":"")+(EL_ICON[m.el]||"")+m.n;
     const hpShow = Math.max(0, m.hp);
     document.getElementById("ehpFill").style.width = (hpShow/m.hpMax*100)+"%";
-    document.getElementById("ehpLab").textContent = `${m.n} HP ${hpShow}/${m.hpMax}`;
+    document.getElementById("ehpLab").textContent = `${EL_ICON[m.el]||""}${m.n} HP ${hpShow}/${m.hpMax}`;
     document.getElementById("enemyCount").textContent = "－ 1ひき";
     document.getElementById("spriteWrap").classList.toggle("dead", m.hp<=0);
   }else{
@@ -1798,7 +1929,10 @@ function toggle(task){
     if(!rec.dmg) rec.dmg = [];
     if(!rec.dmg.includes(task.id)){
       rec.dmg.push(task.id);
-      let dmg = task.xp + atkNow();
+      /* 属性相性：武器の属性 × 魔物の属性 */
+      const wEl = WEAPONS[state.weapon].el;
+      const mult = elemMult(wEl, state.monster.el);
+      let dmg = Math.round((task.xp + atkNow()) * mult);
       const buffed = state.buff;
       if(state.buff) state.buff = false;
       if(buffed) dmg *= 2;
@@ -1810,6 +1944,8 @@ function toggle(task){
         if(buffed) msg("バイキルトの ちからが はじけた！", true);
         attackAnim(dmg);
         state.monster.hp -= dmg;
+        if(mult > 1) msg(`${EL_ICON[wEl]}こうかは ばつぐんだ！`, true);
+        else if(mult < 1) msg("…こうかは いまひとつ。", true);
         msg(`${state.monster.n}に ${dmg}の ダメージ！`, true);
         save(); render();
         if(state.monster.hp <= 0){
@@ -1840,7 +1976,9 @@ function toggle(task){
 
 /* ===== 敵の反撃：与ダメージが大きいほど反撃されやすい ===== */
 function maybeCounter(dealt){
-  const p = Math.min(65, 10 + Math.round(dealt*0.35));
+  /* 反撃確率UP：ボスはさらに苛烈（生きるか死ぬかの死闘） */
+  const boss = state.monster && state.monster.boss;
+  const p = Math.min(boss?85:75, (boss?28:18) + Math.round(dealt*0.45));
   if(Math.random()*100 >= p) return;
   setTimeout(counterAttack, 750);
 }
@@ -1856,43 +1994,50 @@ function playerDamage(dmg, text){
   }
   save(); render();
 }
-function fireAnim(){
+/* 属性カラーのフラッシュ演出 */
+function elemFlash(el){
   sfxEnemyHit();
+  const colors = {fire:"#f80", ice:"#7ad4ff", thunder:"#ffe24a", holy:"#fff2c0", dark:"#7a3aff", none:"#ccc"};
   const bv = document.getElementById("battleView");
-  bv.classList.remove("shake","fireflash"); void bv.offsetWidth;
-  bv.classList.add("shake","fireflash");
-  setTimeout(()=>bv.classList.remove("fireflash"), 520);
+  const d = document.createElement("div");
+  d.style.cssText = `position:absolute;inset:0;z-index:9;pointer-events:none;background:${colors[el]||"#ccc"};opacity:.5;transition:opacity .45s`;
+  bv.appendChild(d);
+  requestAnimationFrame(()=>d.style.opacity="0");
+  setTimeout(()=>d.remove(), 500);
+  bv.classList.remove("shake"); void bv.offsetWidth; bv.classList.add("shake");
 }
 function counterAttack(){
   if(!state.monster || state.monster.hp<=0 || shopOpen) return;
   const lv = levelInfo(state.xp).lv;
   const m = state.monster;
   const def = ARMORS[state.armor].def;
+  const res = armorRes(m.el);
   const roll = Math.random();
-  if(roll < 0.22){
-    /* 炎の呪文（鎧は半分しか効かない） */
-    msg(`${m.n}は ${m.boss?"ベギラマ":"メラ"}を となえた！`, true);
+  if(roll < (m.boss?0.35:0.22)){
+    /* 属性呪文（鎧のdefは半分、属性耐性の鎧なら半減） */
+    const spName = ENEMY_SPELL[m.el||"none"][m.boss?1:0];
+    msg(`${m.n}は ${spName}を となえた！`, true);
     sfxEnemySpell();
     setTimeout(()=>{
       if(!state.monster) return;
-      let dmg = Math.round((9 + lv*2.2) * (m.boss?1.7:1) * (0.85 + Math.random()*0.4));
+      let dmg = Math.round((9 + lv*2.2) * (m.boss?2.0:1) * (0.85 + Math.random()*0.4) * res);
       dmg = Math.max(1, dmg - Math.floor(def/2));
-      fireAnim();
-      playerDamage(dmg, `ほのおが きみを やいた！ ${dmg}の ダメージ！`);
+      elemFlash(m.el);
+      playerDamage(dmg, `${EL_ICON[m.el]}${spName}が きみを おそう！ ${dmg}の ダメージ！${res<1?"（よろいが ぞくせいを はんげん！）":""}`);
     }, 750);
-  }else if(roll < 0.30 && m.hp < m.hpMax*0.6){
+  }else if(roll < (m.boss?0.43:0.30) && m.hp < m.hpMax*0.6){
     /* じこかいふく */
     msg(`${m.n}は ホイミを となえた！`, true);
     sfxEnemySpell();
     setTimeout(()=>{
       if(!state.monster) return;
-      const heal = Math.round(m.hpMax*0.2);
+      const heal = Math.round(m.hpMax*0.18);
       m.hp = Math.min(m.hpMax, m.hp + heal);
       msg(`${m.n}の きずが ふさがっていく…！ HPが ${heal} かいふくした！`, true);
       save(); render();
     }, 750);
   }else{
-    let dmg = Math.round((6 + lv*2) * (m.boss?1.8:1) * (0.8 + Math.random()*0.5));
+    let dmg = Math.round((6 + lv*2) * (m.boss?2.2:1) * (0.8 + Math.random()*0.5) * res);
     dmg = Math.max(1, dmg - def);
     counterAnim();
     playerDamage(dmg, `${m.n}の はんげき！ きみに ${dmg}の ダメージ！${def>0?`（よろいが ${def}けいげん）`:""}`);
@@ -1909,17 +2054,19 @@ function bossEntrance(){
     if(!state.monster || state.monster !== m || shopOpen) return;
     const lv = levelInfo(state.xp).lv;
     const def = ARMORS[state.armor].def;
+    const res = armorRes(m.el);
     if(Math.random() < 0.5){
-      msg(`${m.n}は とうじょうと どうじに ベギラマを はなった！`, true);
+      const spName = ENEMY_SPELL[m.el||"none"][1];
+      msg(`${m.n}は とうじょうと どうじに ${spName}を はなった！`, true);
       sfxEnemySpell();
       setTimeout(()=>{
-        let dmg = Math.round((10 + lv*2.4) * (0.9 + Math.random()*0.3));
+        let dmg = Math.round((10 + lv*2.6) * (0.9 + Math.random()*0.3) * res);
         dmg = Math.max(1, dmg - Math.floor(def/2));
-        fireAnim();
-        playerDamage(dmg, `ほのおの あらしが きみを のみこんだ！ ${dmg}の ダメージ！`);
+        elemFlash(m.el);
+        playerDamage(dmg, `${EL_ICON[m.el]}${spName}が きみを のみこんだ！ ${dmg}の ダメージ！${res<1?"（よろいが ぞくせいを はんげん！）":""}`);
       }, 750);
     }else{
-      let dmg = Math.round((9 + lv*2.2) * (0.9 + Math.random()*0.3));
+      let dmg = Math.round((9 + lv*2.4) * (0.9 + Math.random()*0.3) * res);
       dmg = Math.max(1, dmg - def);
       counterAnim();
       playerDamage(dmg, `${m.n}の いかくの いちげき！ きみに ${dmg}の ダメージ！${def>0?`（よろいが ${def}けいげん）`:""}`);
@@ -1945,8 +2092,9 @@ function counterAnim(){
 function killMonster(beforeLv){
   const lv = levelInfo(state.xp).lv;
   const m = state.monster;
-  const gold = Math.round((15 + lv*3) * (m.boss ? 3 : 1));
-  const bonus = m.boss ? 100 : 30;
+  /* ボスは死闘のぶん報酬特大：ゴールド6倍・経験値250 */
+  const gold = Math.round((15 + lv*3) * (m.boss ? 6 : 1));
+  const bonus = m.boss ? 250 : 30;
   state.gold += gold;
   state.kills += 1;
   state.xp += bonus;
@@ -2287,40 +2435,66 @@ function renderSpells(){
   note.textContent = "あたらしい じゅもんは しょうにんのいえで しゅうとくできる";
   wrap.appendChild(note);
 }
+/* 属性別の詠唱音 */
+function sfxCastEl(el){
+  try{
+    const t = audio().currentTime;
+    if(el==="fire"){
+      const a=audio(), o=a.createOscillator(), g=a.createGain();
+      o.type="sawtooth"; o.frequency.setValueAtTime(600,t); o.frequency.exponentialRampToValueAtTime(150,t+.35);
+      g.gain.setValueAtTime(.09,t); g.gain.exponentialRampToValueAtTime(.001,t+.4);
+      o.connect(g); g.connect(a.destination); o.start(t); o.stop(t+.4);
+      noiseBurst(t,.3,.05);
+    }else if(el==="ice"){
+      [2093,1760,2349,2794].forEach((f,i)=>tone(f, t+i*.06, .18, "sine", .05));
+    }else if(el==="thunder"){
+      noiseBurst(t,.12,.14);
+      tone(110, t+.05, .25, "sawtooth", .1);
+      tone(2200, t, .06, "square", .06);
+    }else if(el==="dark"){
+      [220,185,165,147].forEach((f,i)=>tone(f, t+i*.08, .22, "sawtooth", .05));
+    }else{
+      sfxSpell();
+    }
+  }catch(e){ try{ sfxSpell(); }catch(_){} }
+}
 function castSpell(i){
   const sp = SPELLS[i];
   const lv = levelInfo(state.xp).lv;
   if(state.mp < sp.mp){ msg("MPが たりない！", true); return; }
-  if(i===4 && (!state.monster || state.monster.hp<=0 || isResting())){ msg("いまは まものが いない！", true); return; }
+  if(sp.type==="atk" && (!state.monster || state.monster.hp<=0 || isResting())){ msg("いまは まものが いない！", true); return; }
   state.mp -= sp.mp;
-  if(i===0){
-    const amount = 20 + lv*3;
+  if(sp.type==="heal"){
+    const amount = sp.pow + lv*3;
     state.hp = Math.min(maxHp(lv), state.hp + amount);
-    msg(`ヒール！ HPが ${amount} かいふくした！`, true);
+    msg(`${sp.n}！ HPが ${amount} かいふくした！`, true);
     sfxHeal();
-  }else if(i===1){
+  }else if(sp.type==="healfull"){
+    state.hp = maxHp(lv);
+    msg("ベホマ！ HPが ぜんかいふくした！", true);
+    sfxHeal();
+  }else if(sp.type==="buff"){
     state.buff = true;
     msg("バイキルト！ つぎのこうげきの ダメージが 2ばいになる！", true);
     sfxSpell();
-  }else if(i===2){
-    const amount = 50 + lv*4;
-    state.hp = Math.min(maxHp(lv), state.hp + amount);
-    msg(`ベホイミ！ HPが ${amount} かいふくした！`, true);
-    sfxHeal();
-  }else if(i===3){
+  }else if(sp.type==="guard"){
     state.scala = TODAY;
     msg("スカラ！ こんやの やしゅうダメージが はんげんする！", true);
     sfxSpell();
   }else{
+    /* 攻撃呪文：属性相性つき */
     const beforeLv = lv;
-    const dmg = 40 + lv*2;
-    msg("▶ きみは メラミを となえた！", true);
-    sfxSpell();
+    const mult = elemMult(sp.el, state.monster.el);
+    const dmg = Math.round((sp.pow + lv*2) * mult);
+    msg(`▶ きみは ${sp.n}を となえた！`, true);
+    sfxCastEl(sp.el);
     setTimeout(()=>{
       if(!state.monster || state.monster.hp<=0) return;
       attackAnim(dmg);
       state.monster.hp -= dmg;
-      msg(`ほのおが ${state.monster.n}を つつむ！ ${dmg}の ダメージ！`, true);
+      if(mult > 1) msg(`${EL_ICON[sp.el]}こうかは ばつぐんだ！`, true);
+      else if(mult < 1) msg("…こうかは いまひとつ。", true);
+      msg(`${EL_ICON[sp.el]}${sp.n}が ${state.monster.n}を つらぬく！ ${dmg}の ダメージ！`, true);
       save(); render();
       if(state.monster.hp <= 0) setTimeout(()=>killMonster(beforeLv), 600);
       else maybeCounter(dmg);
@@ -2385,7 +2559,7 @@ function enterShop(){
   if(!k2.querySelector("canvas")) k2.appendChild(drawSprite("shopkeep", KEEPER_PAL, 7));
   const shelf = document.getElementById("shelfRow");
   if(!shelf.querySelector("canvas")){
-    WEAPONS.slice(1).forEach(w=>{
+    WEAPONS.slice(1, 12).forEach(w=>{
       shelf.appendChild(drawSprite("sworditem", {m:w.c, g:"#c8973c", h:"#6f4a2a"}, 3));
     });
   }
@@ -2422,15 +2596,17 @@ function renderShop(){
   wrap.innerHTML = "";
   if(shopTab==="w"){
     WEAPONS.forEach((w,i)=>{
-      if(i === state.weapon){ shopRow(wrap, `${w.n} <span class="cost">そうびちゅう</span><div class="mdesc">こうげき +${w.atk}</div>`, "equipped"); return; }
+      const elTxt = w.el!=="none" ? `${EL_ICON[w.el]}${EL_NAME[w.el]}属性／${EL_NAME[BEATS[w.el]]}にばつぐん` : "";
+      if(i === state.weapon){ shopRow(wrap, `${EL_ICON[w.el]||""}${w.n} <span class="cost">そうびちゅう</span><div class="mdesc">こうげき +${w.atk}　${elTxt}</div>`, "equipped"); return; }
       const ok = state.gold >= w.cost;
-      shopRow(wrap, `${w.n} <span class="cost">${w.cost}G</span><div class="mdesc">こうげき +${w.atk}</div>`, ok?"":"disabled", ()=>buyGear("weapon", i));
+      shopRow(wrap, `${EL_ICON[w.el]||""}${w.n} <span class="cost">${w.cost}G</span><div class="mdesc">こうげき +${w.atk}　${elTxt}</div>`, ok?"":"disabled", ()=>buyGear("weapon", i));
     });
   }else if(shopTab==="a"){
     ARMORS.forEach((a,i)=>{
-      if(i === state.armor){ shopRow(wrap, `${a.n} <span class="cost">そうびちゅう</span><div class="mdesc">ぼうぎょ +${a.def}（やしゅうダメージを へらす）</div>`, "equipped"); return; }
+      const elTxt = a.el!=="none" ? `${EL_ICON[a.el]}${EL_NAME[a.el]}たいせい（同属性の攻撃を半減）` : "";
+      if(i === state.armor){ shopRow(wrap, `${EL_ICON[a.el]||""}${a.n} <span class="cost">そうびちゅう</span><div class="mdesc">ぼうぎょ +${a.def}　${elTxt}</div>`, "equipped"); return; }
       const ok = state.gold >= a.cost;
-      shopRow(wrap, `${a.n} <span class="cost">${a.cost}G</span><div class="mdesc">ぼうぎょ +${a.def}（やしゅうダメージを へらす）</div>`, ok?"":"disabled", ()=>buyGear("armor", i));
+      shopRow(wrap, `${EL_ICON[a.el]||""}${a.n} <span class="cost">${a.cost}G</span><div class="mdesc">ぼうぎょ +${a.def}　${elTxt}</div>`, ok?"":"disabled", ()=>buyGear("armor", i));
     });
   }else if(shopTab==="s"){
     SPELLS.forEach((sp,i)=>{
