@@ -48,6 +48,9 @@
   .mrow .mdesc{font-size:11px;color:#9aa0b5}
   .mrow.disabled{opacity:.38;pointer-events:none}
   .mrow.equipped .cost{color:#7adf9a}
+  .shoptabs{display:flex;gap:4px;margin-bottom:8px}
+  .stab{flex:1;text-align:center;font-size:12px;padding:6px 2px;border:2px solid #3d4570;border-radius:6px;cursor:pointer;user-select:none;color:#9aa0b5}
+  .stab.act{border-color:#ffd24a;color:#ffd24a}
   .xpbar{flex:1;height:8px;border:1px solid #fff;border-radius:3px;overflow:hidden;background:#15203a}
   .xpbar>div{height:100%;background:linear-gradient(90deg,#2e9bff,#7ad0ff);transition:width .4s}
 
@@ -274,6 +277,7 @@
     <div class="ministats">
       <span>🔥れんぞく <span class="gold" id="streak">0</span>日</span>
       <span>⚔とうばつ <span class="gold" id="killCount">0</span>体</span>
+      <span>🛡ぼうぎょ <span class="gold" id="defNum">0</span></span>
       <span>共テまで <span class="gold" id="cdKyote">-</span>日</span>
       <span>政経まで <span class="gold" id="cdSeikei">-</span>日</span>
     </div>
@@ -323,16 +327,23 @@
         <div class="cmd" onclick="cmdFight()">たたかう</div>
         <div class="cmd" onclick="openModal('spellModal')">じゅもん</div>
         <div class="cmd" onclick="openModal('itemModal')">どうぐ</div>
-        <div class="cmd" onclick="enterShop()">ぶきや</div>
+        <div class="cmd" onclick="enterShop()">しょうにん</div>
         <div class="cmd" onclick="showPage('record');sfxMenu()">きろく</div>
         <div class="cmd" onclick="showPage('plan');sfxMenu()">さくせん</div>
       </div>
       <div class="dqwin enemywin"><span id="enemyName">？？？</span><span id="enemyCount">－ 1ひき</span></div>
     </div>
 
-    <!-- ぶきや 商品リスト（店内表示中だけ出る） -->
+    <!-- 商人の家 商品リスト（店内表示中だけ出る） -->
     <div class="dqwin" id="shopPanel" style="display:none">
-      <div class="mtitle"><span>🛒 ぶきのみせ</span><span class="gold" id="shopGold">0G</span></div>
+      <div class="mtitle"><span>🏠 しょうにんのいえ</span><span class="gold" id="shopGold">0G</span></div>
+      <div class="shoptabs">
+        <span class="stab" data-t="w" onclick="setShopTab('w')">ぶき</span>
+        <span class="stab" data-t="a" onclick="setShopTab('a')">ぼうぐ</span>
+        <span class="stab" data-t="s" onclick="setShopTab('s')">じゅもん</span>
+        <span class="stab" data-t="i" onclick="setShopTab('i')">どうぐ</span>
+        <span class="stab" data-t="sell" onclick="setShopTab('sell')">うる</span>
+      </div>
       <div id="shopList"></div>
       <div class="mrow" onclick="leaveShop()">みせをでる</div>
     </div>
@@ -536,9 +547,26 @@ const WEAPONS = [
   {n:"おうじゃのけん",   atk:40, cost:4000, c:"#ffce4a"},
   {n:"わせだのせいけん", atk:50, cost:6000, c:"#a81f2f"}
 ];
+const ARMORS = [
+  {n:"ぬののふく",       def:0,  cost:0},
+  {n:"かわのよろい",     def:3,  cost:60},
+  {n:"くさりかたびら",   def:6,  cost:180},
+  {n:"てつのよろい",     def:10, cost:400},
+  {n:"はがねのよろい",   def:15, cost:900},
+  {n:"まほうのよろい",   def:20, cost:1600},
+  {n:"りゅうのよろい",   def:28, cost:3000},
+  {n:"わせだのせいい",   def:40, cost:5500}
+];
+const ITEMS_SHOP = [
+  {key:"herb",  n:"やくそう",         d:"HPを 30 かいふくする",  cost:30},
+  {key:"ether", n:"まほうのせいすい", d:"MPを 12 かいふくする",  cost:45}
+];
 const SPELLS = [
-  {n:"ヒール",     mp:6,  d:"HPをかいふくする"},
-  {n:"バイキルト", mp:10, d:"つぎのこうげきの ダメージ2ばい"}
+  {n:"ヒール",     mp:6,  d:"HPをかいふくする",                       cost:0},
+  {n:"バイキルト", mp:10, d:"つぎのこうげきの ダメージ2ばい",         cost:0},
+  {n:"ベホイミ",   mp:14, d:"HPを おおきく かいふくする",             cost:600},
+  {n:"スカラ",     mp:8,  d:"こんやの やしゅうダメージを はんげん",   cost:500},
+  {n:"メラミ",     mp:15, d:"まものに ほのおの ダメージ（40+Lv×2）",  cost:1200}
 ];
 const HEROES = [
   {s:"warrior", p:{k:"#10131f",m:"#b8c4d8",a:"#5f6880",b:"#3a3050"}},
@@ -565,6 +593,12 @@ function load(){
   if(!s.weaponV2){
     s.weaponV2 = true;
     s.weapon = ({0:0, 1:1, 2:3, 3:5, 4:7, 5:10})[s.weapon] ?? 0;
+  }
+  /* 商人の家（防具・呪文習得・スカラ）追加分 */
+  if(s.armor === undefined){
+    s.armor = 0;
+    s.spellsOwned = [0,1];
+    s.scala = null;
   }
   /* 日別の討伐数/ゴールド記録は後から追加した機能。
      それ以前の討伐分（全体合計との差分）を、記録開始前の最後の活動日に一括で割り当てる */
@@ -653,9 +687,16 @@ function dailyTick(){
     if(restedLastNight){
       msg("🏨 やどやで あんぜんな よるを すごした。さあ、あたらしい あさだ！", true);
     }else if(missed > 0 && state.monster){
-      const dmg = Math.min(Math.round(maxHp(lv)*0.6), missed*(4+lv*2));
+      let dmg = Math.min(Math.round(maxHp(lv)*0.6), missed*(4+lv*2));
+      const def = ARMORS[state.armor].def;
+      if(def > 0) dmg = Math.max(1, dmg - def);
+      if(state.scala === y){
+        dmg = Math.max(1, Math.ceil(dmg/2));
+        msg("✨ スカラの まもりが ダメージを はんげんした！", true);
+      }
+      state.scala = null;
       state.hp = Math.max(0, state.hp - dmg);
-      msg(`ねているあいだに ${state.monster.n}のこうげき！ きみは ${dmg}の ダメージをうけた…（やりのこし ${missed}件）`, true);
+      msg(`ねているあいだに ${state.monster.n}のこうげき！ きみは ${dmg}の ダメージをうけた…（やりのこし ${missed}件${def>0?`／よろいが ${def}けいげん`:""}）`, true);
       if(state.hp <= 0){
         state.gold = Math.floor(state.gold/2);
         state.hp = maxHp(lv);
@@ -1587,13 +1628,14 @@ function render(){
   document.getElementById("pMpNum").textContent = state.mp + "/" + maxMp(li.lv);
   document.getElementById("atkNum").textContent = atkNow();
   document.getElementById("weaponName").textContent = WEAPONS[state.weapon].n;
+  document.getElementById("defNum").textContent = ARMORS[state.armor].def;
 
   const m = state.monster;
   currentMonster = m;
   const ehpEl = document.querySelector(".ehp");
   if(shopOpen){
     ehpEl.style.visibility = "hidden";
-    document.getElementById("enemyName").textContent = "🛒 ぶきのみせ";
+    document.getElementById("enemyName").textContent = "🏠 しょうにんのいえ";
     document.getElementById("enemyCount").textContent = "";
   }else if(m){
     ehpEl.style.visibility = "visible";
@@ -1852,27 +1894,50 @@ function renderSpells(){
   const wrap = document.getElementById("spellList");
   wrap.innerHTML = "";
   SPELLS.forEach((sp,i)=>{
+    if(!state.spellsOwned.includes(i)) return;
     const el = document.createElement("div");
     el.className = "mrow" + (state.mp < sp.mp ? " disabled" : "");
     el.innerHTML = `${sp.n} <span class="cost">MP${sp.mp}</span><div class="mdesc">${sp.d}</div>`;
     el.onclick = ()=>castSpell(i);
     wrap.appendChild(el);
   });
+  const note = document.createElement("div");
+  note.className = "mdesc";
+  note.style.padding = "6px 4px";
+  note.textContent = "あたらしい じゅもんは しょうにんのいえで しゅうとくできる";
+  wrap.appendChild(note);
 }
 function castSpell(i){
   const sp = SPELLS[i];
-  if(state.mp < sp.mp){ msg("MPが たりない！", true); return; }
   const lv = levelInfo(state.xp).lv;
+  if(state.mp < sp.mp){ msg("MPが たりない！", true); return; }
+  if(i===4 && (!state.monster || state.monster.hp<=0 || isResting())){ msg("いまは まものが いない！", true); return; }
   state.mp -= sp.mp;
   if(i===0){
     const amount = 20 + lv*3;
     state.hp = Math.min(maxHp(lv), state.hp + amount);
     msg(`ヒール！ HPが ${amount} かいふくした！`, true);
     sfxHeal();
-  }else{
+  }else if(i===1){
     state.buff = true;
     msg("バイキルト！ つぎのこうげきの ダメージが 2ばいになる！", true);
     sfxLevelUp();
+  }else if(i===2){
+    const amount = 50 + lv*4;
+    state.hp = Math.min(maxHp(lv), state.hp + amount);
+    msg(`ベホイミ！ HPが ${amount} かいふくした！`, true);
+    sfxHeal();
+  }else if(i===3){
+    state.scala = TODAY;
+    msg("スカラ！ こんやの やしゅうダメージが はんげんする！", true);
+    sfxHeal();
+  }else{
+    const beforeLv = lv;
+    const dmg = 40 + lv*2;
+    attackAnim(dmg);
+    state.monster.hp -= dmg;
+    msg(`メラミ！ ${state.monster.n}に ${dmg}の ダメージ！`, true);
+    if(state.monster.hp <= 0) setTimeout(()=>killMonster(beforeLv), 600);
   }
   closeModal("spellModal");
   save(); render();
@@ -1915,9 +1980,11 @@ function useItem(key){
 /* ===== ぶきや（バトル画面が店内に切り替わる） ===== */
 let shopOpen = false;
 const KEEPER_LINES = [
-  "いらっしゃい！ まものを たおした ゴールドで つよい ぶきを かっていきな！",
+  "いらっしゃい！ かうのも うるのも だいかんげいだ！",
   "おっ、よく きたな！ きょうも べんきょう がんばってるかい？",
-  "つよい ぶきは こうげきりょくが あがって 1タスクの ダメージが ふえるぜ！",
+  "よろいを きておくと よるの やしゅうダメージが へるぜ！",
+  "じゅもんも うってるよ。メラミは べんきょうしなくても まものに きく…たまにはな！",
+  "いらないものは うってくれ。買値より ちょい安だが ちゃんと ひきとるぜ！",
   "わせだのせいけん…ありゃ でんせつの ぶきだ。かえるのは ほんものの ゆうしゃだけさ。"
 ];
 function enterShop(){
@@ -1937,7 +2004,7 @@ function enterShop(){
   }
   /* 3D店内 */
   if(state.settings.mode==="3d" && GL) initShop3D();
-  msg("🛒 ぶきのみせに はいった！", true);
+  msg("🏠 しょうにんのいえに はいった！", true);
   msg("店主「" + KEEPER_LINES[mix(TODAY+"kl"+state.kills)%KEEPER_LINES.length] + "」");
   renderShop();
   bgmRestart();
@@ -1952,33 +2019,121 @@ function leaveShop(){
   bgmRestart();
   render();
 }
+let shopTab = "w";
+function setShopTab(t){ shopTab = t; sfxMenu(); renderShop(); }
+function shopRow(wrap, html, cls, onclick){
+  const el = document.createElement("div");
+  el.className = "mrow" + (cls ? " "+cls : "");
+  el.innerHTML = html;
+  if(onclick) el.onclick = onclick;
+  wrap.appendChild(el);
+}
 function renderShop(){
   document.getElementById("shopGold").textContent = state.gold + "G";
+  document.querySelectorAll(".stab").forEach(el=>el.classList.toggle("act", el.dataset.t===shopTab));
   const wrap = document.getElementById("shopList");
   wrap.innerHTML = "";
-  WEAPONS.forEach((w,i)=>{
-    const el = document.createElement("div");
-    let cls = "mrow", tag;
-    if(i === state.weapon){ cls += " equipped"; tag = "そうびちゅう"; }
-    else if(i < state.weapon){ cls += " disabled"; tag = "こうにゅうずみ"; }
-    else if(state.gold < w.cost){ cls += " disabled"; tag = w.cost + "G"; }
-    else tag = w.cost + "G";
-    el.className = cls;
-    el.innerHTML = `${w.n} <span class="cost">${tag}</span><div class="mdesc">こうげき +${w.atk}</div>`;
-    if(i > state.weapon) el.onclick = ()=>buyWeapon(i);
-    wrap.appendChild(el);
-  });
+  if(shopTab==="w"){
+    WEAPONS.forEach((w,i)=>{
+      if(i === state.weapon){ shopRow(wrap, `${w.n} <span class="cost">そうびちゅう</span><div class="mdesc">こうげき +${w.atk}</div>`, "equipped"); return; }
+      const ok = state.gold >= w.cost;
+      shopRow(wrap, `${w.n} <span class="cost">${w.cost}G</span><div class="mdesc">こうげき +${w.atk}</div>`, ok?"":"disabled", ()=>buyGear("weapon", i));
+    });
+  }else if(shopTab==="a"){
+    ARMORS.forEach((a,i)=>{
+      if(i === state.armor){ shopRow(wrap, `${a.n} <span class="cost">そうびちゅう</span><div class="mdesc">ぼうぎょ +${a.def}（やしゅうダメージを へらす）</div>`, "equipped"); return; }
+      const ok = state.gold >= a.cost;
+      shopRow(wrap, `${a.n} <span class="cost">${a.cost}G</span><div class="mdesc">ぼうぎょ +${a.def}（やしゅうダメージを へらす）</div>`, ok?"":"disabled", ()=>buyGear("armor", i));
+    });
+  }else if(shopTab==="s"){
+    SPELLS.forEach((sp,i)=>{
+      if(state.spellsOwned.includes(i)){ shopRow(wrap, `${sp.n} <span class="cost">しゅうとく済</span><div class="mdesc">${sp.d}</div>`, "equipped"); return; }
+      const ok = state.gold >= sp.cost;
+      shopRow(wrap, `${sp.n} <span class="cost">${sp.cost}G</span><div class="mdesc">${sp.d}（MP${sp.mp}）</div>`, ok?"":"disabled", ()=>buySpell(i));
+    });
+  }else if(shopTab==="i"){
+    ITEMS_SHOP.forEach(it=>{
+      const ok = state.gold >= it.cost;
+      shopRow(wrap, `${it.n} <span class="cost">${it.cost}G</span><div class="mdesc">${it.d}（しょじ ×${state.items[it.key]}）</div>`, ok?"":"disabled", ()=>buyItem(it.key));
+    });
+  }else{ /* うる */
+    let any = false;
+    if(state.weapon > 0){
+      any = true;
+      const g = Math.floor(WEAPONS[state.weapon].cost*0.6);
+      shopRow(wrap, `${WEAPONS[state.weapon].n}（そうび中）<span class="cost">+${g}G</span><div class="mdesc">うると ひのきのぼう にもどる</div>`, "", ()=>sellGear("weapon"));
+    }
+    if(state.armor > 0){
+      any = true;
+      const g = Math.floor(ARMORS[state.armor].cost*0.6);
+      shopRow(wrap, `${ARMORS[state.armor].n}（そうび中）<span class="cost">+${g}G</span><div class="mdesc">うると ぬののふく にもどる</div>`, "", ()=>sellGear("armor"));
+    }
+    ITEMS_SHOP.forEach(it=>{
+      const cnt = state.items[it.key];
+      if(cnt > 0) any = true;
+      const g = Math.floor(it.cost*0.5);
+      shopRow(wrap, `${it.n} ×${cnt} <span class="cost">+${g}G</span><div class="mdesc">1つ うる</div>`, cnt<=0?"disabled":"", ()=>sellItem(it.key));
+    });
+    if(!any) shopRow(wrap, `うれるものが ない…<div class="mdesc">そうびと どうぐは 買値より すこし安く ひきとってもらえる</div>`, "disabled");
+  }
 }
-function buyWeapon(i){
-  const w = WEAPONS[i];
-  if(state.gold < w.cost) { msg("ゴールドが たりない！", true); return; }
-  state.gold -= w.cost;
-  state.weapon = i;
-  msg(`${w.n}を こうにゅうして そうびした！ こうげきりょくが あがった！`, true);
-  msg("店主「まいど！ だいじに つかいなよ！」");
+/* 購入（装備は古いものを60%で自動下取り） */
+function buyGear(slot, i){
+  const list = slot==="weapon" ? WEAPONS : ARMORS;
+  const cur = state[slot];
+  const g = list[i];
+  if(state.gold < g.cost){ msg("ゴールドが たりない！", true); return; }
+  state.gold -= g.cost;
+  const tradeIn = Math.floor(list[cur].cost*0.6);
+  if(tradeIn > 0){
+    state.gold += tradeIn;
+    msg(`ふるい ${list[cur].n}は ${tradeIn}Gで ひきとってもらった。`);
+  }
+  state[slot] = i;
+  msg(`${g.n}を こうにゅうして そうびした！`, true);
+  msg("商人「まいど！ だいじに つかいなよ！」");
   sfxCoin();
-  renderShop();
-  save(); render();
+  renderShop(); save(); render();
+}
+function buySpell(i){
+  const sp = SPELLS[i];
+  if(state.gold < sp.cost){ msg("ゴールドが たりない！", true); return; }
+  state.gold -= sp.cost;
+  state.spellsOwned.push(i);
+  msg(`✨ じゅもん「${sp.n}」を しゅうとくした！`, true);
+  sfxLevelUp();
+  renderShop(); save(); render();
+}
+function buyItem(key){
+  const it = ITEMS_SHOP.find(x=>x.key===key);
+  if(state.gold < it.cost){ msg("ゴールドが たりない！", true); return; }
+  state.gold -= it.cost;
+  state.items[key]++;
+  msg(`${it.n}を かった！（しょじ ×${state.items[key]}）`, true);
+  sfxCoin();
+  renderShop(); save(); render();
+}
+/* 売却（買値より安く引き取り：装備60% / 道具50%） */
+function sellGear(slot){
+  const list = slot==="weapon" ? WEAPONS : ARMORS;
+  const cur = state[slot];
+  if(cur === 0) return;
+  const g = Math.floor(list[cur].cost*0.6);
+  state.gold += g;
+  msg(`${list[cur].n}を ${g}Gで うった。`, true);
+  state[slot] = 0;
+  sfxCoin();
+  renderShop(); save(); render();
+}
+function sellItem(key){
+  if(state.items[key] <= 0) return;
+  const it = ITEMS_SHOP.find(x=>x.key===key);
+  const g = Math.floor(it.cost*0.5);
+  state.items[key]--;
+  state.gold += g;
+  msg(`${it.n}を ${g}Gで うった。（のこり ×${state.items[key]}）`, true);
+  sfxCoin();
+  renderShop(); save(); render();
 }
 
 /* ================= コマンド ================= */
