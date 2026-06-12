@@ -335,6 +335,7 @@
         <div class="cmd" onclick="enterShop()">しょうにん</div>
         <div class="cmd" onclick="showPage('record');sfxMenu()">きろく</div>
         <div class="cmd" onclick="showPage('plan');sfxMenu()">さくせん</div>
+        <div class="cmd" onclick="openModal('bookModal')">ぼうけんのしょ</div>
       </div>
       <div class="dqwin enemywin"><span id="enemyName">？？？</span><span id="enemyCount">－ 1ひき</span></div>
     </div>
@@ -375,6 +376,19 @@
       <div class="mtitle"><span>じゅもん</span><span id="spellMpLabel">MP -</span></div>
       <div id="spellList"></div>
       <div class="mrow" onclick="closeModal('spellModal')">もどる</div>
+    </div>
+  </div>
+
+  <!-- ぼうけんのしょモーダル -->
+  <div class="overlay" id="bookModal">
+    <div class="dqwin v-win">
+      <div class="mtitle"><span>📖 ぼうけんのしょ</span><span id="bookCount"></span></div>
+      <div id="bookList"></div>
+      <div class="mrow" onclick="createBook()">＋ あたらしい しょを つくる</div>
+      <div class="mrow" onclick="renameBook()">✏ いまの しょの なまえを かえる</div>
+      <div class="mrow" onclick="saveSnap()">💾 セーブする（いまの状態を きろく）</div>
+      <div class="mrow" onclick="loadSnap()">📂 ロードする（セーブ地点に もどる）</div>
+      <div class="mrow" onclick="closeModal('bookModal')">もどる</div>
     </div>
   </div>
 
@@ -580,12 +594,33 @@ const HEROES = [
   {s:"mage",    p:{k:"#10131f",h:"#5f4ab0",s:"#f0c8a0",r:"#3f3580",m:"#8a6f4a",o:"#7adfff"}}
 ];
 
+/* ================= 冒険の書（セーブデータ管理） ================= */
+const META_KEY = "wqMeta";
+function loadMeta(){
+  let m = null;
+  try{ m = JSON.parse(localStorage.getItem(META_KEY)); }catch(e){}
+  if(!m || !m.books || !m.books.length){
+    m = { active:"b1", books:[{id:"b1", name:"受験勉強"}] };
+    /* 旧データ（単一セーブ時代）を冒険の書1にひっこし */
+    const legacy = localStorage.getItem("wasedaQuestV1");
+    if(legacy){
+      localStorage.setItem("wqBook_b1", legacy);
+      localStorage.removeItem("wasedaQuestV1");
+    }
+    localStorage.setItem(META_KEY, JSON.stringify(m));
+  }
+  return m;
+}
+let META = loadMeta();
+function saveMeta(){ localStorage.setItem(META_KEY, JSON.stringify(META)); }
+function bookKey(id){ return "wqBook_"+id; }
+function activeBook(){ return META.books.find(b=>b.id===META.active) || META.books[0]; }
+
 /* ================= state ================= */
-const KEY = "wasedaQuestV1";
 let state = load();
 function load(){
   let s = null;
-  try{ s = JSON.parse(localStorage.getItem(KEY)); }catch(e){}
+  try{ s = JSON.parse(localStorage.getItem(bookKey(META.active))); }catch(e){}
   if(!s) s = { xp:0, streak:0, bestStreak:0, lastDefeat:null, history:{}, custom:{} };
   if(!s.settings) s.settings = { mode:"2d", bgm:false };
   if(s.gold === undefined){
@@ -633,7 +668,7 @@ function isResting(){ return state.restDay === TODAY; }
 function maxHp(lv){ return 40 + lv*12; }
 function maxMp(lv){ return 10 + lv*5; }
 function atkNow(){ const lv = levelInfo(state.xp).lv; return lv*2 + WEAPONS[state.weapon].atk; }
-function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+function save(){ localStorage.setItem(bookKey(META.active), JSON.stringify(state)); }
 
 /* ================= date helpers ================= */
 function today(){ return new Date(); }
@@ -2041,7 +2076,72 @@ function openModal(id){
   if(shopOpen) leaveShop();
   if(id==="spellModal") renderSpells();
   if(id==="itemModal") renderItems();
+  if(id==="bookModal") renderBooks();
   document.getElementById(id).classList.add("show");
+}
+
+/* ----- ぼうけんのしょ ----- */
+function renderBooks(){
+  document.getElementById("bookCount").textContent = META.books.length + "さつ";
+  const wrap = document.getElementById("bookList");
+  wrap.innerHTML = "";
+  META.books.forEach(b=>{
+    const active = b.id === META.active;
+    const el = document.createElement("div");
+    el.className = "mrow" + (active ? " equipped" : "");
+    el.innerHTML = `${active?"▶ ":""}${b.name} <span class="cost">${active?"つかってる":"きりかえる"}</span>` +
+      `<div class="mdesc">${active?"いま ひらいている しょ":"タップで この しょに きりかえ"}${META.books.length>1?`　<span class="bdel" style="color:#f87171">［けす］</span>`:""}</div>`;
+    if(!active) el.onclick = ()=>switchBook(b.id);
+    const del = el.querySelector(".bdel");
+    if(del) del.onclick = (e)=>{ e.stopPropagation(); deleteBook(b.id); };
+    wrap.appendChild(el);
+  });
+}
+function switchBook(id){
+  save();
+  META.active = id; saveMeta();
+  location.reload();
+}
+function createBook(){
+  const name = prompt("あたらしい ぼうけんのしょの なまえ\n（例：受験勉強（本番）／定期テスト対策／模試チャレンジ）", "定期テスト対策");
+  if(!name || !name.trim()) return;
+  save();
+  const id = "b" + Date.now();
+  META.books.push({ id, name: name.trim().slice(0,20) });
+  META.active = id; saveMeta();
+  location.reload();
+}
+function renameBook(){
+  const b = activeBook();
+  const name = prompt("しょの あたらしい なまえ", b.name);
+  if(!name || !name.trim()) return;
+  b.name = name.trim().slice(0,20); saveMeta();
+  sfxMenu(); renderBooks();
+}
+function deleteBook(id){
+  if(META.books.length <= 1) return;
+  const b = META.books.find(x=>x.id===id);
+  if(!confirm(`「${b.name}」を けします。データは もとに もどせません。よろしいですか？`)) return;
+  localStorage.removeItem(bookKey(id));
+  localStorage.removeItem("wqSnap_"+id);
+  META.books = META.books.filter(x=>x.id!==id);
+  if(META.active === id){ META.active = META.books[0].id; saveMeta(); location.reload(); return; }
+  saveMeta(); sfxCancel(); renderBooks();
+}
+/* セーブ＆ロード（書ごとのスナップショット） */
+function saveSnap(){
+  save();
+  localStorage.setItem("wqSnap_"+META.active, localStorage.getItem(bookKey(META.active)));
+  msg("💾 ぼうけんのきろくを セーブした！", true);
+  sfxHeal();
+  closeModal("bookModal");
+}
+function loadSnap(){
+  const s = localStorage.getItem("wqSnap_"+META.active);
+  if(!s){ alert("この しょには まだ セーブが ない。さきに「セーブする」を つかおう。"); return; }
+  if(!confirm("セーブした地点に もどします。いまの進行は きえます。よろしいですか？")) return;
+  localStorage.setItem(bookKey(META.active), s);
+  location.reload();
 }
 function closeModal(id){ sfxMenu(); document.getElementById(id).classList.remove("show"); }
 
