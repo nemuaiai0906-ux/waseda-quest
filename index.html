@@ -457,6 +457,15 @@
 
 </div>
 
+<!-- ログインボーナスオーバーレイ -->
+<div class="overlay" id="loginOverlay">
+  <div class="dqwin v-win" style="border-color:#ffd24a;box-shadow:0 0 0 2px #000, inset 0 0 0 2px #000, inset 0 0 0 3px #ffd24a">
+    <div class="mtitle"><span style="color:#ffd24a">📅 ログインボーナス</span></div>
+    <div id="loginBody" style="line-height:2.1;font-size:14px"></div>
+    <button class="v-ok" style="border-color:#ffd24a;color:#ffd24a" onclick="closeLoginBonus()">▶ うけとる</button>
+  </div>
+</div>
+
 <!-- 教会（死亡）オーバーレイ -->
 <div class="overlay" id="deathOverlay" style="background:#000">
   <div class="dqwin v-win" style="box-shadow:0 0 0 2px #000, inset 0 0 0 2px #000, inset 0 0 0 3px #c9a76b;border-color:#c9a76b">
@@ -805,6 +814,7 @@ function load(){
   if(s.restDay === undefined) s.restDay = null;
   if(!s.dex) s.dex = {};
   if(s.spawns === undefined) s.spawns = s.kills || 0;
+  if(s.login === undefined) s.login = { last:null, streak:0, best:0 };
   /* 武器ラインナップ拡張（v2）に伴う旧インデックスの引き継ぎ */
   if(!s.weaponV2){
     s.weaponV2 = true;
@@ -909,6 +919,66 @@ function spawnMonster(forceBoss){
   if(!state.dex[m.n]) state.dex[m.n] = { s:0, k:0 };
   state.dex[m.n].s++;
 }
+
+/* ===== 連続ログインボーナス ===== */
+let loginReward = null;  /* この起動で配布した報酬（起動時オーバーレイ用） */
+function checkLoginBonus(){
+  const lg = state.login;
+  if(lg.last === TODAY) return;  /* 今日は配布済み */
+  const y = new Date(); y.setDate(y.getDate()-1);
+  if(lg.last === dstr(y)) lg.streak += 1;   /* 昨日も来た→連続 */
+  else lg.streak = 1;                        /* 飛んだ or 初回 */
+  lg.last = TODAY;
+  lg.best = Math.max(lg.best, lg.streak);
+
+  const lv = levelInfo(state.xp).lv;
+  const day = lg.streak;
+  const items = [];   /* 表示用 [{icon,text}] */
+
+  /* 毎日の基本ボーナス（連続日数で増える） */
+  const gold = 20 + Math.min(day,10)*10 + lv*2;
+  state.gold += gold;
+  items.push({icon:"🪙", text:`ゴールド +${gold}G`});
+
+  /* 周期ボーナス */
+  if(day % 3 === 0){ state.items.herb += 2; items.push({icon:"🌿", text:"やくそう ×2"}); }
+  else { state.items.herb += 1; items.push({icon:"🌿", text:"やくそう ×1"}); }
+  if(day % 5 === 0){ state.items.ether += 2; items.push({icon:"💧", text:"まほうのせいすい ×2"}); }
+
+  /* 7日ごと：未習得の呪文を1つ無料プレゼント */
+  if(day % 7 === 0){
+    const learnable = SPELLS.map((s,i)=>i).filter(i=>!state.spellsOwned.includes(i));
+    if(learnable.length){
+      const pick = learnable[mix(TODAY+"login"+day) % learnable.length];
+      state.spellsOwned.push(pick);
+      items.push({icon:"✨", text:`じゅもん「${SPELLS[pick].n}」を しゅうとく！`, big:true});
+    }else{
+      state.gold += 500;
+      items.push({icon:"💰", text:"ぜんじゅもん しゅうとくずみ！ ボーナス +500G", big:true});
+    }
+  }
+  /* 14日ごと：まほうのせいすい大量 */
+  if(day % 14 === 0){ state.items.ether += 3; state.items.herb += 3; items.push({icon:"🎁", text:"とくべつ ほうしゅう：やくそう・せいすい ×3ずつ", big:true}); }
+  /* 30日：大金 */
+  if(day % 30 === 0){ state.gold += 2000; items.push({icon:"👑", text:"30日とうたつ！ ボーナス +2000G", big:true}); }
+
+  loginReward = { day, best:lg.best, items };
+  save();
+}
+function showLoginBonus(){
+  if(!loginReward) return;
+  const r = loginReward; loginReward = null;
+  const body = r.items.map(it=>
+    `<div style="${it.big?'color:#ffd24a;font-weight:bold;':''}">${it.icon} ${it.text}</div>`
+  ).join("");
+  document.getElementById("loginBody").innerHTML =
+    `<div style="text-align:center;font-size:20px;color:#ffd24a;margin-bottom:8px">🔥 ${r.day}日 れんぞくログイン！</div>` +
+    `<div style="text-align:center;font-size:11px;color:#9aa0b5;margin-bottom:12px">さいこう記録 ${r.best}日　／　あと ${7 - (r.day%7||7)}日で じゅもん${r.day%7===0?'を いま しゅうとく！':''}</div>` +
+    body;
+  document.getElementById("loginOverlay").classList.add("show");
+  sfxLevelUp(); setTimeout(sfxVictory, 600);
+}
+function closeLoginBonus(){ sfxMenu(); document.getElementById("loginOverlay").classList.remove("show"); render(); }
 
 /* 日をまたいだときの処理（夜のできごと） */
 function dailyTick(){
@@ -3328,9 +3398,11 @@ function showPage(name){
 }
 
 /* ================= 起動 ================= */
+checkLoginBonus();
 dailyTick();
 applyMode();
 render();
+showLoginBonus();
 document.getElementById("bgmBtn").textContent = state.settings.bgm ? "♪ ON" : "♪ OFF";
 if(state.monster) msg(`${state.monster.boss?"👑 ボス！ ":""}${state.monster.n}が あらわれた！`, true);
 else if(isResting()) msg("🏨 きょうは やどで きゅうそくちゅう。タスクは じっくり ふくしゅうタイムだ。", true);
