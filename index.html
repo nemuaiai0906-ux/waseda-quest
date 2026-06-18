@@ -2098,6 +2098,14 @@ function render(){
 }
 
 /* ================= バトル処理 ================= */
+/* 攻撃演出が見えるよう、バトル画面を画面内に収める */
+function scrollToBattle(){
+  const bv = document.getElementById("battleView");
+  if(!bv) return;
+  const target = Math.max(0, bv.getBoundingClientRect().top + window.scrollY - 8);
+  if(Math.abs(target - window.scrollY) < 4) return;
+  window.scrollTo(0, target);
+}
 function toggle(task){
   if(shopOpen) leaveShop();
   const rec = dayRec(TODAY);
@@ -2125,6 +2133,8 @@ function toggle(task){
       const buffed = state.buff;
       if(state.buff) state.buff = false;
       if(buffed) dmg *= 2;
+      /* 戦闘シーンが見える位置へスクロールしてから攻撃演出 */
+      scrollToBattle();
       /* ワンクッション：まず「きみのこうげき！」→ 一拍おいてヒット演出 */
       msg("▶ きみの こうげき！", true);
       sfxMenu();
@@ -2855,6 +2865,7 @@ function castSpell(i){
     const beforeLv = lv;
     const mult = elemMult(sp.el, state.monster.el);
     const dmg = Math.round((sp.pow + lv*2) * mult);
+    scrollToBattle();
     msg(`▶ きみは ${sp.n}を となえた！`, true);
     sfxCastEl(sp.el);
     setTimeout(()=>{
