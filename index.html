@@ -2098,13 +2098,10 @@ function render(){
 }
 
 /* ================= バトル処理 ================= */
-/* 攻撃演出が見えるよう、バトル画面を画面内に収める */
+/* 攻撃演出が見えるよう、画面の一番上までスクロール */
 function scrollToBattle(){
-  const bv = document.getElementById("battleView");
-  if(!bv) return;
-  const target = Math.max(0, bv.getBoundingClientRect().top + window.scrollY - 8);
-  if(Math.abs(target - window.scrollY) < 4) return;
-  window.scrollTo(0, target);
+  if(window.scrollY < 4) return;
+  window.scrollTo(0, 0);
 }
 function toggle(task){
   if(shopOpen) leaveShop();
