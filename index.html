@@ -381,6 +381,7 @@
         <div class="cmd" onclick="openModal('bookModal')">ぼうけんのしょ</div>
         <div class="cmd" onclick="openModal('dexModal')">ずかん</div>
         <div class="cmd" onclick="openLoginCalendar()">ログボ</div>
+        <div class="cmd" onclick="openModal('equipModal')">そうび</div>
       </div>
       <div class="dqwin enemywin"><span id="enemyName">？？？</span><span id="enemyCount">－ 1ひき</span></div>
     </div>
@@ -445,6 +446,15 @@
     <div class="dqwin v-win">
       <div class="mtitle"><span id="dexTitle">📕 まものずかん</span><span id="dexCount"></span></div>
       <div id="dexBody"></div>
+    </div>
+  </div>
+
+  <!-- そうびモーダル -->
+  <div class="overlay" id="equipModal">
+    <div class="dqwin v-win">
+      <div class="mtitle"><span>⚔ そうび</span><span id="equipStat"></span></div>
+      <div id="equipBody"></div>
+      <div class="mrow" onclick="closeModal('equipModal')">もどる</div>
     </div>
   </div>
 
@@ -3189,6 +3199,7 @@ function openModal(id){
   if(id==="itemModal") renderItems();
   if(id==="bookModal"){ bookView = "main"; renderBooks(); }
   if(id==="dexModal"){ dexSel = null; renderDex(); }
+  if(id==="equipModal") renderEquip();
   document.getElementById(id).classList.add("show");
 }
 
@@ -3202,6 +3213,55 @@ function resistsOf(el){
   if(BEATS[el] && BEATS[BEATS[el]] !== el) r.push(BEATS[el]); /* 三すくみは自属性+勝てる属性に耐性 */
   return r;
 }
+/* ===== そうび（装備の付け替え）===== */
+function renderEquip(){
+  const lv = levelInfo(state.xp).lv;
+  document.getElementById("equipStat").innerHTML = `こうげき<span class="gold">${atkNow()}</span>　ぼうぎょ<span class="gold">${defNow()}</span>`;
+  const body = document.getElementById("equipBody");
+  body.innerHTML = "";
+  const head = (t)=>{ const h=document.createElement("div"); h.className="listtitle"; h.style.marginTop="8px"; h.innerHTML=`<span>${t}</span>`; body.appendChild(h); };
+  const row = (html, cls, fn)=>{ const el=document.createElement("div"); el.className="mrow"+(cls?" "+cls:""); el.innerHTML=html; if(fn) el.onclick=fn; body.appendChild(el); };
+
+  /* ===== ぶき ===== */
+  head("🗡 ぶき");
+  const nw = WEAPONS[state.weapon], wEquipped = state.bossWeapon===null;
+  row(`${EL_ICON[nw.el]||""}${nw.n} <span class="cost">${wEquipped?"そうび中":"そうび"}</span><div class="mdesc">こうげき +${nw.atk}${nw.crit?`／会心+${Math.round(nw.crit*100)}%`:""}（ノーマル）</div>`,
+      wEquipped?"equipped":"", wEquipped?null:()=>equipWeapon(null));
+  state.ownedBW.forEach(i=>{
+    const w=BOSS_WEAPONS[i], eq=state.bossWeapon===i, locked=lv<w.req;
+    const tag = locked?`Lv${w.req}ひつよう`:(eq?"そうび中":"そうび");
+    row(`👑${EL_ICON[w.el]||""}${w.n} <span class="cost"${locked?' style="color:#f87171"':''}>${tag}</span><div class="mdesc">こうげき +${w.atk}${w.crit?`／会心+${Math.round(w.crit*100)}%`:""}${locked?`　🔒Lv${w.req}で つかえる`:""}</div>`,
+        eq?"equipped":(locked?"disabled":""), (eq||locked)?null:()=>equipWeapon(i));
+  });
+
+  /* ===== ぼうぐ ===== */
+  head("🛡 ぼうぐ");
+  const na = ARMORS[state.armor], aEquipped = state.bossArmor===null;
+  row(`${EL_ICON[na.el]||""}${na.n} <span class="cost">${aEquipped?"そうび中":"そうび"}</span><div class="mdesc">ぼうぎょ +${na.def}${na.stres?"／状態異常に強い":""}（ノーマル）</div>`,
+      aEquipped?"equipped":"", aEquipped?null:()=>equipArmor(null));
+  state.ownedBA.forEach(i=>{
+    const a=BOSS_ARMORS[i], eq=state.bossArmor===i, locked=lv<a.req;
+    const tag = locked?`Lv${a.req}ひつよう`:(eq?"そうび中":"そうび");
+    row(`👑${EL_ICON[a.el]||""}${a.n} <span class="cost"${locked?' style="color:#f87171"':''}>${tag}</span><div class="mdesc">ぼうぎょ +${a.def}${a.stres?"／状態異常に強い":""}${locked?`　🔒Lv${a.req}で つかえる`:""}</div>`,
+        eq?"equipped":(locked?"disabled":""), (eq||locked)?null:()=>equipArmor(i));
+  });
+
+  const note = document.createElement("div");
+  note.className = "note";
+  note.innerHTML = "ノーマルの ぶき・ぼうぐは しょうにんで こうにゅう、👑ボス装備は ボスを たおすと 手にはいる。";
+  body.appendChild(note);
+}
+function equipWeapon(bossIdx){
+  state.bossWeapon = bossIdx;
+  msg(`${bossIdx!=null?"👑":""}${curWeapon().n}を そうびした！`, true);
+  sfxCoin(); save(); renderEquip(); render();
+}
+function equipArmor(bossIdx){
+  state.bossArmor = bossIdx;
+  msg(`${bossIdx!=null?"👑":""}${curArmor().n}を そうびした！`, true);
+  sfxCoin(); save(); renderEquip(); render();
+}
+
 function renderDex(){
   const body = document.getElementById("dexBody");
   const title = document.getElementById("dexTitle");
