@@ -810,12 +810,12 @@ const WEAPONS = [
   {n:"アサシンダガー",       atk:46, cost:5200, el:"none",    c:"#7a8a6a", crit:0.18},
   {n:"わせだのせいけん",     atk:66, cost:9999, el:"holy",    c:"#a81f2f"}
 ];
-/* ボス限定の武器（店では買えない・ボスドロップでのみ入手。req=必要レベル） */
+/* ボス限定の武器（店では買えない・ボスドロップでのみ入手。req=そうび に必要なレベル） */
 const BOSS_WEAPONS = [
-  {n:"まおうのつるぎ",   atk:78, el:"dark",    c:"#5a2a7a", crit:0.12, req:18},
-  {n:"いかずちのほこ",   atk:82, el:"thunder", c:"#f0e060", crit:0.10, req:25},
-  {n:"はかいのおおづち", atk:90, el:"none",    c:"#8a4a2a", crit:0.20, req:32},
-  {n:"しんりのつるぎ",   atk:100,el:"holy",    c:"#fff0a0", crit:0.15, req:40}
+  {n:"まおうのつるぎ",   atk:50, el:"dark",    c:"#5a2a7a", crit:0.12, req:22},
+  {n:"いかずちのほこ",   atk:60, el:"thunder", c:"#f0e060", crit:0.10, req:30},
+  {n:"はかいのおおづち", atk:72, el:"none",    c:"#8a4a2a", crit:0.18, req:38},
+  {n:"しんりのつるぎ",   atk:85, el:"holy",    c:"#fff0a0", crit:0.15, req:48}
 ];
 const ARMORS = [
   {n:"ぬののふく",       def:0,  cost:0,    el:"none"},
@@ -836,11 +836,11 @@ const ARMORS = [
   {n:"まもりのローブ",   def:36, cost:4600, el:"none", stres:true},
   {n:"わせだのせいい",   def:48, cost:6800, el:"none"}
 ];
-/* ボス限定の防具（店では買えない・ボスドロップでのみ入手。req=必要レベル） */
+/* ボス限定の防具（店では買えない・ボスドロップでのみ入手。req=そうび に必要なレベル） */
 const BOSS_ARMORS = [
-  {n:"まおうのよろい",   def:54, el:"dark",  stres:true, req:20},
-  {n:"しんでんのたて",   def:60, el:"holy",  stres:true, req:30},
-  {n:"てんしのはごろも", def:66, el:"none",  stres:true, req:40}
+  {n:"まおうのよろい",   def:40, el:"dark",  stres:true, req:24},
+  {n:"しんでんのたて",   def:50, el:"holy",  stres:true, req:34},
+  {n:"てんしのはごろも", def:60, el:"none",  stres:true, req:44}
 ];
 const ITEMS_SHOP = [
   {key:"herb",   n:"やくそう",         d:"HPを 30 かいふくする",            cost:30},
@@ -1010,9 +1010,11 @@ function load(){
 function isResting(){ return state.restDay === TODAY; }
 function maxHp(lv){ return 40 + lv*12 + (state.sHp||0); }
 function maxMp(lv){ return 10 + lv*5 + (state.sMp||0); }
-/* 装備中の武器・防具（ボス装備が優先） */
-function curWeapon(){ return state.bossWeapon!=null ? BOSS_WEAPONS[state.bossWeapon] : WEAPONS[state.weapon]; }
-function curArmor(){ return state.bossArmor!=null ? BOSS_ARMORS[state.bossArmor] : ARMORS[state.armor]; }
+/* 装備中の武器・防具（ボス装備が優先。ただし必要レベル未満なら通常装備にもどる） */
+function bossWeaponUsable(){ return state.bossWeapon!=null && levelInfo(state.xp).lv >= BOSS_WEAPONS[state.bossWeapon].req; }
+function bossArmorUsable(){ return state.bossArmor!=null && levelInfo(state.xp).lv >= BOSS_ARMORS[state.bossArmor].req; }
+function curWeapon(){ return bossWeaponUsable() ? BOSS_WEAPONS[state.bossWeapon] : WEAPONS[state.weapon]; }
+function curArmor(){ return bossArmorUsable() ? BOSS_ARMORS[state.bossArmor] : ARMORS[state.armor]; }
 function atkNow(){ const lv = levelInfo(state.xp).lv; return lv*2 + curWeapon().atk + (state.sPow||0); }
 function defNow(){ return curArmor().def + (state.sDef||0); }
 function save(){ localStorage.setItem(bookKey(META.active), JSON.stringify(state)); }
@@ -2343,7 +2345,7 @@ function render(){
   document.getElementById("pMpFill").style.width = (state.mp/maxMp(li.lv)*100)+"%";
   document.getElementById("pMpNum").textContent = state.mp + "/" + maxMp(li.lv);
   document.getElementById("atkNum").textContent = atkNow();
-  document.getElementById("weaponName").textContent = (state.bossWeapon!=null?"👑":"") + curWeapon().n;
+  document.getElementById("weaponName").textContent = (bossWeaponUsable()?"👑":"") + curWeapon().n;
   document.getElementById("defNum").textContent = defNow();
   /* 状態異常の表示 */
   const arow = document.getElementById("ailmentRow");
@@ -3596,13 +3598,16 @@ function renderShop(){
     /* ノーマル装備にもどす */
     if(state.bossWeapon!=null) shopRow(wrap, `▶ ノーマルの ぶきに もどす <span class="cost">${WEAPONS[state.weapon].n}</span>`, "", ()=>{ state.bossWeapon=null; sfxMenu(); renderShop(); save(); render(); });
     if(state.bossArmor!=null) shopRow(wrap, `▶ ノーマルの ぼうぐに もどす <span class="cost">${ARMORS[state.armor].n}</span>`, "", ()=>{ state.bossArmor=null; sfxMenu(); renderShop(); save(); render(); });
+    const lv = levelInfo(state.xp).lv;
     state.ownedBW.forEach(i=>{
-      const w=BOSS_WEAPONS[i], eq=state.bossWeapon===i;
-      shopRow(wrap, `👑${EL_ICON[w.el]||""}${w.n} <span class="cost">${eq?"そうび中":"そうび"}</span><div class="mdesc">こうげき +${w.atk}${w.crit?`／会心+${Math.round(w.crit*100)}%`:""}</div>`, eq?"equipped":"", eq?null:()=>{ state.bossWeapon=i; sfxCoin(); msg(`👑${w.n}を そうびした！`,true); renderShop(); save(); render(); });
+      const w=BOSS_WEAPONS[i], eq=state.bossWeapon===i, locked=lv<w.req;
+      const tag = locked ? `Lv${w.req}ひつよう` : (eq?"そうび中":"そうび");
+      shopRow(wrap, `👑${EL_ICON[w.el]||""}${w.n} <span class="cost"${locked?' style="color:#f87171"':''}>${tag}</span><div class="mdesc">こうげき +${w.atk}${w.crit?`／会心+${Math.round(w.crit*100)}%`:""}${locked?`　🔒Lv${w.req}で つかえる`:""}</div>`, eq?"equipped":(locked?"disabled":""), (eq||locked)?null:()=>{ state.bossWeapon=i; sfxCoin(); msg(`👑${w.n}を そうびした！`,true); renderShop(); save(); render(); });
     });
     state.ownedBA.forEach(i=>{
-      const a=BOSS_ARMORS[i], eq=state.bossArmor===i;
-      shopRow(wrap, `👑${EL_ICON[a.el]||""}${a.n} <span class="cost">${eq?"そうび中":"そうび"}</span><div class="mdesc">ぼうぎょ +${a.def}${a.stres?"／状態異常に強い":""}</div>`, eq?"equipped":"", eq?null:()=>{ state.bossArmor=i; sfxCoin(); msg(`👑${a.n}を そうびした！`,true); renderShop(); save(); render(); });
+      const a=BOSS_ARMORS[i], eq=state.bossArmor===i, locked=lv<a.req;
+      const tag = locked ? `Lv${a.req}ひつよう` : (eq?"そうび中":"そうび");
+      shopRow(wrap, `👑${EL_ICON[a.el]||""}${a.n} <span class="cost"${locked?' style="color:#f87171"':''}>${tag}</span><div class="mdesc">ぼうぎょ +${a.def}${a.stres?"／状態異常に強い":""}${locked?`　🔒Lv${a.req}で つかえる`:""}</div>`, eq?"equipped":(locked?"disabled":""), (eq||locked)?null:()=>{ state.bossArmor=i; sfxCoin(); msg(`👑${a.n}を そうびした！`,true); renderShop(); save(); render(); });
     });
   }else{ /* うる */
     let any = false;
