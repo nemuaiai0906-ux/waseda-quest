@@ -1877,14 +1877,21 @@ function glLoop(){
     o.material.opacity=Math.min(1,d.life);
     if(d.life<=0) GL.scene.remove(o);
   });
-  /* プレイヤーのオーラ柱：わき立って 回転しながら 消える */
-  GL.scene.children.filter(o=>o.userData.aura).forEach(o=>{
-    const a=o.userData.aura;
-    a.life-=.022;
-    o.rotation.y+=.06;
-    o.position.y+=.05;
-    o.material.opacity = Math.sin(Math.max(0,a.life)*Math.PI)*.5;   /* 出て→消える */
-    if(a.life<=0) GL.scene.remove(o);
+  /* 持続バフのオーラを 状態に合わせて 同期 */
+  syncHeroAuras();
+  GL.heroGrps.forEach(g=>{
+    /* 単発オーラ（回復など）：各キャラの子で わき立って 消える */
+    g.children.filter(o=>o.userData.aura).forEach(o=>{
+      const a=o.userData.aura; a.life-=.03;
+      o.rotation.y+=.08;
+      o.material.opacity = Math.sin(Math.max(0,a.life)*Math.PI)*.55;
+      if(a.life<=0) g.remove(o);
+    });
+    /* 持続オーラ（バイキルト等）：ゆっくり脈動 */
+    if(g.userData.buffAura){
+      g.userData.buffAura.material.opacity = .28 + Math.sin(GL.t*4.5)*.16;
+      g.userData.buffAura.rotation.y += .05;
+    }
   });
   GL.renderer.render(GL.scene,GL.camera);
 }
@@ -2341,7 +2348,7 @@ function render(){
   document.getElementById("lv").textContent = li.lv;
   document.getElementById("titleBadge").textContent = titleFor(li.lv);
   document.getElementById("xpfill").style.width = (li.cur/li.need*100)+"%";
-  document.getElementById("xpLabel").textContent = li.max ? "Lv99 カンスト！🏆" : "つぎのLvまで";
+  document.getElementById("xpLabel").textContent = li.max ? "Lv99 カンスト！🏆" : `つぎのLvまで あと${li.need - li.cur}exp`;
   document.getElementById("streak").textContent = state.streak;
   document.getElementById("killCount").textContent = state.kills;
   const kw = document.getElementById("cdKyoteWrap"), sw2 = document.getElementById("cdSeikeiWrap");
@@ -3068,23 +3075,52 @@ function playerAura(color, emojis){
   }
 }
 /* 3D：パーティの周りに 光の柱＋キャラ発光 */
+/* 3D：味方キャラ 一人一人に 一瞬の オーラ（回復・治療など 単発用） */
 function glPlayerAura(colorHex){
   if(!GL) return;
   const col = new THREE.Color(colorHex);
-  const geo = new THREE.CylinderGeometry(4.2, 5.2, 9, 24, 1, true);
-  const mat = new THREE.MeshBasicMaterial({color:col, transparent:true, opacity:0, side:THREE.DoubleSide, depthWrite:false, blending:THREE.AdditiveBlending});
-  const pillar = new THREE.Mesh(geo, mat);
-  pillar.position.set(0, 4, 4.2);   /* パーティの いる あたり */
-  pillar.userData.aura = { life:1 };
-  GL.scene.add(pillar);
-  /* キャラを 一瞬 発光させる */
-  GL.heroGrps.forEach(g=>g.traverse(o=>{
-    if(o.isMesh && o.material && o.material.emissive){
-      if(!o.material.userData.oae) o.material.userData.oae = o.material.emissive.clone();
-      o.material.emissive.copy(col).multiplyScalar(.6);
-      setTimeout(()=>{ try{ o.material.emissive.copy(o.material.userData.oae); }catch(e){} }, 750);
+  GL.heroGrps.forEach(g=>{
+    const aura = new THREE.Mesh(
+      new THREE.SphereGeometry(1.7, 14, 12),
+      new THREE.MeshBasicMaterial({color:col, transparent:true, opacity:0, depthWrite:false, blending:THREE.AdditiveBlending})
+    );
+    aura.scale.set(1, 1.35, 1);
+    aura.position.y = 1.5;
+    aura.userData.aura = { life:1 };
+    g.add(aura);
+    g.traverse(o=>{
+      if(o.isMesh && o.material && o.material.emissive){
+        if(!o.material.userData.oae) o.material.userData.oae = o.material.emissive.clone();
+        o.material.emissive.copy(col).multiplyScalar(.6);
+        setTimeout(()=>{ try{ o.material.emissive.copy(o.material.userData.oae); }catch(e){} }, 700);
+      }
+    });
+  });
+}
+/* 3D：持続バフ（バイキルト等）の オーラを 状態に合わせて 各キャラに 表示／除去 */
+function heroBuffColor(){
+  if(state.buff) return state.buffMult>=3 ? 0xffd24a : 0xff7a2a;   /* x3=金 / x2=オレンジ */
+  if(state.astron) return 0x5ad0ff;                                 /* 無敵=水色 */
+  return null;
+}
+function syncHeroAuras(){
+  if(!GL) return;
+  const colHex = heroBuffColor();
+  GL.heroGrps.forEach(g=>{
+    if(colHex !== null){
+      if(!g.userData.buffAura){
+        const a = new THREE.Mesh(
+          new THREE.SphereGeometry(1.55, 16, 12),
+          new THREE.MeshBasicMaterial({color:colHex, transparent:true, opacity:.3, depthWrite:false, blending:THREE.AdditiveBlending})
+        );
+        a.scale.set(1, 1.4, 1); a.position.y = 1.5;
+        g.add(a); g.userData.buffAura = a;
+      }
+      g.userData.buffAura.material.color.setHex(colHex);
+    }else if(g.userData.buffAura){
+      g.remove(g.userData.buffAura); g.userData.buffAura = null;
     }
-  }));
+  });
 }
 /* 回復エフェクト（HP=緑 / MP=青）：プレイヤーのオーラ */
 function healAnim(kind){
@@ -3100,6 +3136,8 @@ function buffAnim(kind){
     cure: {em:["✨","💫","🌟","✨"], color:"#d0eaff"}
   }[kind] || {em:["✨"], color:"#ffffff"};
   playerAura(cfg.color, cfg.em);
+  /* 持続バフ（バイキルト・アストロン）は 各キャラに オーラを はりつける */
+  if(state.settings.mode==="3d" && GL) syncHeroAuras();
 }
 
 /* ================= ドロップ演出 ================= */
