@@ -312,7 +312,7 @@
       <div class="bcell"><div class="lab">こうげき</div><div class="val" id="atkNum">0</div><div class="num" id="weaponName">ひのきのぼう</div></div>
     </div>
     <div class="subrow">
-      <span>つぎのLvまで</span>
+      <span id="xpLabel">つぎのLvまで</span>
       <div class="xpbar"><div id="xpfill" style="width:0%"></div></div>
       <span class="gold" id="goldNum">0G</span>
     </div>
@@ -744,7 +744,14 @@ const LORE = {
   "ねむけのまじんスリープロス":{like:"睡眠不足",lore:"眠気で全てを無に帰す魔人。皮肉にも、よく寝た者には絶対に勝てない。"},
   "げんかいのおうエクスリミット":{like:"限界という言い訳",lore:"「もう限界」と言った回数だけ強くなる。本当の限界はまだ先だと知る者には弱い。"}
 };
-const TITLES = ["見習い受験生","駆け出し挑戦者","単語ハンター","文法の騎士","長文剣士","赤本の狩人","記述の魔導士","過去問マスター","都の西北ナイト","政経の勇者","早稲田の覇者"];
+/* レベル1〜99の称号（最後の1つは Lv99 専用の最終称号） */
+const TITLES = [
+  "見習い受験生","駆け出し挑戦者","単語ハンター","文法の騎士","長文剣士","構文の達人",
+  "赤本の狩人","記述の魔導士","古文の賢者","漢文の達人","過去問マスター","模試の覇者",
+  "都の西北ナイト","政経の勇者","学問の探究者","早稲田の覇者","受験界の伝説",
+  "👑 全知の賢王（Lv99）"
+];
+const LV_CAP = 99;
 
 /* ================= 属性システム ================= */
 /* 炎>氷>雷>炎 の三すくみ ＋ 光⇔闇の相克 */
@@ -1052,10 +1059,15 @@ function dayRec(ds){ if(!state.history[ds]) state.history[ds]={done:[],defeated:
 /* ================= level ================= */
 function levelInfo(xp){
   let lv=1, need=100, rest=xp;
-  while(rest>=need){ rest-=need; lv++; need=100+(lv-1)*50; }
-  return {lv, cur:rest, need};
+  while(lv<LV_CAP && rest>=need){ rest-=need; lv++; need=100+(lv-1)*50; }
+  if(lv>=LV_CAP) return {lv:LV_CAP, cur:1, need:1, max:true};   /* カンスト */
+  return {lv, cur:rest, need, max:false};
 }
-function titleFor(lv){ return TITLES[Math.min(TITLES.length-1, Math.floor((lv-1)/3))]; }
+/* Lv99で最終称号、それ以外は 6レベルごとに昇格 */
+function titleFor(lv){
+  if(lv>=LV_CAP) return TITLES[TITLES.length-1];
+  return TITLES[Math.min(TITLES.length-2, Math.floor((lv-1)/6))];
+}
 
 /* ================= 魔物の出現（連戦システム） ================= */
 function spawnMonster(forceBoss){
@@ -2317,6 +2329,7 @@ function render(){
   document.getElementById("lv").textContent = li.lv;
   document.getElementById("titleBadge").textContent = titleFor(li.lv);
   document.getElementById("xpfill").style.width = (li.cur/li.need*100)+"%";
+  document.getElementById("xpLabel").textContent = li.max ? "Lv99 カンスト！🏆" : "つぎのLvまで";
   document.getElementById("streak").textContent = state.streak;
   document.getElementById("killCount").textContent = state.kills;
   const kw = document.getElementById("cdKyoteWrap"), sw2 = document.getElementById("cdSeikeiWrap");
