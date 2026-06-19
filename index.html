@@ -980,6 +980,11 @@ function load(){
   if(s.sPow === undefined){ s.sPow = 0; s.sDef = 0; s.sHp = 0; s.sMp = 0; }
   /* ボス装備（ドロップで入手・装備で override） */
   if(s.bossWeapon === undefined){ s.bossWeapon = null; s.bossArmor = null; s.ownedBW = []; s.ownedBA = []; }
+  /* 通常装備の所持リスト（下取り廃止→全部保管して着せ替え可能に） */
+  if(!s.ownedW){ s.ownedW = []; for(let i=0;i<=(s.weapon||0);i++) s.ownedW.push(i); }
+  if(!s.ownedA){ s.ownedA = []; for(let i=0;i<=(s.armor||0);i++) s.ownedA.push(i); }
+  if(!s.ownedW.includes(0)) s.ownedW.push(0);
+  if(!s.ownedA.includes(0)) s.ownedA.push(0);
   if(!s.events) s.events = [];   /* [{id, date:"YYYY-MM-DD", title, imp:1/2/3}] */
   if(!s.ailments) s.ailments = {};   /* {poison:1or2, ...} 1=軽症 2=重症 */
   /* 旧 true → レベル1 へ移行 */
@@ -3224,9 +3229,11 @@ function renderEquip(){
 
   /* ===== ぶき ===== */
   head("🗡 ぶき");
-  const nw = WEAPONS[state.weapon], wEquipped = state.bossWeapon===null;
-  row(`${EL_ICON[nw.el]||""}${nw.n} <span class="cost">${wEquipped?"そうび中":"そうび"}</span><div class="mdesc">こうげき +${nw.atk}${nw.crit?`／会心+${Math.round(nw.crit*100)}%`:""}（ノーマル）</div>`,
-      wEquipped?"equipped":"", wEquipped?null:()=>equipWeapon(null));
+  state.ownedW.slice().sort((a,b)=>a-b).forEach(i=>{
+    const w=WEAPONS[i], eq=(state.bossWeapon===null && state.weapon===i);
+    row(`${EL_ICON[w.el]||""}${w.n} <span class="cost"${eq?"":' style="color:#7adf9a"'}>${eq?"そうび中":"そうび"}</span><div class="mdesc">こうげき +${w.atk}${w.crit?`／会心+${Math.round(w.crit*100)}%`:""}</div>`,
+        eq?"equipped":"", eq?null:()=>equipOwned("weapon", i));
+  });
   state.ownedBW.forEach(i=>{
     const w=BOSS_WEAPONS[i], eq=state.bossWeapon===i, locked=lv<w.req;
     const tag = locked?`Lv${w.req}ひつよう`:(eq?"そうび中":"そうび");
@@ -3236,9 +3243,11 @@ function renderEquip(){
 
   /* ===== ぼうぐ ===== */
   head("🛡 ぼうぐ");
-  const na = ARMORS[state.armor], aEquipped = state.bossArmor===null;
-  row(`${EL_ICON[na.el]||""}${na.n} <span class="cost">${aEquipped?"そうび中":"そうび"}</span><div class="mdesc">ぼうぎょ +${na.def}${na.stres?"／状態異常に強い":""}（ノーマル）</div>`,
-      aEquipped?"equipped":"", aEquipped?null:()=>equipArmor(null));
+  state.ownedA.slice().sort((a,b)=>a-b).forEach(i=>{
+    const a=ARMORS[i], eq=(state.bossArmor===null && state.armor===i);
+    row(`${EL_ICON[a.el]||""}${a.n} <span class="cost"${eq?"":' style="color:#7adf9a"'}>${eq?"そうび中":"そうび"}</span><div class="mdesc">ぼうぎょ +${a.def}${a.stres?"／状態異常に強い":""}</div>`,
+        eq?"equipped":"", eq?null:()=>equipOwned("armor", i));
+  });
   state.ownedBA.forEach(i=>{
     const a=BOSS_ARMORS[i], eq=state.bossArmor===i, locked=lv<a.req;
     const tag = locked?`Lv${a.req}ひつよう`:(eq?"そうび中":"そうび");
@@ -3796,16 +3805,22 @@ function renderShop(){
   if(shopTab==="w"){
     WEAPONS.forEach((w,i)=>{
       const elTxt = w.el!=="none" ? `${EL_ICON[w.el]}${EL_NAME[w.el]}属性／${EL_NAME[BEATS[w.el]]}にばつぐん` : "";
-      if(i === state.weapon){ shopRow(wrap, `${EL_ICON[w.el]||""}${w.n} <span class="cost">そうびちゅう</span><div class="mdesc">こうげき +${w.atk}　${elTxt}</div>`, "equipped"); return; }
+      const desc = `<div class="mdesc">こうげき +${w.atk}　${elTxt}</div>`;
+      const equipped = state.bossWeapon===null && i===state.weapon;
+      if(equipped){ shopRow(wrap, `${EL_ICON[w.el]||""}${w.n} <span class="cost">そうびちゅう</span>${desc}`, "equipped"); return; }
+      if(state.ownedW.includes(i)){ shopRow(wrap, `${EL_ICON[w.el]||""}${w.n} <span class="cost" style="color:#7adf9a">そうび</span>${desc}`, "", ()=>equipOwned("weapon", i)); return; }
       const ok = state.gold >= w.cost;
-      shopRow(wrap, `${EL_ICON[w.el]||""}${w.n} <span class="cost">${w.cost}G</span><div class="mdesc">こうげき +${w.atk}　${elTxt}</div>`, ok?"":"disabled", ()=>buyGear("weapon", i));
+      shopRow(wrap, `${EL_ICON[w.el]||""}${w.n} <span class="cost">${w.cost}G</span>${desc}`, ok?"":"disabled", ()=>buyGear("weapon", i));
     });
   }else if(shopTab==="a"){
     ARMORS.forEach((a,i)=>{
       const elTxt = a.el!=="none" ? `${EL_ICON[a.el]}${EL_NAME[a.el]}たいせい（同属性の攻撃を半減）` : "";
-      if(i === state.armor){ shopRow(wrap, `${EL_ICON[a.el]||""}${a.n} <span class="cost">そうびちゅう</span><div class="mdesc">ぼうぎょ +${a.def}　${elTxt}</div>`, "equipped"); return; }
+      const desc = `<div class="mdesc">ぼうぎょ +${a.def}　${elTxt}</div>`;
+      const equipped = state.bossArmor===null && i===state.armor;
+      if(equipped){ shopRow(wrap, `${EL_ICON[a.el]||""}${a.n} <span class="cost">そうびちゅう</span>${desc}`, "equipped"); return; }
+      if(state.ownedA.includes(i)){ shopRow(wrap, `${EL_ICON[a.el]||""}${a.n} <span class="cost" style="color:#7adf9a">そうび</span>${desc}`, "", ()=>equipOwned("armor", i)); return; }
       const ok = state.gold >= a.cost;
-      shopRow(wrap, `${EL_ICON[a.el]||""}${a.n} <span class="cost">${a.cost}G</span><div class="mdesc">ぼうぎょ +${a.def}　${elTxt}</div>`, ok?"":"disabled", ()=>buyGear("armor", i));
+      shopRow(wrap, `${EL_ICON[a.el]||""}${a.n} <span class="cost">${a.cost}G</span>${desc}`, ok?"":"disabled", ()=>buyGear("armor", i));
     });
   }else if(shopTab==="s"){
     SPELLS.forEach((sp,i)=>{
@@ -3852,18 +3867,8 @@ function renderShop(){
       const tag = locked ? `Lv${a.req}ひつよう` : (eq?"そうび中":"そうび");
       shopRow(wrap, `👑${EL_ICON[a.el]||""}${a.n} <span class="cost"${locked?' style="color:#f87171"':''}>${tag}</span><div class="mdesc">ぼうぎょ +${a.def}${a.stres?"／状態異常に強い":""}${locked?`　🔒Lv${a.req}で つかえる`:""}</div>`, eq?"equipped":(locked?"disabled":""), (eq||locked)?null:()=>{ state.bossArmor=i; sfxCoin(); msg(`👑${a.n}を そうびした！`,true); renderShop(); save(); render(); });
     });
-  }else{ /* うる */
+  }else{ /* うる（どうぐのみ。装備は うらず ぜんぶ 保管する）*/
     let any = false;
-    if(state.weapon > 0){
-      any = true;
-      const g = Math.floor(WEAPONS[state.weapon].cost*0.6);
-      shopRow(wrap, `${WEAPONS[state.weapon].n}（そうび中）<span class="cost">+${g}G</span><div class="mdesc">うると ひのきのぼう にもどる</div>`, "", ()=>sellGear("weapon"));
-    }
-    if(state.armor > 0){
-      any = true;
-      const g = Math.floor(ARMORS[state.armor].cost*0.6);
-      shopRow(wrap, `${ARMORS[state.armor].n}（そうび中）<span class="cost">+${g}G</span><div class="mdesc">うると ぬののふく にもどる</div>`, "", ()=>sellGear("armor"));
-    }
     ITEMS_SHOP.forEach(it=>{
       const cnt = state.items[it.key] || 0;
       if(cnt <= 0) return;
@@ -3871,26 +3876,35 @@ function renderShop(){
       const g = Math.floor(it.cost*0.5);
       shopRow(wrap, `${it.n} ×${cnt} <span class="cost">+${g}G</span><div class="mdesc">1つ うる</div>`, "", ()=>sellItem(it.key));
     });
-    if(!any) shopRow(wrap, `うれるものが ない…<div class="mdesc">そうびと どうぐは 買値より すこし安く ひきとってもらえる</div>`, "disabled");
+    shopRow(wrap, `<div class="mdesc">そうび（ぶき・ぼうぐ）は うれない。かったものは ぜんぶ のこるので、そうびメニューで いつでも きかえられる。</div>`, "disabled");
+    if(!any){ const e=document.createElement("div"); e.className="mdesc"; e.style.padding="8px 4px"; e.textContent="うれる どうぐが ない。"; wrap.appendChild(e); }
   }
 }
 /* 購入（装備は古いものを60%で自動下取り） */
 function buyGear(slot, i){
   const list = slot==="weapon" ? WEAPONS : ARMORS;
-  const cur = state[slot];
   const g = list[i];
   if(state.gold < g.cost){ msg("ゴールドが たりない！", true); return; }
   state.gold -= g.cost;
-  const tradeIn = Math.floor(list[cur].cost*0.6);
-  if(tradeIn > 0){
-    state.gold += tradeIn;
-    msg(`ふるい ${list[cur].n}は ${tradeIn}Gで ひきとってもらった。`);
-  }
+  /* 下取りなし：買ったものは 所持リストに 追加して 保管（着せ替え可能）*/
+  const owned = slot==="weapon" ? state.ownedW : state.ownedA;
+  if(!owned.includes(i)) owned.push(i);
   state[slot] = i;
+  if(slot==="weapon") state.bossWeapon = null; else state.bossArmor = null;
   msg(`${g.n}を こうにゅうして そうびした！`, true);
-  msg("商人「まいど！ だいじに つかいなよ！」");
+  msg("商人「まいど！ ふるい そうびも そうびメニューで いつでも きかえられるぜ！」");
   sfxCoin();
   renderShop(); save(); render();
+}
+/* 所持している 通常装備を 装備する（買い直し不要）*/
+function equipOwned(slot, i){
+  state[slot] = i;
+  if(slot==="weapon") state.bossWeapon = null; else state.bossArmor = null;
+  msg(`${(slot==="weapon"?WEAPONS:ARMORS)[i].n}を そうびした！`, true);
+  sfxCoin(); save();
+  if(shopOpen && document.getElementById("shopPanel").style.display!=="none") renderShop();
+  if(document.getElementById("equipModal").classList.contains("show")) renderEquip();
+  render();
 }
 function buySpell(i){
   const sp = SPELLS[i];
