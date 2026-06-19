@@ -3867,8 +3867,9 @@ function renderShop(){
       const tag = locked ? `Lv${a.req}ひつよう` : (eq?"そうび中":"そうび");
       shopRow(wrap, `👑${EL_ICON[a.el]||""}${a.n} <span class="cost"${locked?' style="color:#f87171"':''}>${tag}</span><div class="mdesc">ぼうぎょ +${a.def}${a.stres?"／状態異常に強い":""}${locked?`　🔒Lv${a.req}で つかえる`:""}</div>`, eq?"equipped":(locked?"disabled":""), (eq||locked)?null:()=>{ state.bossArmor=i; sfxCoin(); msg(`👑${a.n}を そうびした！`,true); renderShop(); save(); render(); });
     });
-  }else{ /* うる（どうぐのみ。装備は うらず ぜんぶ 保管する）*/
+  }else{ /* うる（自分の意思で 装備や どうぐを 売る。自動下取りは しない）*/
     let any = false;
+    /* どうぐ */
     ITEMS_SHOP.forEach(it=>{
       const cnt = state.items[it.key] || 0;
       if(cnt <= 0) return;
@@ -3876,8 +3877,25 @@ function renderShop(){
       const g = Math.floor(it.cost*0.5);
       shopRow(wrap, `${it.n} ×${cnt} <span class="cost">+${g}G</span><div class="mdesc">1つ うる</div>`, "", ()=>sellItem(it.key));
     });
-    shopRow(wrap, `<div class="mdesc">そうび（ぶき・ぼうぐ）は うれない。かったものは ぜんぶ のこるので、そうびメニューで いつでも きかえられる。</div>`, "disabled");
-    if(!any){ const e=document.createElement("div"); e.className="mdesc"; e.style.padding="8px 4px"; e.textContent="うれる どうぐが ない。"; wrap.appendChild(e); }
+    /* そうびちゅう・最低装備(0)いがいの 所持武器を 売れる */
+    state.ownedW.slice().sort((a,b)=>a-b).forEach(i=>{
+      if(i===0) return;
+      const equipped = state.bossWeapon===null && state.weapon===i;
+      if(equipped) return;
+      any = true;
+      const g = Math.floor(WEAPONS[i].cost*0.6);
+      shopRow(wrap, `🗡 ${WEAPONS[i].n} <span class="cost">+${g}G</span><div class="mdesc">この ぶきを うる（こうげき+${WEAPONS[i].atk}）</div>`, "", ()=>sellGearOwned("weapon", i));
+    });
+    state.ownedA.slice().sort((a,b)=>a-b).forEach(i=>{
+      if(i===0) return;
+      const equipped = state.bossArmor===null && state.armor===i;
+      if(equipped) return;
+      any = true;
+      const g = Math.floor(ARMORS[i].cost*0.6);
+      shopRow(wrap, `🛡 ${ARMORS[i].n} <span class="cost">+${g}G</span><div class="mdesc">この ぼうぐを うる（ぼうぎょ+${ARMORS[i].def}）</div>`, "", ()=>sellGearOwned("armor", i));
+    });
+    if(!any){ const e=document.createElement("div"); e.className="mdesc"; e.style.padding="8px 4px"; e.textContent="うれるものが ない。（そうびちゅう・さいていそうびは うれない）"; wrap.appendChild(e); }
+    const note=document.createElement("div"); note.className="note"; note.textContent="そうびちゅうの ものは うれない。きかえてから うろう。"; wrap.appendChild(note);
   }
 }
 /* 購入（装備は古いものを60%で自動下取り） */
@@ -3938,14 +3956,18 @@ function buyBoost(key){
   renderShop(); save(); render();
 }
 /* 売却（買値より安く引き取り：装備60% / 道具50%） */
-function sellGear(slot){
+/* 所持している 通常装備を 1つ うる（そうびちゅう・最低装備は うれない）*/
+function sellGearOwned(slot, i){
+  if(i === 0) return;
   const list = slot==="weapon" ? WEAPONS : ARMORS;
-  const cur = state[slot];
-  if(cur === 0) return;
-  const g = Math.floor(list[cur].cost*0.6);
+  const owned = slot==="weapon" ? state.ownedW : state.ownedA;
+  const equipped = slot==="weapon" ? (state.bossWeapon===null && state.weapon===i) : (state.bossArmor===null && state.armor===i);
+  if(equipped){ msg("そうびちゅうの ものは うれない。きかえてから うろう。", true); return; }
+  if(!confirm(`「${list[i].n}」を うりますか？`)) return;
+  const g = Math.floor(list[i].cost*0.6);
   state.gold += g;
-  msg(`${list[cur].n}を ${g}Gで うった。`, true);
-  state[slot] = 0;
+  const idx = owned.indexOf(i); if(idx>=0) owned.splice(idx,1);
+  msg(`${list[i].n}を ${g}Gで うった。`, true);
   sfxCoin();
   renderShop(); save(); render();
 }
