@@ -810,12 +810,12 @@ const WEAPONS = [
   {n:"アサシンダガー",       atk:46, cost:5200, el:"none",    c:"#7a8a6a", crit:0.18},
   {n:"わせだのせいけん",     atk:66, cost:9999, el:"holy",    c:"#a81f2f"}
 ];
-/* ボス限定の武器（店では買えない・ボスドロップでのみ入手） */
+/* ボス限定の武器（店では買えない・ボスドロップでのみ入手。req=必要レベル） */
 const BOSS_WEAPONS = [
-  {n:"まおうのつるぎ",   atk:78, el:"dark",    c:"#5a2a7a", crit:0.12},
-  {n:"いかずちのほこ",   atk:82, el:"thunder", c:"#f0e060", crit:0.10},
-  {n:"はかいのおおづち", atk:90, el:"none",    c:"#8a4a2a", crit:0.20},
-  {n:"しんりのつるぎ",   atk:100,el:"holy",    c:"#fff0a0", crit:0.15}
+  {n:"まおうのつるぎ",   atk:78, el:"dark",    c:"#5a2a7a", crit:0.12, req:18},
+  {n:"いかずちのほこ",   atk:82, el:"thunder", c:"#f0e060", crit:0.10, req:25},
+  {n:"はかいのおおづち", atk:90, el:"none",    c:"#8a4a2a", crit:0.20, req:32},
+  {n:"しんりのつるぎ",   atk:100,el:"holy",    c:"#fff0a0", crit:0.15, req:40}
 ];
 const ARMORS = [
   {n:"ぬののふく",       def:0,  cost:0,    el:"none"},
@@ -836,11 +836,11 @@ const ARMORS = [
   {n:"まもりのローブ",   def:36, cost:4600, el:"none", stres:true},
   {n:"わせだのせいい",   def:48, cost:6800, el:"none"}
 ];
-/* ボス限定の防具（店では買えない・ボスドロップでのみ入手） */
+/* ボス限定の防具（店では買えない・ボスドロップでのみ入手。req=必要レベル） */
 const BOSS_ARMORS = [
-  {n:"まおうのよろい",   def:54, el:"dark",  stres:true},
-  {n:"しんでんのたて",   def:60, el:"holy",  stres:true},
-  {n:"てんしのはごろも", def:66, el:"none",  stres:true}
+  {n:"まおうのよろい",   def:54, el:"dark",  stres:true, req:20},
+  {n:"しんでんのたて",   def:60, el:"holy",  stres:true, req:30},
+  {n:"てんしのはごろも", def:66, el:"none",  stres:true, req:40}
 ];
 const ITEMS_SHOP = [
   {key:"herb",   n:"やくそう",         d:"HPを 30 かいふくする",            cost:30},
@@ -898,9 +898,9 @@ const SPELLS = [
   {n:"マダンテ",     mp:60, login:true, type:"atk", el:"none",    pow:280,d:"⭐🌟いのちを けずる さいきょう呪文（ログイン限定）"},
   {n:"アストロン",   mp:20, login:true, type:"invincible",        d:"⭐🛡つぎの 敵の こうげきを 1回 むこうかする（ログイン限定）"},
   /* ===== ボス限定呪文（ボスを たおすと まれに 手に入る）===== */
-  {n:"ジゴスパーク", mp:46, bossOnly:true, type:"atk", el:"thunder", pow:170,d:"👑⚡まおうの いかずち（ボス限定）"},
-  {n:"カオスストーム",mp:54,bossOnly:true, type:"atk", el:"dark",    pow:200,d:"👑🌑こんとんの あらし（ボス限定）"},
-  {n:"てんせいのいのり",mp:40,bossOnly:true,type:"healfull",        d:"👑HPもMPも 状態も ぜんかいふく（ボス限定）"}
+  {n:"ジゴスパーク", mp:46, bossOnly:true, req:18, type:"atk", el:"thunder", pow:170,d:"👑⚡まおうの いかずち（ボス限定）"},
+  {n:"カオスストーム",mp:54,bossOnly:true, req:28, type:"atk", el:"dark",    pow:200,d:"👑🌑こんとんの あらし（ボス限定）"},
+  {n:"てんせいのいのり",mp:40,bossOnly:true,req:22, type:"healfull",        d:"👑HPもMPも 状態も ぜんかいふく（ボス限定）"}
 ];
 const LOGIN_SPELLS = SPELLS.map((s,i)=>i).filter(i=>SPELLS[i].login);
 const BOSS_SPELLS  = SPELLS.map((s,i)=>i).filter(i=>SPELLS[i].bossOnly);
@@ -2796,22 +2796,24 @@ function counterAnim(){
   }
 }
 
-/* 👑 ボス限定ドロップ：未入手のものを優先して 1つ手に入れる */
+/* 👑 ボス限定ドロップ：いまのレベルに見合った装備だけ ドロップする */
 function bossDrop(){
   if(Math.random() >= 0.45) return null;   /* 55%は ドロップなし */
-  /* 候補（まだ持っていないもの優先） */
-  const newW = BOSS_WEAPONS.map((w,i)=>i).filter(i=>!state.ownedBW.includes(i));
-  const newA = BOSS_ARMORS.map((a,i)=>i).filter(i=>!state.ownedBA.includes(i));
-  const newS = BOSS_SPELLS.filter(i=>!state.spellsOwned.includes(i));
+  const lv = levelInfo(state.xp).lv;
+  /* 未入手 かつ レベル条件を満たすものだけ候補にする */
+  const newW = BOSS_WEAPONS.map((w,i)=>i).filter(i=>!state.ownedBW.includes(i) && lv>=BOSS_WEAPONS[i].req);
+  const newA = BOSS_ARMORS.map((a,i)=>i).filter(i=>!state.ownedBA.includes(i) && lv>=BOSS_ARMORS[i].req);
+  const newS = BOSS_SPELLS.filter(i=>!state.spellsOwned.includes(i) && lv>=(SPELLS[i].req||1));
   const pool = [];
   if(newW.length) pool.push("weapon");
   if(newA.length) pool.push("armor");
   if(newS.length) pool.push("spell");
-  pool.push("item");   /* ボス道具はいつでも候補 */
+  pool.push("item");   /* ボス道具は いつでも候補 */
   const pick = pool[Math.floor(Math.random()*pool.length)];
-  if(pick==="weapon"){ const i=newW[0]; state.ownedBW.push(i); return `でんせつの ぶき「${BOSS_WEAPONS[i].n}」を 手にいれた！（ボスタブで そうび）`; }
-  if(pick==="armor"){  const i=newA[0]; state.ownedBA.push(i); return `でんせつの ぼうぐ「${BOSS_ARMORS[i].n}」を 手にいれた！（ボスタブで そうび）`; }
-  if(pick==="spell"){  const i=newS[0]; state.spellsOwned.push(i); return `ボス限定呪文「${SPELLS[i].n}」を しゅうとくした！`; }
+  /* 装備は「条件を満たす中で いちばん強い（reqが高い）もの」を渡す＝今の実力相応 */
+  if(pick==="weapon"){ const i=newW.sort((a,b)=>BOSS_WEAPONS[b].req-BOSS_WEAPONS[a].req)[0]; state.ownedBW.push(i); return `でんせつの ぶき「${BOSS_WEAPONS[i].n}」を 手にいれた！（ボスタブで そうび）`; }
+  if(pick==="armor"){  const i=newA.sort((a,b)=>BOSS_ARMORS[b].req-BOSS_ARMORS[a].req)[0]; state.ownedBA.push(i); return `でんせつの ぼうぐ「${BOSS_ARMORS[i].n}」を 手にいれた！（ボスタブで そうび）`; }
+  if(pick==="spell"){  const i=newS.sort((a,b)=>(SPELLS[b].req||1)-(SPELLS[a].req||1))[0]; state.spellsOwned.push(i); return `ボス限定呪文「${SPELLS[i].n}」を しゅうとくした！`; }
   const bi = BOSS_ITEMS[Math.floor(Math.random()*BOSS_ITEMS.length)];
   state.items[bi.key] = (state.items[bi.key]||0) + 1;
   return `レアどうぐ「${bi.n}」を 手にいれた！`;
@@ -3588,7 +3590,7 @@ function renderShop(){
   }else if(shopTab==="boss"){
     if(state.ownedBW.length===0 && state.ownedBA.length===0){
       const e=document.createElement("div"); e.className="mdesc"; e.style.padding="10px 4px";
-      e.innerHTML="まだ ボス装備が ない。<br>👑ボスを たおすと まれに でんせつの ぶき・ぼうぐが 手にはいる！";
+      e.innerHTML="まだ ボス装備が ない。<br>👑ボスを たおすと まれに でんせつの ぶき・ぼうぐが 手にはいる！<br>（レベルが あがるほど つよい ボス装備が ドロップする）";
       wrap.appendChild(e);
     }
     /* ノーマル装備にもどす */
