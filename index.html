@@ -965,58 +965,63 @@ function spawnMonster(forceBoss){
 /* ===== 連続ログインボーナス（7日サイクル）=====
    「うけとる」を押して初めて確定する方式。押す前にリロードしても消えない。 */
 let loginReward = null;  /* 受け取り待ちの報酬プラン（applyで確定） */
-function loginCyclePos(day){ return ((day-1)%7)+1; }   /* 1〜7 */
+function loginCyclePos(day){ return ((day-1)%7)+1; }              /* 1〜7 */
+function loginWeekIdx(day){ return Math.floor((day-1)/7); }       /* 0,1,2... */
 const SEED_CYCLE = [
-  {n:"ちからのたね",   stat:"sPow", add:2,  txt:"こうげき力 ＋2（えいきゅう）"},
-  {n:"まもりのたね",   stat:"sDef", add:2,  txt:"ぼうぎょ力 ＋2（えいきゅう）"},
-  {n:"いのちのきのみ", stat:"sHp",  add:15, txt:"さいだいHP ＋15（えいきゅう）"},
-  {n:"まほうのきのみ", stat:"sMp",  add:8,  txt:"さいだいMP ＋8（えいきゅう）"}
+  {n:"ちからのたね",   stat:"sPow", add:2,  txt:"こうげき力 ＋2"},
+  {n:"まもりのたね",   stat:"sDef", add:2,  txt:"ぼうぎょ力 ＋2"},
+  {n:"いのちのきのみ", stat:"sHp",  add:15, txt:"さいだいHP ＋15"},
+  {n:"まほうのきのみ", stat:"sMp",  add:8,  txt:"さいだいMP ＋8"}
 ];
-/* カレンダー用の短い説明（state非依存） */
-function loginPreview(pos){
-  return {
-    1:{icon:"🪙", t:"ゴールド＋やくそう×2"},
-    2:{icon:"💧", t:"まほうのせいすい×2＋ゴールド"},
-    3:{icon:"🌿", t:"じょうやくそう×2"},
-    4:{icon:"🌱", t:"つよくなる たね／きのみ", big:true},
-    5:{icon:"💣", t:"バクダンいし×3"},
-    6:{icon:"🍃", t:"せかいじゅのは×2＋大金", big:true},
-    7:{icon:"⭐", t:"でんせつ呪文＋2000G", big:true}
-  }[pos];
+/* 報酬パーツ（prev＝カレンダー短文 / make()＝確定処理つきの本体） */
+const RW = {
+  herb:n =>({icon:"🌿", prev:`やくそう×${n}`,         text:`やくそう ×${n}`,         do:()=>{state.items.herb+=n;}}),
+  hherb:n=>({icon:"🌿", prev:`じょうやくそう×${n}`,   text:`じょうやくそう ×${n}`,   do:()=>{state.items.hherb+=n;}}),
+  ether:n=>({icon:"💧", prev:`まほうのせいすい×${n}`, text:`まほうのせいすい ×${n}`, do:()=>{state.items.ether+=n;}}),
+  hether:n=>({icon:"🔷",prev:`せいすい大×${n}`,        text:`まほうのせいすい大 ×${n}`,do:()=>{state.items.hether+=n;}}),
+  elixir:n=>({icon:"🍃",big:true, prev:`せかいじゅのは×${n}`, text:`せかいじゅのは ×${n}`, do:()=>{state.items.elixir+=n;}}),
+  bomb:n =>({icon:"💣", prev:`バクダンいし×${n}`,     text:`バクダンいし ×${n}`,     do:()=>{state.items.bomb+=n;}}),
+  holy:n =>({icon:"🕊️",prev:`せいすい×${n}`,          text:`せいすい ×${n}`,         do:()=>{state.items.holywater+=n;}}),
+  anti:n =>({icon:"🧪", prev:`どくけしそう×${n}`,     text:`どくけしそう ×${n}`,     do:()=>{state.items.antidote+=n;}}),
+  gold:n =>({icon:"💰", prev:`ボーナス+${n}G`,         text:`ボーナス +${n}G`,        do:()=>{state.gold+=n;}}),
+  exp:()  =>({icon:"📖",big:true, prev:`けいけんち+200`, text:`けいけんち +200！`, do:()=>{const b=levelInfo(state.xp).lv;state.xp+=200;const a=levelInfo(state.xp).lv;if(a>b)levelUpFlow(b,a);}}),
+  seed:idx=>{ const s=SEED_CYCLE[idx]; return {icon:"🌱",big:true, prev:s.n, text:`${s.n}（${s.txt}）`, do:()=>{state[s.stat]+=s.add; if(s.stat==="sHp")state.hp+=s.add; if(s.stat==="sMp")state.mp+=s.add;}}; }
+};
+/* 週ごとに まるごと違う 6テーマ（7日目はどの週も でんせつ呪文）。1〜6日目を定義 */
+const WEEK_THEMES = [
+  { name:"めざめの週",   days:[RW.herb(2),  RW.ether(2),  RW.hherb(2),  RW.seed(0), RW.bomb(3),  RW.elixir(2)] },
+  { name:"ほのおの週",   days:[RW.bomb(2),  RW.herb(3),   RW.hether(2), RW.seed(2), RW.bomb(4),  RW.gold(800)] },
+  { name:"まりょくの週", days:[RW.ether(3), RW.hether(2), RW.anti(2),   RW.seed(3), RW.hether(3),RW.exp()] },
+  { name:"おうごんの週", days:[RW.gold(400),RW.herb(3),   RW.gold(600),  RW.seed(1), RW.gold(800),RW.gold(1500)] },
+  { name:"まもりの週",   days:[RW.hherb(2), RW.holy(2),   RW.anti(3),   RW.seed(1), RW.holy(3),  RW.elixir(2)] },
+  { name:"えいゆうの週", days:[RW.seed(0),  RW.seed(1),   RW.exp(),     RW.seed(2), RW.seed(3),  RW.exp()] }
+];
+function weekTheme(day){ return WEEK_THEMES[loginWeekIdx(day) % WEEK_THEMES.length]; }
+/* カレンダー用の短い説明（その週のテーマに連動） */
+function loginPreview(day, pos){
+  if(pos===7) return {icon:"⭐", t:"でんせつ呪文＋2000G", big:true};
+  const rw = weekTheme(day).days[pos-1];
+  return {icon:rw.icon, t:rw.prev, big:rw.big};
 }
 /* 実際の報酬プラン（do() で確定） */
 function buildLoginItems(day){
   const pos = loginCyclePos(day);
   const lv = levelInfo(state.xp).lv;
   const items = [];
-  /* 毎日もらえる ゴールド（連続日数で増える・前より豪華） */
+  /* 毎日もらえる ゴールド（連続日数で増える） */
   const gold = 50 + Math.min(day,20)*15 + lv*4;
   items.push({icon:"🪙", text:`ゴールド +${gold}G`, do:()=>{ state.gold += gold; }});
 
-  if(pos===1){ items.push({icon:"🌿", text:"やくそう ×2", do:()=>{ state.items.herb += 2; }}); }
-  else if(pos===2){ items.push({icon:"💧", text:"まほうのせいすい ×2", do:()=>{ state.items.ether += 2; }}); }
-  else if(pos===3){ items.push({icon:"🌿", text:"じょうやくそう ×2", do:()=>{ state.items.hherb += 2; }}); }
-  else if(pos===4){
-    const seed = SEED_CYCLE[Math.floor((day-1)/7) % SEED_CYCLE.length];
-    items.push({icon:"🌱", big:true, text:`${seed.n}（${seed.txt}）`, do:()=>{
-      state[seed.stat] += seed.add;
-      if(seed.stat==="sHp") state.hp += seed.add;
-      if(seed.stat==="sMp") state.mp += seed.add;
-    }});
-  }
-  else if(pos===5){ items.push({icon:"💣", text:"バクダンいし ×3", do:()=>{ state.items.bomb += 3; }}); }
-  else if(pos===6){
-    items.push({icon:"🍃", big:true, text:"せかいじゅのは ×2", do:()=>{ state.items.elixir += 2; }});
-    items.push({icon:"💰", text:"ボーナス +500G", do:()=>{ state.gold += 500; }});
-  }
-  else if(pos===7){
+  if(pos < 7){
+    items.push(weekTheme(day).days[pos-1]);   /* その週・その日の特典 */
+  }else{
     const nextLogin = LOGIN_SPELLS.find(i=>!state.spellsOwned.includes(i));
     if(nextLogin !== undefined){
       items.push({icon:"⭐", big:true, text:`でんせつ呪文「${SPELLS[nextLogin].n}」を しゅうとく！`, do:()=>{ if(!state.spellsOwned.includes(nextLogin)) state.spellsOwned.push(nextLogin); }});
     }else{
       items.push({icon:"✨", big:true, text:"ぜんでんせつ呪文 しゅうとくずみ！ ボーナス +1000G", do:()=>{ state.gold += 1000; }});
     }
-    items.push({icon:"👑", big:true, text:"7日たっせい！ ボーナス +2000G", do:()=>{ state.gold += 2000; }});
+    items.push({icon:"👑", big:true, text:"1しゅうかん たっせい！ ボーナス +2000G", do:()=>{ state.gold += 2000; }});
   }
   return items;
 }
@@ -1032,7 +1037,7 @@ function loginCalendarHTML(day, claimedToday){
   const cur = loginCyclePos(day);
   let rows = "";
   for(let p=1; p<=7; p++){
-    const pv = loginPreview(p);
+    const pv = loginPreview(day, p);
     let cls = "lgrow", stat = "";
     if(p < cur){ cls += " claimed"; stat = "✓"; }
     else if(p === cur){
@@ -1055,7 +1060,7 @@ function showLoginBonus(){
     `<div style="text-align:center;font-size:20px;color:#ffd24a;margin-bottom:2px">🔥 ${r.day}日 れんぞくログイン！</div>` +
     `<div style="text-align:center;font-size:11px;color:#9aa0b5;margin-bottom:10px">さいこう記録 ${r.best}日　／　${cur===7?'⭐でんせつ呪文を いま しゅうとく！':`あと ${7-cur}日で ⭐でんせつ呪文`}</div>` +
     `<div style="background:#11142a;border:1px solid #2a3050;border-radius:8px;padding:8px;margin-bottom:10px">${rewardLines}</div>` +
-    `<div style="font-size:11px;color:#9fe0ff;margin-bottom:4px">📅 こんしゅうの ログインボーナス</div>` +
+    `<div style="font-size:11px;color:#9fe0ff;margin-bottom:4px">📅 こんしゅうは「${weekTheme(r.day).name}」</div>` +
     loginCalendarHTML(r.day, false);
   document.getElementById("loginBtn").textContent = "▶ うけとる";
   document.getElementById("loginOverlay").classList.add("show");
@@ -1087,7 +1092,7 @@ function showLoginCalendar(){
   document.getElementById("loginBody").innerHTML =
     `<div style="text-align:center;font-size:18px;color:#ffd24a;margin-bottom:2px">🔥 ${day}日 れんぞくログイン中！</div>` +
     `<div style="text-align:center;font-size:11px;color:#9aa0b5;margin-bottom:10px">きょうのぶんは うけとり済。つぎは あした！</div>` +
-    `<div style="font-size:11px;color:#9fe0ff;margin-bottom:4px">📅 こんしゅうの ログインボーナス</div>` +
+    `<div style="font-size:11px;color:#9fe0ff;margin-bottom:4px">📅 こんしゅうは「${weekTheme(day).name}」</div>` +
     loginCalendarHTML(day, true);
   document.getElementById("loginBtn").textContent = "▶ とじる";
   document.getElementById("loginOverlay").classList.add("show");
