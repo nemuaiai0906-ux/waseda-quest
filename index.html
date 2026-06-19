@@ -3018,11 +3018,42 @@ function attackAnim(dmg, fx){
   bv.appendChild(fly);
   setTimeout(()=>fly.remove(), 850);
 }
-/* 回復エフェクト（HP=緑 / MP=青の 上昇する光） */
+/* プレイヤー側（画面下部）から立ちのぼる エフェクト（回復・補助用。魔物には影響しない） */
+function playerBurst(emojis, color){
+  const bv = document.getElementById("battleView");
+  for(let i=0;i<10;i++){
+    const p = document.createElement("div");
+    p.textContent = emojis[i%emojis.length];
+    p.style.cssText = `position:absolute;left:${18+(seedHash("pb"+i+performance.now())%64)}%;bottom:8px;font-size:22px;z-index:8;pointer-events:none;text-shadow:0 0 8px ${color}`;
+    bv.appendChild(p);
+    const dy = -(55+(seedHash("pby"+i)%90));
+    const dx = (seedHash("pbx"+i)%44)-22;
+    p.animate([
+      {transform:"translate(0,0) scale(.5)", opacity:1},
+      {transform:`translate(${dx}px, ${dy}px) scale(1.2)`, opacity:0}
+    ],{duration:780+(i%4)*90, easing:"ease-out"}).onfinish=()=>p.remove();
+  }
+}
+/* HUDの数値を 一瞬 光らせる */
+function pulseHud(id, color){
+  const e = document.getElementById(id); if(!e) return;
+  e.style.transition = "none"; e.style.textShadow = `0 0 10px ${color}, 0 0 18px ${color}`;
+  setTimeout(()=>{ e.style.transition = "text-shadow .7s"; e.style.textShadow = "none"; }, 60);
+}
+/* 回復エフェクト（HP=緑 / MP=青）：プレイヤー側だけに出す（魔物には出さない） */
 function healAnim(kind){
-  const cfg = kind==="mp" ? {em:["💧","✨","💧"], color:"#3a8adf"} : {em:["💚","✨","💚","🌟"], color:"#3adf6a"};
-  colorFlash(cfg.color);
-  burstParticles(cfg.em, 9, true, 22);
+  if(kind==="mp"){ playerBurst(["💧","✨","💧","🔹"], "#4aa8f0"); pulseHud("pMpNum", "#7ad0ff"); }
+  else { playerBurst(["💚","✨","💚","🌟"], "#3adf6a"); pulseHud("pHpNum", "#7adf9a"); }
+}
+/* 補助呪文エフェクト（攻撃UP=赤 / 防御=青 / 無敵=水色 / 治療=白）：プレイヤー側だけ */
+function buffAnim(kind){
+  const cfg = {
+    atk:  {em:["💪","🔺","⚔️","✨"], color:"#ff7a4a"},
+    def:  {em:["🛡","🔷","✨"],      color:"#5aa8ff"},
+    guard:{em:["🛡","✨","💠"],      color:"#7ad4ff"},
+    cure: {em:["✨","💫","🌟"],      color:"#cdeaff"}
+  }[kind] || {em:["✨"], color:"#fff"};
+  playerBurst(cfg.em, cfg.color);
 }
 
 /* ================= ドロップ演出 ================= */
@@ -3384,20 +3415,20 @@ function castSpell(i){
   }else if(sp.type==="buff"){
     state.buff = true; state.buffMult = 2;
     msg("バイキルト！ つぎのこうげきの ダメージが 2ばいになる！", true);
-    sfxSpell();
+    sfxSpell(); buffAnim("atk");
   }else if(sp.type==="buff3"){
     state.buff = true; state.buffMult = 3;
     msg("バイキルガイア！ つぎのこうげきの ダメージが 3ばいになる！", true);
-    sfxSpell();
+    sfxSpell(); buffAnim("atk");
   }else if(sp.type==="guard"){
     state.scala = TODAY;
     msg("スカラ！ こんやの やしゅうダメージが はんげんする！", true);
-    sfxSpell();
+    sfxSpell(); buffAnim("def");
   }else if(sp.type==="cure"){
     const had = Object.keys(state.ailments).filter(k=>state.ailments[k]).length;
     cureAilments();
     msg(`キアリク！ ${had>0?"すべての じょうたいいじょうが なおった！":"…じょうたいいじょうは なかった。"}`, true);
-    sfxSpell();
+    sfxSpell(); buffAnim("cure");
   }else if(sp.type==="escape"){
     if(!state.monster || state.monster.hp<=0){ state.mp += sp.mp; msg("いまは にげる あいてが いない！", true); closeModal("spellModal"); return; }
     sfxSpell();
@@ -3408,7 +3439,7 @@ function castSpell(i){
   }else if(sp.type==="invincible"){
     state.astron = true;
     msg("アストロン！ つぎの 敵の こうげきを 1回 むこうかする！", true);
-    sfxSpell();
+    sfxSpell(); buffAnim("guard");
   }else{
     /* 攻撃呪文：属性相性つき */
     const beforeLv = lv;
@@ -3513,7 +3544,7 @@ function useItem(key){
     msg("まほうのせいすい大を のんだ！ MPが 40 かいふくした！", true); sfxHeal(); healAnim("mp");
   }else if(key==="holywater"){
     state.scala = TODAY; state.scalaFull = true;
-    msg("せいすいを まいた！ こんやの やしゅうを かいひする！", true); sfxSpell();
+    msg("せいすいを まいた！ こんやの やしゅうを かいひする！", true); sfxSpell(); buffAnim("def");
   }else if(key==="antidote"){
     /* どくけしそうは「どく」専用。もうどく(lv2)は 1だんかいだけ和らげる */
     const pz = state.ailments.poison||0;
@@ -3521,18 +3552,18 @@ function useItem(key){
     else if(pz === 1){ delete state.ailments.poison; msg("どくけしそう！ どくが なおった！", true); }
     else { msg("どくけしそう！ HPが かいふくした。（どくには かかっていない）", true); }
     state.hp = Math.min(maxHp(lv), state.hp + 15);
-    sfxHeal();
+    sfxHeal(); healAnim("hp");
   }else if(key==="fullmoon"){
     const had = Object.keys(state.ailments).filter(k=>state.ailments[k]).length;
     cureAilments();
-    msg(`まんげつそう！ ${had>0?"すべての じょうたいいじょうが なおった！":"…とくに へんかは なかった。"}`, true); sfxSpell();
+    msg(`まんげつそう！ ${had>0?"すべての じょうたいいじょうが なおった！":"…とくに へんかは なかった。"}`, true); sfxSpell(); buffAnim("cure");
   }else if(key==="fairy"){
     state.hp = Math.min(maxHp(lv), state.hp + 40);
     state.mp = Math.min(maxMp(lv), state.mp + 40);
     msg("ようせいのしずく！ HPとMPが 40ずつ かいふくした！", true); sfxHeal(); healAnim("hp");
   }else if(key==="scroll"){
     state.scala = TODAY;
-    msg("スカラのまき！ こんやの やしゅうダメージが はんげんする！", true); sfxSpell();
+    msg("スカラのまき！ こんやの やしゅうダメージが はんげんする！", true); sfxSpell(); buffAnim("def");
   }else if(key==="phoenix"){
     state.hp = maxHp(lv); state.mp = maxMp(lv); cureAilments();
     msg("👑 フェニックスのは！ HP・MP・じょうたいが すべて ぜんかいふくした！", true); sfxLevelUp(); healAnim("hp");
