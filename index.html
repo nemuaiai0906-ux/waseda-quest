@@ -373,6 +373,7 @@
         <span class="stab" data-t="s" onclick="setShopTab('s')">じゅもん</span>
         <span class="stab" data-t="i" onclick="setShopTab('i')">どうぐ</span>
         <span class="stab" data-t="b" onclick="setShopTab('b')">つよく</span>
+        <span class="stab" data-t="boss" onclick="setShopTab('boss')">👑ボス</span>
         <span class="stab" data-t="sell" onclick="setShopTab('sell')">うる</span>
       </div>
       <div id="shopList"></div>
@@ -721,7 +722,7 @@ function elemMult(atkEl, defEl){
 }
 /* 鎧の属性耐性：同属性の攻撃を半減 */
 function armorRes(attackEl){
-  const ael = ARMORS[state.armor].el;
+  const ael = curArmor().el;
   return (ael && ael !== "none" && ael === attackEl) ? 0.5 : 1;
 }
 /* ===== 状態異常（レベル1=軽症 / レベル2=重症）===== */
@@ -769,7 +770,15 @@ const WEAPONS = [
   {n:"ぎんがのつるぎ",       atk:52, cost:6500, el:"thunder", c:"#c8c8ff"},
   {n:"おうじゃのけん",       atk:56, cost:7500, el:"holy",    c:"#ffce4a"},
   {n:"やみのおうけん",       atk:60, cost:8800, el:"dark",    c:"#6a3a8a"},
+  {n:"アサシンダガー",       atk:46, cost:5200, el:"none",    c:"#7a8a6a", crit:0.18},
   {n:"わせだのせいけん",     atk:66, cost:9999, el:"holy",    c:"#a81f2f"}
+];
+/* ボス限定の武器（店では買えない・ボスドロップでのみ入手） */
+const BOSS_WEAPONS = [
+  {n:"まおうのつるぎ",   atk:78, el:"dark",    c:"#5a2a7a", crit:0.12},
+  {n:"いかずちのほこ",   atk:82, el:"thunder", c:"#f0e060", crit:0.10},
+  {n:"はかいのおおづち", atk:90, el:"none",    c:"#8a4a2a", crit:0.20},
+  {n:"しんりのつるぎ",   atk:100,el:"holy",    c:"#fff0a0", crit:0.15}
 ];
 const ARMORS = [
   {n:"ぬののふく",       def:0,  cost:0,    el:"none"},
@@ -787,7 +796,14 @@ const ARMORS = [
   {n:"りゅうのよろい",   def:34, cost:3500, el:"fire"},
   {n:"オーロラメイル",   def:38, cost:4400, el:"ice"},
   {n:"けんじゃのころも", def:42, cost:5400, el:"holy"},
+  {n:"まもりのローブ",   def:36, cost:4600, el:"none", stres:true},
   {n:"わせだのせいい",   def:48, cost:6800, el:"none"}
+];
+/* ボス限定の防具（店では買えない・ボスドロップでのみ入手） */
+const BOSS_ARMORS = [
+  {n:"まおうのよろい",   def:54, el:"dark",  stres:true},
+  {n:"しんでんのたて",   def:60, el:"holy",  stres:true},
+  {n:"てんしのはごろも", def:66, el:"none",  stres:true}
 ];
 const ITEMS_SHOP = [
   {key:"herb",   n:"やくそう",         d:"HPを 30 かいふくする",            cost:30},
@@ -798,8 +814,19 @@ const ITEMS_SHOP = [
   {key:"bomb",   n:"バクダンいし",     d:"まものに 60の ダメージ",          cost:120},
   {key:"holywater",n:"せいすい",       d:"こんやの やしゅうを かいひする",  cost:80},
   {key:"antidote",n:"どくけしそう",    d:"どくを 1だんかい なおす＋HP15",          cost:50},
-  {key:"fullmoon", n:"まんげつそう",    d:"すべての じょうたいいじょうを ぜんかいふく", cost:240}
+  {key:"fullmoon", n:"まんげつそう",    d:"すべての じょうたいいじょうを ぜんかいふく", cost:240},
+  {key:"smoke",    n:"けむりだま",      d:"いまの まものから にげる（つぎが あらわれる）",cost:90},
+  {key:"fairy",    n:"ようせいのしずく",d:"HPとMPを 40ずつ かいふく",                cost:170},
+  {key:"lava",     n:"ようがんだま",    d:"まものに 100の ほのおダメージ",          cost:220},
+  {key:"scroll",   n:"スカラのまき",    d:"こんやの やしゅうを はんげん（MPいらず）",cost:110}
 ];
+/* ボスを たおしたときだけ 手に入る どうぐ（店では買えない） */
+const BOSS_ITEMS = [
+  {key:"phoenix",  n:"フェニックスのは", d:"HP・MP・じょうたい すべて ぜんかいふく",  boss:true},
+  {key:"megabomb", n:"ギガバクダン",     d:"まものに 250の だいダメージ",             boss:true},
+  {key:"gold_egg", n:"きんのたまご",     d:"つかうと 1500G てにはいる",               boss:true}
+];
+const ALL_ITEMS = ITEMS_SHOP.concat(BOSS_ITEMS);
 /* 永続強化アイテム（買ったら即つかう・在庫を持たない） */
 const BOOST_SHOP = [
   {key:"powerseed", n:"ちからのたね",   d:"こうげき力が ＋2（えいきゅう）",  cost:400, stat:"sPow"},
@@ -814,6 +841,7 @@ const SPELLS = [
   {n:"ベホイミ",     mp:14, cost:600,  type:"heal",     min:50, max:75, d:"HPを 50〜75 かいふくする"},
   {n:"スカラ",       mp:8,  cost:500,  type:"guard",    d:"こんやの やしゅうダメージを はんげん"},
   {n:"キアリク",     mp:10, cost:700,  type:"cure",     d:"すべての じょうたいいじょうを なおす"},
+  {n:"トヘロス",     mp:4,  cost:300,  type:"escape",   d:"バトルから にげる（つぎの まものへ）"},
   {n:"ベホマ",       mp:26, cost:2600, type:"healfull", d:"HPを ぜんかいふくする"},
   {n:"メラミ",       mp:15, cost:1200, type:"atk", el:"fire",    pow:40, d:"🔥ほのおのダメージ（氷にばつぐん）"},
   {n:"ヒャダルコ",   mp:15, cost:1200, type:"atk", el:"ice",     pow:40, d:"❄️こおりのダメージ（雷にばつぐん）"},
@@ -831,9 +859,14 @@ const SPELLS = [
   {n:"イオナズン",   mp:38, login:true, type:"atk", el:"none",    pow:120,d:"⭐💥ばくれつの だいダメージ（ログイン限定）"},
   {n:"グランドクロス",mp:44,login:true, type:"atk", el:"holy",    pow:150,d:"⭐✨せいなる じゅうじか（ログイン限定）"},
   {n:"マダンテ",     mp:60, login:true, type:"atk", el:"none",    pow:280,d:"⭐🌟いのちを けずる さいきょう呪文（ログイン限定）"},
-  {n:"アストロン",   mp:20, login:true, type:"invincible",        d:"⭐🛡つぎの 敵の こうげきを 1回 むこうかする（ログイン限定）"}
+  {n:"アストロン",   mp:20, login:true, type:"invincible",        d:"⭐🛡つぎの 敵の こうげきを 1回 むこうかする（ログイン限定）"},
+  /* ===== ボス限定呪文（ボスを たおすと まれに 手に入る）===== */
+  {n:"ジゴスパーク", mp:46, bossOnly:true, type:"atk", el:"thunder", pow:170,d:"👑⚡まおうの いかずち（ボス限定）"},
+  {n:"カオスストーム",mp:54,bossOnly:true, type:"atk", el:"dark",    pow:200,d:"👑🌑こんとんの あらし（ボス限定）"},
+  {n:"てんせいのいのり",mp:40,bossOnly:true,type:"healfull",        d:"👑HPもMPも 状態も ぜんかいふく（ボス限定）"}
 ];
 const LOGIN_SPELLS = SPELLS.map((s,i)=>i).filter(i=>SPELLS[i].login);
+const BOSS_SPELLS  = SPELLS.map((s,i)=>i).filter(i=>SPELLS[i].bossOnly);
 const HEROES = [
   {s:"warrior", p:{k:"#10131f",m:"#b8c4d8",a:"#5f6880",b:"#3a3050"}},
   {s:"hero",    p:{k:"#10131f",h:"#e8a23c",s:"#f0c8a0",c:"#d04848",b:"#4a3f8a",m:"#d8e4f0",g:"#c8973c"}},
@@ -886,9 +919,11 @@ function load(){
   if(s.login === undefined) s.login = { last:null, streak:0, best:0 };
   if(!s.items) s.items = {};
   /* 新しいどうぐの在庫キーを 0 で補完 */
-  ITEMS_SHOP.forEach(it=>{ if(s.items[it.key] === undefined) s.items[it.key] = 0; });
+  ALL_ITEMS.forEach(it=>{ if(s.items[it.key] === undefined) s.items[it.key] = 0; });
   /* 永続強化ステータス */
   if(s.sPow === undefined){ s.sPow = 0; s.sDef = 0; s.sHp = 0; s.sMp = 0; }
+  /* ボス装備（ドロップで入手・装備で override） */
+  if(s.bossWeapon === undefined){ s.bossWeapon = null; s.bossArmor = null; s.ownedBW = []; s.ownedBA = []; }
   if(!s.ailments) s.ailments = {};   /* {poison:1or2, ...} 1=軽症 2=重症 */
   /* 旧 true → レベル1 へ移行 */
   Object.keys(s.ailments).forEach(k=>{ if(s.ailments[k]===true) s.ailments[k]=1; });
@@ -937,8 +972,11 @@ function load(){
 function isResting(){ return state.restDay === TODAY; }
 function maxHp(lv){ return 40 + lv*12 + (state.sHp||0); }
 function maxMp(lv){ return 10 + lv*5 + (state.sMp||0); }
-function atkNow(){ const lv = levelInfo(state.xp).lv; return lv*2 + WEAPONS[state.weapon].atk + (state.sPow||0); }
-function defNow(){ return ARMORS[state.armor].def + (state.sDef||0); }
+/* 装備中の武器・防具（ボス装備が優先） */
+function curWeapon(){ return state.bossWeapon!=null ? BOSS_WEAPONS[state.bossWeapon] : WEAPONS[state.weapon]; }
+function curArmor(){ return state.bossArmor!=null ? BOSS_ARMORS[state.bossArmor] : ARMORS[state.armor]; }
+function atkNow(){ const lv = levelInfo(state.xp).lv; return lv*2 + curWeapon().atk + (state.sPow||0); }
+function defNow(){ return curArmor().def + (state.sDef||0); }
 function save(){ localStorage.setItem(bookKey(META.active), JSON.stringify(state)); }
 
 /* ================= date helpers ================= */
@@ -2267,7 +2305,7 @@ function render(){
   document.getElementById("pMpFill").style.width = (state.mp/maxMp(li.lv)*100)+"%";
   document.getElementById("pMpNum").textContent = state.mp + "/" + maxMp(li.lv);
   document.getElementById("atkNum").textContent = atkNow();
-  document.getElementById("weaponName").textContent = WEAPONS[state.weapon].n;
+  document.getElementById("weaponName").textContent = (state.bossWeapon!=null?"👑":"") + curWeapon().n;
   document.getElementById("defNum").textContent = defNow();
   /* 状態異常の表示 */
   const arow = document.getElementById("ailmentRow");
@@ -2381,7 +2419,7 @@ function toggle(task){
     if(!rec.dmg.includes(task.id)){
       rec.dmg.push(task.id);
       /* 属性相性：武器の属性 × 魔物の属性 */
-      const wEl = WEAPONS[state.weapon].el;
+      const wEl = curWeapon().el;
       const mult = elemMult(wEl, state.monster.el);
       let dmg = Math.round((task.xp + atkNow()) * mult);
       const buffed = state.buff;
@@ -2416,9 +2454,9 @@ function toggle(task){
           statusTurn(); save(); render();
           return;
         }
-        /* 会心の一撃（8%）：ダメージ1.5〜2倍 */
+        /* 会心の一撃（基本8%＋武器の会心率）：ダメージ1.5〜2倍 */
         let final = dmg;
-        if(roll < 0.13){
+        if(roll < 0.05 + 0.08 + (curWeapon().crit||0)){
           final = Math.round(dmg * (1.5 + Math.random()*0.5));
           sfxCrit();
           msg("💥 かいしんの いちげき！！", true);
@@ -2501,7 +2539,8 @@ function cureAilments(){ state.ailments = {}; }
 function maybeInflict(){
   const m = state.monster;
   if(!m || !m.st || state.ailments[m.st]) return;
-  const chance = m.boss ? 0.5 : 0.35;
+  let chance = m.boss ? 0.5 : 0.35;
+  if(curArmor().stres) chance *= 0.5;   /* 状態異常耐性の防具 */
   if(Math.random() < chance){
     state.ailments[m.st] = 1;
     const a = AILMENTS[m.st];
@@ -2718,6 +2757,27 @@ function counterAnim(){
   }
 }
 
+/* 👑 ボス限定ドロップ：未入手のものを優先して 1つ手に入れる */
+function bossDrop(){
+  if(Math.random() >= 0.45) return null;   /* 55%は ドロップなし */
+  /* 候補（まだ持っていないもの優先） */
+  const newW = BOSS_WEAPONS.map((w,i)=>i).filter(i=>!state.ownedBW.includes(i));
+  const newA = BOSS_ARMORS.map((a,i)=>i).filter(i=>!state.ownedBA.includes(i));
+  const newS = BOSS_SPELLS.filter(i=>!state.spellsOwned.includes(i));
+  const pool = [];
+  if(newW.length) pool.push("weapon");
+  if(newA.length) pool.push("armor");
+  if(newS.length) pool.push("spell");
+  pool.push("item");   /* ボス道具はいつでも候補 */
+  const pick = pool[Math.floor(Math.random()*pool.length)];
+  if(pick==="weapon"){ const i=newW[0]; state.ownedBW.push(i); return `でんせつの ぶき「${BOSS_WEAPONS[i].n}」を 手にいれた！（ボスタブで そうび）`; }
+  if(pick==="armor"){  const i=newA[0]; state.ownedBA.push(i); return `でんせつの ぼうぐ「${BOSS_ARMORS[i].n}」を 手にいれた！（ボスタブで そうび）`; }
+  if(pick==="spell"){  const i=newS[0]; state.spellsOwned.push(i); return `ボス限定呪文「${SPELLS[i].n}」を しゅうとくした！`; }
+  const bi = BOSS_ITEMS[Math.floor(Math.random()*BOSS_ITEMS.length)];
+  state.items[bi.key] = (state.items[bi.key]||0) + 1;
+  return `レアどうぐ「${bi.n}」を 手にいれた！`;
+}
+
 /* 魔物をたおした！ → ほうしゅう & つぎの魔物 */
 function killMonster(beforeLv){
   const lv = levelInfo(state.xp).lv;
@@ -2751,6 +2811,12 @@ function killMonster(beforeLv){
     `けいけんち <span class="gold">+${bonus}</span>　ゴールド <span class="gold">+${gold}G</span>`;
   if(drops.length) html += `<br>🎁 ${drops.map(d=>d==="herb"?"やくそう":"まほうのせいすい").join(" と ")} を てにいれた！`;
 
+  /* 👑 ボス限定ドロップ（45%で 武器/防具/呪文/道具 のどれか） */
+  if(m.boss){
+    const bd = bossDrop();
+    if(bd) html += `<br><span class="lvup">👑 ${bd}</span>`;
+  }
+
   const afterLv = levelInfo(state.xp).lv;
   if(afterLv > beforeLv){
     html += `<br><span class="lvup">きみは レベル${afterLv}に あがった！ HP・MPが ぜんかいふくした！</span>`;
@@ -2771,6 +2837,19 @@ function killMonster(beforeLv){
 }
 
 /* 討伐後のえらびかた */
+/* バトルから にげる：今の魔物を消して次を出す（報酬なし） */
+function escapeBattle(){
+  if(!state.monster || isResting() || shopOpen) return;
+  const wasBoss = state.monster.boss;
+  msg(`けむりに まぎれて ${state.monster.n}から にげだした！`, true);
+  state.buff = false; state.buffMult = null;
+  spawnMonster(false);
+  msg(`${state.monster.boss?"👑 ":""}${state.monster.n}が あらわれた！`, true);
+  bgmRestart();
+  sfxMenu();
+  save(); render();
+  bossEntrance();
+}
 function adventureOn(){
   sfxMenu();
   document.getElementById("overlay").classList.remove("show");
@@ -3208,6 +3287,13 @@ function castSpell(i){
     cureAilments();
     msg(`キアリク！ ${had>0?"すべての じょうたいいじょうが なおった！":"…じょうたいいじょうは なかった。"}`, true);
     sfxSpell();
+  }else if(sp.type==="escape"){
+    if(!state.monster || state.monster.hp<=0){ state.mp += sp.mp; msg("いまは にげる あいてが いない！", true); closeModal("spellModal"); return; }
+    sfxSpell();
+    closeModal("spellModal");
+    msg("トヘロス！", true);
+    escapeBattle();
+    return;
   }else if(sp.type==="invincible"){
     state.astron = true;
     msg("アストロン！ つぎの 敵の こうげきを 1回 むこうかする！", true);
@@ -3248,13 +3334,13 @@ function renderItems(){
   const wrap = document.getElementById("itemList");
   wrap.innerHTML = "";
   let any = false;
-  ITEMS_SHOP.forEach(it=>{
+  ALL_ITEMS.forEach(it=>{
     const cnt = state.items[it.key] || 0;
     if(cnt <= 0) return;
     any = true;
     const el = document.createElement("div");
     el.className = "mrow";
-    el.innerHTML = `${it.n} <span class="cost">×${cnt}</span><div class="mdesc">${it.d}</div>`;
+    el.innerHTML = `${it.boss?"👑":""}${it.n} <span class="cost">×${cnt}</span><div class="mdesc">${it.d}</div>`;
     el.onclick = ()=>useItem(it.key);
     wrap.appendChild(el);
   });
@@ -3270,8 +3356,35 @@ function useItem(key){
   const lv = levelInfo(state.xp).lv;
   const inBattle = state.monster && state.monster.hp > 0 && !isResting();
   /* 戦闘専用アイテムのガード */
-  if((key==="bomb") && !inBattle){ msg("いまは まものが いない！", true); return; }
+  const battleOnly = ["bomb","lava","megabomb","smoke"];
+  if(battleOnly.includes(key) && !inBattle){ msg("いまは まものが いない！", true); return; }
   state.items[key]--;
+  /* ダメージ系アイテム（バクダンいし60 / ようがんだま100炎 / ギガバクダン250） */
+  const dmgItem = { bomb:{n:"バクダンいし",dmg:60,el:null}, lava:{n:"ようがんだま",dmg:100,el:"fire"}, megabomb:{n:"ギガバクダン",dmg:250,el:null} }[key];
+  if(dmgItem){
+    const beforeLv = lv;
+    scrollToBattle();
+    msg(`▶ ${dmgItem.n}を なげつけた！`, true); sfxCrit();
+    closeModal("itemModal");
+    setTimeout(()=>{
+      if(!state.monster || state.monster.hp<=0) return;
+      let d = dmgItem.dmg;
+      if(dmgItem.el) d = Math.round(d * elemMult(dmgItem.el, state.monster.el));
+      attackAnim(d); state.monster.hp -= d;
+      msg(`${state.monster.n}に ${d}の ダメージ！`, true);
+      save(); render();
+      if(state.monster.hp <= 0) setTimeout(()=>killMonster(beforeLv), 600);
+      else maybeCounter(d);
+    }, 600);
+    save(); render();
+    return;
+  }
+  if(key==="smoke"){
+    closeModal("itemModal");
+    escapeBattle();
+    save();
+    return;
+  }
   if(key==="herb"){
     state.hp = Math.min(maxHp(lv), state.hp + 30);
     msg("やくそうを つかった！ HPが 30 かいふくした！", true); sfxHeal();
@@ -3302,21 +3415,19 @@ function useItem(key){
     const had = Object.keys(state.ailments).filter(k=>state.ailments[k]).length;
     cureAilments();
     msg(`まんげつそう！ ${had>0?"すべての じょうたいいじょうが なおった！":"…とくに へんかは なかった。"}`, true); sfxSpell();
-  }else if(key==="bomb"){
-    const beforeLv = lv;
-    scrollToBattle();
-    msg("▶ バクダンいしを なげつけた！", true); sfxCrit();
-    closeModal("itemModal");
-    setTimeout(()=>{
-      if(!state.monster || state.monster.hp<=0) return;
-      attackAnim(60); state.monster.hp -= 60;
-      msg(`${state.monster.n}に 60の ダメージ！`, true);
-      save(); render();
-      if(state.monster.hp <= 0) setTimeout(()=>killMonster(beforeLv), 600);
-      else maybeCounter(60);
-    }, 600);
-    save(); render();
-    return;
+  }else if(key==="fairy"){
+    state.hp = Math.min(maxHp(lv), state.hp + 40);
+    state.mp = Math.min(maxMp(lv), state.mp + 40);
+    msg("ようせいのしずく！ HPとMPが 40ずつ かいふくした！", true); sfxHeal();
+  }else if(key==="scroll"){
+    state.scala = TODAY;
+    msg("スカラのまき！ こんやの やしゅうダメージが はんげんする！", true); sfxSpell();
+  }else if(key==="phoenix"){
+    state.hp = maxHp(lv); state.mp = maxMp(lv); cureAilments();
+    msg("👑 フェニックスのは！ HP・MP・じょうたいが すべて ぜんかいふくした！", true); sfxLevelUp();
+  }else if(key==="gold_egg"){
+    state.gold += 1500;
+    msg("👑 きんのたまごが われた！ 1500G てにいれた！", true); sfxCoin();
   }
   closeModal("itemModal");
   save(); render();
@@ -3412,7 +3523,7 @@ function renderShop(){
     });
   }else if(shopTab==="s"){
     SPELLS.forEach((sp,i)=>{
-      if(sp.login) return;  /* ログイン限定呪文は商人では売らない */
+      if(sp.login || sp.bossOnly) return;  /* ログイン/ボス限定呪文は商人では売らない */
       if(state.spellsOwned.includes(i)){ shopRow(wrap, `${sp.n} <span class="cost">しゅうとく済</span><div class="mdesc">${sp.d}</div>`, "equipped"); return; }
       const ok = state.gold >= sp.cost;
       shopRow(wrap, `${sp.n} <span class="cost">${sp.cost}G</span><div class="mdesc">${sp.d}（MP${sp.mp}）</div>`, ok?"":"disabled", ()=>buySpell(i));
@@ -3435,6 +3546,23 @@ function renderShop(){
     note.className = "mdesc"; note.style.padding = "8px 4px";
     note.textContent = "たね・きのみは つかうと えいきゅうに ステータスが あがる。";
     wrap.appendChild(note);
+  }else if(shopTab==="boss"){
+    if(state.ownedBW.length===0 && state.ownedBA.length===0){
+      const e=document.createElement("div"); e.className="mdesc"; e.style.padding="10px 4px";
+      e.innerHTML="まだ ボス装備が ない。<br>👑ボスを たおすと まれに でんせつの ぶき・ぼうぐが 手にはいる！";
+      wrap.appendChild(e);
+    }
+    /* ノーマル装備にもどす */
+    if(state.bossWeapon!=null) shopRow(wrap, `▶ ノーマルの ぶきに もどす <span class="cost">${WEAPONS[state.weapon].n}</span>`, "", ()=>{ state.bossWeapon=null; sfxMenu(); renderShop(); save(); render(); });
+    if(state.bossArmor!=null) shopRow(wrap, `▶ ノーマルの ぼうぐに もどす <span class="cost">${ARMORS[state.armor].n}</span>`, "", ()=>{ state.bossArmor=null; sfxMenu(); renderShop(); save(); render(); });
+    state.ownedBW.forEach(i=>{
+      const w=BOSS_WEAPONS[i], eq=state.bossWeapon===i;
+      shopRow(wrap, `👑${EL_ICON[w.el]||""}${w.n} <span class="cost">${eq?"そうび中":"そうび"}</span><div class="mdesc">こうげき +${w.atk}${w.crit?`／会心+${Math.round(w.crit*100)}%`:""}</div>`, eq?"equipped":"", eq?null:()=>{ state.bossWeapon=i; sfxCoin(); msg(`👑${w.n}を そうびした！`,true); renderShop(); save(); render(); });
+    });
+    state.ownedBA.forEach(i=>{
+      const a=BOSS_ARMORS[i], eq=state.bossArmor===i;
+      shopRow(wrap, `👑${EL_ICON[a.el]||""}${a.n} <span class="cost">${eq?"そうび中":"そうび"}</span><div class="mdesc">ぼうぎょ +${a.def}${a.stres?"／状態異常に強い":""}</div>`, eq?"equipped":"", eq?null:()=>{ state.bossArmor=i; sfxCoin(); msg(`👑${a.n}を そうびした！`,true); renderShop(); save(); render(); });
+    });
   }else{ /* うる */
     let any = false;
     if(state.weapon > 0){
