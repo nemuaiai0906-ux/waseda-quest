@@ -58,7 +58,7 @@
   .mrow.disabled{opacity:.38;pointer-events:none}
   .mrow.equipped .cost{color:#7adf9a}
   /* しけん・よてい */
-  .evform input,.evform select{background:#11142a;border:1px solid #2a3050;border-radius:6px;color:#e8eaf6;font-family:inherit;font-size:13px;padding:8px}
+  .evform input,.evform select{background:#11142a;border:1px solid #2a3050;border-radius:6px;color:#e8eaf6;font-family:inherit;font-size:16px;padding:8px}
   #evTitle{width:100%;margin-bottom:6px}
   .evform-row{display:flex;gap:6px}
   .evform-row input{flex:1;min-width:0}
@@ -216,9 +216,11 @@
   .task.done .t{text-decoration:line-through}
 
   .addrow{display:flex;gap:8px}
+  /* iOS Safari は フォント16px未満の入力欄で フォーカス時に 自動ズームする → 全部16pxに固定して防ぐ */
+  input,select,textarea{font-size:16px}
   .addrow input{
     flex:1;background:#000;border:2px solid #fff;border-radius:6px;color:#fff;
-    font-family:inherit;font-size:14px;padding:9px 10px;outline:none;
+    font-family:inherit;font-size:16px;padding:9px 10px;outline:none;
   }
   .mode3d .addrow input{background:rgba(0,0,30,.78)}
   .addrow button{font-family:inherit;background:#000;color:#ffd24a;border:2px solid #fff;border-radius:6px;padding:0 16px;font-size:14px;cursor:pointer}
@@ -1877,15 +1879,16 @@ function glLoop(){
   });
   GL.renderer.render(GL.scene,GL.camera);
 }
-function glAttackFx(){
+function glAttackFx(color){
   if(!GL) return;
   GL.shake=.32;
+  const tint = color || "#ffe27a";
   for(let i=0;i<2;i++){
     const cv=document.createElement("canvas"); cv.width=64; cv.height=64;
     const ctx=cv.getContext("2d");
     const g=ctx.createLinearGradient(0,0,64,64);
     g.addColorStop(.4,"rgba(255,255,255,0)"); g.addColorStop(.5,"#fff");
-    g.addColorStop(.56,"#ffe27a"); g.addColorStop(.66,"rgba(255,226,122,0)");
+    g.addColorStop(.56,tint); g.addColorStop(.66,"rgba(255,255,255,0)");
     ctx.fillStyle=g; ctx.fillRect(0,0,64,64);
     const q=new THREE.Mesh(
       new THREE.PlaneGeometry(8.5,8.5),
@@ -2945,22 +2948,67 @@ function updateStreak(){
   state.bestStreak = Math.max(state.bestStreak, state.streak);
 }
 
-function attackAnim(dmg){
+/* 属性ごとの 攻撃エフェクト */
+const SPELL_FX = {
+  fire:   {em:["🔥","🔥","💥","🔥"], color:"#ff7a1a"},
+  ice:    {em:["❄️","🧊","❄️","✦"], color:"#7ad4ff"},
+  thunder:{em:["⚡","⚡","✦","⚡"], color:"#ffe24a"},
+  holy:   {em:["✨","🌟","✨","🌟"], color:"#fff2c0"},
+  dark:   {em:["🌑","🟣","💫","🟣"], color:"#9a3aff"},
+  none:   {em:["💥","✨"],          color:"#ffffff"}
+};
+/* バトル画面に 一瞬の色フラッシュ（2D・3D両対応のDOMオーバーレイ） */
+function colorFlash(color){
+  const bv = document.getElementById("battleView");
+  const d = document.createElement("div");
+  d.style.cssText = `position:absolute;inset:0;z-index:7;pointer-events:none;background:${color};opacity:.4;transition:opacity .4s`;
+  bv.appendChild(d);
+  requestAnimationFrame(()=>{ d.style.opacity="0"; });
+  setTimeout(()=>d.remove(), 430);
+}
+/* 絵文字パーティクルを 飛び散らせる */
+function burstParticles(emojis, count, up, size){
+  const bv = document.getElementById("battleView");
+  for(let i=0;i<count;i++){
+    const p = document.createElement("div");
+    p.textContent = emojis[i%emojis.length];
+    p.style.cssText = `position:absolute;left:50%;top:${up?"55%":"40%"};font-size:${size||22}px;z-index:8;pointer-events:none;text-shadow:0 0 6px rgba(0,0,0,.5)`;
+    bv.appendChild(p);
+    const dx = (seedHash("px"+i+performance.now())%170)-85;
+    const dy = up ? -(40+(seedHash("py"+i)%70)) : ((seedHash("py"+i)%70)-25);
+    p.animate([
+      {transform:"translate(-50%,-50%) scale(.4)", opacity:1},
+      {transform:`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(1.25)`, opacity:0}
+    ],{duration:680+(i%4)*90, easing:"ease-out"}).onfinish=()=>p.remove();
+  }
+}
+function attackAnim(dmg, fx){
   sfxHit();
   const bv = document.getElementById("battleView");
   const gl3d = state.settings.mode==="3d" && GL;
+  const elem = fx && SPELL_FX[fx] ? fx : null;   /* fx=属性キー / 無ければ物理 */
   bv.classList.remove("shake","whiteflash"); void bv.offsetWidth;
-  bv.classList.add("whiteflash");
-  if(gl3d){
-    glAttackFx();
-  }else{
+
+  if(elem){
+    /* 属性魔法：色フラッシュ＋テーマパーティクル */
+    const cfg = SPELL_FX[elem];
+    colorFlash(cfg.color);
+    burstParticles(cfg.em, 10, false, 24);
     bv.classList.add("shake");
-    const sw = document.getElementById("spriteWrap");
-    sw.classList.remove("hitflash"); void sw.offsetWidth; sw.classList.add("hitflash");
-    const sl = document.createElement("div");
-    sl.className = "slash";
-    sw.appendChild(sl);
-    setTimeout(()=>sl.remove(), 450);
+    if(gl3d) glAttackFx(cfg.color);
+    else { const sw=document.getElementById("spriteWrap"); sw.classList.remove("hitflash"); void sw.offsetWidth; sw.classList.add("hitflash"); }
+  }else{
+    /* 物理攻撃：白フラッシュ＋斬撃 */
+    bv.classList.add("whiteflash");
+    if(gl3d){
+      glAttackFx();
+    }else{
+      bv.classList.add("shake");
+      const sw = document.getElementById("spriteWrap");
+      sw.classList.remove("hitflash"); void sw.offsetWidth; sw.classList.add("hitflash");
+      const sl = document.createElement("div"); sl.className = "slash";
+      sw.appendChild(sl); setTimeout(()=>sl.remove(), 450);
+    }
   }
   const fly = document.createElement("div");
   fly.className="dmg"; fly.textContent=dmg;
@@ -2969,6 +3017,12 @@ function attackAnim(dmg){
   fly.style.zIndex = 8;
   bv.appendChild(fly);
   setTimeout(()=>fly.remove(), 850);
+}
+/* 回復エフェクト（HP=緑 / MP=青の 上昇する光） */
+function healAnim(kind){
+  const cfg = kind==="mp" ? {em:["💧","✨","💧"], color:"#3a8adf"} : {em:["💚","✨","💚","🌟"], color:"#3adf6a"};
+  colorFlash(cfg.color);
+  burstParticles(cfg.em, 9, true, 22);
 }
 
 /* ================= ドロップ演出 ================= */
@@ -3316,16 +3370,17 @@ function castSpell(i){
     const amount = sp.min + Math.floor(Math.random() * (sp.max - sp.min + 1));
     state.hp = Math.min(maxHp(lv), state.hp + amount);
     msg(`${sp.n}！ HPが ${amount} かいふくした！`, true);
-    sfxHeal();
+    sfxHeal(); healAnim("hp");
   }else if(sp.type==="mpheal"){
     state.mp = Math.min(maxMp(lv), state.mp + sp.pow);
     msg(`${sp.n}！ MPが ${sp.pow} かいふくした！`, true);
-    sfxHeal();
+    sfxHeal(); healAnim("mp");
   }else if(sp.type==="healfull"){
     state.hp = maxHp(lv);
-    if(sp.n==="ベホマズン") state.mp = maxMp(lv);
-    msg(`${sp.n}！ HP${sp.n==="ベホマズン"?"とMP":""}が ぜんかいふくした！`, true);
-    sfxHeal();
+    if(sp.n==="ベホマズン"||sp.n==="てんせいのいのり") state.mp = maxMp(lv);
+    if(sp.n==="てんせいのいのり") cureAilments();
+    msg(`${sp.n}！ HP${sp.n==="ベホマズン"||sp.n==="てんせいのいのり"?"とMP":""}が ぜんかいふくした！`, true);
+    sfxHeal(); healAnim("hp");
   }else if(sp.type==="buff"){
     state.buff = true; state.buffMult = 2;
     msg("バイキルト！ つぎのこうげきの ダメージが 2ばいになる！", true);
@@ -3371,7 +3426,7 @@ function castSpell(i){
         sfxSurge();
         msg("✨ まりょくが ぼうそうした！！ じゅもんの いりょくが はねあがる！", true);
       }
-      attackAnim(final);
+      attackAnim(final, sp.el);
       state.monster.hp -= final;
       if(mult > 1) msg(`${EL_ICON[sp.el]}こうかは ばつぐんだ！`, true);
       else if(mult < 1) msg("…こうかは いまひとつ。", true);
@@ -3426,7 +3481,7 @@ function useItem(key){
       if(!state.monster || state.monster.hp<=0) return;
       let d = dmgItem.dmg;
       if(dmgItem.el) d = Math.round(d * elemMult(dmgItem.el, state.monster.el));
-      attackAnim(d); state.monster.hp -= d;
+      attackAnim(d, dmgItem.el); state.monster.hp -= d;
       msg(`${state.monster.n}に ${d}の ダメージ！`, true);
       save(); render();
       if(state.monster.hp <= 0) setTimeout(()=>killMonster(beforeLv), 600);
@@ -3443,19 +3498,19 @@ function useItem(key){
   }
   if(key==="herb"){
     state.hp = Math.min(maxHp(lv), state.hp + 30);
-    msg("やくそうを つかった！ HPが 30 かいふくした！", true); sfxHeal();
+    msg("やくそうを つかった！ HPが 30 かいふくした！", true); sfxHeal(); healAnim("hp");
   }else if(key==="hherb"){
     state.hp = Math.min(maxHp(lv), state.hp + 80);
-    msg("じょうやくそうを つかった！ HPが 80 かいふくした！", true); sfxHeal();
+    msg("じょうやくそうを つかった！ HPが 80 かいふくした！", true); sfxHeal(); healAnim("hp");
   }else if(key==="elixir"){
     state.hp = maxHp(lv);
-    msg("せかいじゅのは！ HPが ぜんかいふくした！", true); sfxHeal();
+    msg("せかいじゅのは！ HPが ぜんかいふくした！", true); sfxHeal(); healAnim("hp");
   }else if(key==="ether"){
     state.mp = Math.min(maxMp(lv), state.mp + 12);
-    msg("まほうのせいすいを のんだ！ MPが 12 かいふくした！", true); sfxHeal();
+    msg("まほうのせいすいを のんだ！ MPが 12 かいふくした！", true); sfxHeal(); healAnim("mp");
   }else if(key==="hether"){
     state.mp = Math.min(maxMp(lv), state.mp + 40);
-    msg("まほうのせいすい大を のんだ！ MPが 40 かいふくした！", true); sfxHeal();
+    msg("まほうのせいすい大を のんだ！ MPが 40 かいふくした！", true); sfxHeal(); healAnim("mp");
   }else if(key==="holywater"){
     state.scala = TODAY; state.scalaFull = true;
     msg("せいすいを まいた！ こんやの やしゅうを かいひする！", true); sfxSpell();
@@ -3474,13 +3529,13 @@ function useItem(key){
   }else if(key==="fairy"){
     state.hp = Math.min(maxHp(lv), state.hp + 40);
     state.mp = Math.min(maxMp(lv), state.mp + 40);
-    msg("ようせいのしずく！ HPとMPが 40ずつ かいふくした！", true); sfxHeal();
+    msg("ようせいのしずく！ HPとMPが 40ずつ かいふくした！", true); sfxHeal(); healAnim("hp");
   }else if(key==="scroll"){
     state.scala = TODAY;
     msg("スカラのまき！ こんやの やしゅうダメージが はんげんする！", true); sfxSpell();
   }else if(key==="phoenix"){
     state.hp = maxHp(lv); state.mp = maxMp(lv); cureAilments();
-    msg("👑 フェニックスのは！ HP・MP・じょうたいが すべて ぜんかいふくした！", true); sfxLevelUp();
+    msg("👑 フェニックスのは！ HP・MP・じょうたいが すべて ぜんかいふくした！", true); sfxLevelUp(); healAnim("hp");
   }else if(key==="gold_egg"){
     state.gold += 1500;
     msg("👑 きんのたまごが われた！ 1500G てにいれた！", true); sfxCoin();
