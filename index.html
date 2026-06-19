@@ -57,6 +57,22 @@
   .mrow .mdesc{font-size:11px;color:#9aa0b5}
   .mrow.disabled{opacity:.38;pointer-events:none}
   .mrow.equipped .cost{color:#7adf9a}
+  /* しけん・よてい */
+  .evform input,.evform select{background:#11142a;border:1px solid #2a3050;border-radius:6px;color:#e8eaf6;font-family:inherit;font-size:13px;padding:8px}
+  #evTitle{width:100%;margin-bottom:6px}
+  .evform-row{display:flex;gap:6px}
+  .evform-row input{flex:1;min-width:0}
+  .evform-row select{flex:1;min-width:0}
+  .evform-row button{background:#2a3a6a;border:1px solid #4a5a9a;border-radius:6px;color:#fff;font-family:inherit;font-size:13px;padding:0 14px;cursor:pointer}
+  .evrow{display:flex;align-items:center;gap:8px;font-size:13px;padding:8px 4px;border-bottom:1px dotted #2a3050}
+  .evrow .evdel{margin-left:auto;color:#f87171;cursor:pointer;font-size:12px;padding:2px 6px}
+  .evcount{font-size:12px;color:#9fe0ff;flex-shrink:0}
+  .ev-imp3{color:#ff7a6a;font-weight:bold}
+  .ev-line{font-size:13px;line-height:1.7;display:flex;align-items:baseline;gap:6px}
+  .ev-line .evd{margin-left:auto;font-size:11px;color:#9aa0b5}
+  .ev-big{font-size:15px;font-weight:bold;color:#ffd24a;line-height:1.8}
+  .ev-sep{border-top:1px dotted #2a3050;margin:6px 0}
+
   /* ログイン週間カレンダー */
   .lgrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;border:1px solid #2a3050;margin-bottom:4px;font-size:12px}
   .lgrow.today{border-color:#ffd24a;background:#2a2410}
@@ -313,6 +329,9 @@
   <!-- ===== クエストページ ===== -->
   <div class="page show" id="page-quest">
 
+    <!-- しけん・よてい カウントダウン -->
+    <div class="dqwin" id="eventPanel" style="display:none;padding:10px 12px"></div>
+
     <!-- バトル画面 -->
     <div class="battle" id="battleView">
       <div class="bg-sky"></div>
@@ -455,9 +474,27 @@
       </div>
       <div class="monthrate" id="monthRate"></div>
       <div class="cal" id="cal"></div>
-      <div class="note">日付をタップすると その日のきろくが ひらく。⚔=全達成　△=一部　🏨=やど泊。1日でも逃すと連続記録はリセット。</div>
+      <div class="note">日付をタップすると その日のきろくが ひらく。⚔=全達成　△=一部　🏨=やど泊　📌=よてい。1日でも逃すと連続記録はリセット。</div>
     </div>
     <div class="dqwin" id="dayDetail" style="display:none"></div>
+
+    <!-- しけん・よていの かきこみ -->
+    <div class="dqwin">
+      <div class="listtitle"><span>📌 しけん・よていを かきこむ</span></div>
+      <div class="evform">
+        <input id="evTitle" type="text" placeholder="例：英語 単語テスト" maxlength="24">
+        <div class="evform-row">
+          <input id="evDate" type="date">
+          <select id="evImp">
+            <option value="3">🔴 重要（高）</option>
+            <option value="2" selected>🟡 ふつう（中）</option>
+            <option value="1">🔵 ひくい（低）</option>
+          </select>
+          <button onclick="addEvent()">追加</button>
+        </div>
+      </div>
+      <div id="evList"></div>
+    </div>
   </div>
 
   <!-- ===== 作戦書ページ ===== -->
@@ -924,6 +961,7 @@ function load(){
   if(s.sPow === undefined){ s.sPow = 0; s.sDef = 0; s.sHp = 0; s.sMp = 0; }
   /* ボス装備（ドロップで入手・装備で override） */
   if(s.bossWeapon === undefined){ s.bossWeapon = null; s.bossArmor = null; s.ownedBW = []; s.ownedBA = []; }
+  if(!s.events) s.events = [];   /* [{id, date:"YYYY-MM-DD", title, imp:1/2/3}] */
   if(!s.ailments) s.ailments = {};   /* {poison:1or2, ...} 1=軽症 2=重症 */
   /* 旧 true → レベル1 へ移行 */
   Object.keys(s.ailments).forEach(k=>{ if(s.ailments[k]===true) s.ailments[k]=1; });
@@ -2388,6 +2426,7 @@ function render(){
   }
 
   drawSprites();
+  renderEventPanel();
   renderRecord();
   renderPlan(pi);
 }
@@ -3714,7 +3753,86 @@ function rateBetween(startDs, endDs){
   }
   return { n, win, pct: Math.round(win/n*100) };
 }
+/* ===== しけん・よてい ===== */
+function evDaysUntil(ds){ return daysUntil(new Date(ds+"T00:00:00")); }
+function evImpIcon(imp){ return imp>=3?"🔴":imp===2?"🟡":"🔵"; }
+function addEvent(){
+  const title = document.getElementById("evTitle").value.trim();
+  const date = document.getElementById("evDate").value;
+  const imp = parseInt(document.getElementById("evImp").value)||2;
+  if(!title){ alert("よていの なまえを いれてね"); return; }
+  if(!date){ alert("ひづけを えらんでね"); return; }
+  state.events.push({ id:"e"+(state.events.length)+"_"+date+"_"+title.slice(0,4), date, title:title.slice(0,24), imp });
+  document.getElementById("evTitle").value = "";
+  sfxMenu();
+  save(); render();
+}
+function delEvent(id){
+  const e = state.events.find(x=>x.id===id);
+  if(e && !confirm(`「${e.title}」を けしますか？`)) return;
+  state.events = state.events.filter(x=>x.id!==id);
+  sfxCancel(); save(); render();
+}
+/* 記録ページの 予定一覧（編集用） */
+function renderEventList(){
+  const wrap = document.getElementById("evList");
+  if(!wrap) return;
+  wrap.innerHTML = "";
+  const upcoming = state.events.filter(e=>e.date>=TODAY).sort((a,b)=>a.date<b.date?-1:1);
+  const past = state.events.filter(e=>e.date<TODAY);
+  if(upcoming.length===0 && past.length===0){
+    const e=document.createElement("div"); e.className="note"; e.textContent="まだ よていが ない。うえの フォームで しけんや テストの ひを かきこもう！";
+    wrap.appendChild(e); return;
+  }
+  upcoming.forEach(ev=>{
+    const d = evDaysUntil(ev.date);
+    const el = document.createElement("div"); el.className="evrow";
+    el.innerHTML = `${evImpIcon(ev.imp)} <span${ev.imp>=3?' class="ev-imp3"':''}>${ev.title}</span>` +
+      `<span class="evcount">${d===0?"きょう！":"あと"+d+"日"}（${ev.date.slice(5)}）</span>`;
+    const del=document.createElement("span"); del.className="evdel"; del.textContent="けす"; del.onclick=()=>delEvent(ev.id);
+    el.appendChild(del);
+    wrap.appendChild(el);
+  });
+  if(past.length){
+    const h=document.createElement("div"); h.className="note"; h.style.marginTop="8px"; h.textContent="― おわった よてい ―";
+    wrap.appendChild(h);
+    past.sort((a,b)=>a.date<b.date?1:-1).forEach(ev=>{
+      const el=document.createElement("div"); el.className="evrow"; el.style.opacity=".5";
+      el.innerHTML = `${evImpIcon(ev.imp)} ${ev.title} <span class="evcount">${ev.date.slice(5)}</span>`;
+      const del=document.createElement("span"); del.className="evdel"; del.textContent="けす"; del.onclick=()=>delEvent(ev.id);
+      el.appendChild(del);
+      wrap.appendChild(el);
+    });
+  }
+}
+/* クエストページの カウントダウンパネル */
+function renderEventPanel(){
+  const panel = document.getElementById("eventPanel");
+  if(!panel) return;
+  const upcoming = state.events.filter(e=>e.date>=TODAY).sort((a,b)=>a.date<b.date?-1:1);
+  if(upcoming.length===0){ panel.style.display="none"; return; }
+  panel.style.display="";
+  let html = "";
+  /* 重要（高）を上に別枠表示（最大4件） */
+  const important = upcoming.filter(e=>e.imp>=3).slice(0,4);
+  important.forEach(ev=>{
+    const d = evDaysUntil(ev.date);
+    html += `<div class="ev-big">🔴 ${ev.title}まで ${d===0?"<span style='color:#ff5a5a'>きょう！！</span>":`あと <span style='color:#ff5a5a'>${d}日</span>！！`}</div>`;
+  });
+  if(important.length) html += `<div class="ev-sep"></div>`;
+  /* 近い順トップ3（重要枠に出したものは除く） */
+  const others = upcoming.filter(e=>!important.includes(e)).slice(0,3);
+  if(others.length){
+    html += `<div style="font-size:11px;color:#9fe0ff;margin-bottom:3px">📌 ちかい よてい</div>`;
+    others.forEach(ev=>{
+      const d = evDaysUntil(ev.date);
+      html += `<div class="ev-line">${evImpIcon(ev.imp)} ${ev.title}<span class="evd">${d===0?"きょう！":"あと"+d+"日"}</span></div>`;
+    });
+  }
+  panel.innerHTML = html;
+}
 function renderRecord(){
+  renderEventList();
   let taskCount=0;
   Object.values(state.history).forEach(h=>{ taskCount+=h.done.length; });
   document.getElementById("stTotal").textContent = state.kills;
@@ -3752,6 +3870,7 @@ function renderRecord(){
   for(let day=1; day<=days; day++){
     const d=new Date(y,mo,day,12);
     const ds=dstr(d), h=state.history[ds];
+    const hasEvent = state.events.some(e=>e.date===ds);
     const cell=document.createElement("div");
     let cls="day", mark="";
     const future = ds>TODAY;
@@ -3759,9 +3878,10 @@ function renderRecord(){
     else if(h&&h.defeated){ cls+=" win"; mark="⚔"; }
     else if(h&&h.rest){ cls+=" partial"; mark="🏨"; }
     else if(h&&h.done.length>0){ cls+=" partial"; mark="△"; }
+    if(hasEvent){ mark = "📌"; cls+=" partial"; }   /* 予定がある日 */
     if(ds===TODAY) cls+=" today";
     if(ds===selDay) cls+=" sel";
-    if(!future){ cls+=" clickable"; cell.onclick=()=>showDay(ds); }
+    cls+=" clickable"; cell.onclick=()=>showDay(ds);   /* 未来日もタップで予定確認 */
     cell.className=cls;
     cell.innerHTML=`<span class="de">${mark}</span>${day}`;
     cal.appendChild(cell);
@@ -3778,17 +3898,30 @@ function showDay(ds){
   const wn=["日","月","火","水","木","金","土"][d.getDay()];
   const doneList=tasks.filter(t=>h.done.includes(t.id));
   const restList=tasks.filter(t=>!h.done.includes(t.id));
-  const status = h.defeated ? "⚔ ノルマ全達成！" : (doneList.length ? "△ 一部達成" : "― きろくなし");
-  let html=`<div class="listtitle"><span>${d.getMonth()+1}/${d.getDate()}（${wn}）のきろく</span><span>${status}</span></div>`;
-  html+=`<div class="stats2">
-    <span>たおした魔物 <span class="gold">${h.kills||0}</span>体${h.boss?`（👑ボス${h.boss}）`:""}</span>
-    <span>かくとく <span class="gold">${h.gold||0}</span>G${h.approx?"（すいてい）":""}</span>
-  </div>`;
-  if(h.rest) html+=`<div class="note" style="margin-top:4px">🏨 この日は やどやに とまった</div>`;
-  if(doneList.length||restList.length){
-    html+=`<div class="listtitle" style="margin-top:10px"><span>クエスト ${doneList.length}/${tasks.length}</span></div>`;
-    doneList.forEach(t=>{ html+=`<div class="dtask"><span class="sub">【${t.s}】</span>${t.t}</div>`; });
-    restList.forEach(t=>{ html+=`<div class="dtask undone"><span class="sub">【${t.s}】</span>${t.t}</div>`; });
+  const future = ds > TODAY;
+  const dayEvents = state.events.filter(e=>e.date===ds).sort((a,b)=>b.imp-a.imp);
+  const status = future ? "これからの ひ" : (h.defeated ? "⚔ ノルマ全達成！" : (doneList.length ? "△ 一部達成" : "― きろくなし"));
+  let html=`<div class="listtitle"><span>${d.getMonth()+1}/${d.getDate()}（${wn}）${future?"の よてい":"のきろく"}</span><span>${status}</span></div>`;
+  /* その日の予定 */
+  if(dayEvents.length){
+    dayEvents.forEach(ev=>{
+      const dd = evDaysUntil(ds);
+      html += `<div class="ev-line">${evImpIcon(ev.imp)} <span${ev.imp>=3?' class="ev-imp3"':''}>${ev.title}</span><span class="evd">${future?(dd===0?"きょう":"あと"+dd+"日"):"このひ"}</span></div>`;
+    });
+  }
+  if(!future){
+    html+=`<div class="stats2"${dayEvents.length?' style="margin-top:8px"':''}>
+      <span>たおした魔物 <span class="gold">${h.kills||0}</span>体${h.boss?`（👑ボス${h.boss}）`:""}</span>
+      <span>かくとく <span class="gold">${h.gold||0}</span>G${h.approx?"（すいてい）":""}</span>
+    </div>`;
+    if(h.rest) html+=`<div class="note" style="margin-top:4px">🏨 この日は やどやに とまった</div>`;
+    if(doneList.length||restList.length){
+      html+=`<div class="listtitle" style="margin-top:10px"><span>クエスト ${doneList.length}/${tasks.length}</span></div>`;
+      doneList.forEach(t=>{ html+=`<div class="dtask"><span class="sub">【${t.s}】</span>${t.t}</div>`; });
+      restList.forEach(t=>{ html+=`<div class="dtask undone"><span class="sub">【${t.s}】</span>${t.t}</div>`; });
+    }
+  }else if(!dayEvents.length){
+    html += `<div class="note">この日の よていは まだない。したの フォームで かきこめる。</div>`;
   }
   el.innerHTML=html;
   el.style.display="block";
