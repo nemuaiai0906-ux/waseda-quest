@@ -15,7 +15,52 @@
     font-family:"DotGothic16","Hiragino Kaku Gothic ProN",monospace;
     image-rendering:pixelated;
   }
-  .wrap{max-width:560px;margin:0 auto;padding:10px 10px 30px}
+  .wrap{max-width:560px;margin:0 auto;padding:10px 10px calc(72px + env(safe-area-inset-bottom))}
+
+  /* ===== タイトル画面 ===== */
+  #titleScreen{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(ellipse at 50% 30%,#1a2350,#0a0d1f 75%);overflow:hidden;transition:opacity .5s}
+  #titleScreen.hide{opacity:0;pointer-events:none}
+  .title-sky{position:absolute;inset:0;background:
+    radial-gradient(2px 2px at 20% 30%,#fff,transparent),
+    radial-gradient(2px 2px at 70% 20%,#cdd6f0,transparent),
+    radial-gradient(1px 1px at 40% 60%,#fff,transparent),
+    radial-gradient(2px 2px at 85% 70%,#fff,transparent),
+    radial-gradient(1px 1px at 60% 85%,#9fe0ff,transparent),
+    radial-gradient(2px 2px at 15% 80%,#fff,transparent);opacity:.7}
+  .title-inner{position:relative;text-align:center;padding:20px;animation:titlePop .6s cubic-bezier(.2,1.4,.4,1)}
+  @keyframes titlePop{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
+  .title-badge{display:inline-block;font-size:12px;color:#0a0d1f;background:linear-gradient(90deg,#ffd24a,#ffe88a);
+    padding:3px 14px;border-radius:99px;font-weight:bold;margin-bottom:14px;box-shadow:0 0 16px rgba(255,210,74,.5)}
+  .title-main{font-size:42px;line-height:1.1;color:#fff;letter-spacing:2px;
+    text-shadow:0 2px 0 #2a3a8a,0 0 18px rgba(120,150,255,.6);margin-bottom:4px}
+  .title-quest{font-size:48px;background:linear-gradient(180deg,#ffe88a,#ffb43c 60%,#e07a1a);
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+    filter:drop-shadow(0 2px 0 #7a3a0a) drop-shadow(0 0 14px rgba(255,180,60,.5))}
+  .title-art{display:flex;justify-content:center;gap:6px;margin:22px 0;min-height:72px;align-items:flex-end}
+  .title-art canvas{image-rendering:pixelated;animation:titleBob 2s ease-in-out infinite}
+  .title-art canvas:nth-child(2){animation-delay:.3s}
+  .title-art canvas:nth-child(3){animation-delay:.6s}
+  .title-art canvas:nth-child(4){animation-delay:.9s}
+  .title-art canvas:nth-child(5){animation-delay:1.2s}
+  @keyframes titleBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+  .title-start{font-family:inherit;font-size:24px;font-weight:bold;color:#3b2403;cursor:pointer;
+    background:linear-gradient(180deg,#ffe88a,#ffc83c);border:3px solid #fff;border-radius:14px;
+    padding:14px 56px;margin-top:8px;box-shadow:0 4px 0 #b07a1a,0 0 24px rgba(255,200,60,.6);
+    animation:startPulse 1.3s ease-in-out infinite}
+  .title-start:active{transform:translateY(3px);box-shadow:0 1px 0 #b07a1a}
+  @keyframes startPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+  .title-foot{margin-top:20px;font-size:13px;color:#9fb0e0;letter-spacing:1px}
+
+  /* ===== ボトムナビ ===== */
+  #bottomNav{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;
+    background:linear-gradient(180deg,#1a1f3a,#10131f);border-top:2px solid #2a3a6a;
+    padding-bottom:env(safe-area-inset-bottom)}
+  #bottomNav button{flex:1;background:none;border:none;color:#9aa6cc;font-family:inherit;
+    font-size:10px;padding:7px 2px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px}
+  #bottomNav button .ni{font-size:20px;line-height:1}
+  #bottomNav button:active{background:rgba(255,255,255,.08)}
+  #bottomNav button.active{color:#ffd24a}
 
   /* ===== DQ風ウィンドウ ===== */
   .dqwin{
@@ -303,6 +348,18 @@
 </head>
 <body class="mode2d">
 <div id="dangerVignette"></div>
+
+<!-- タイトル画面（アプリ起動時に1回表示） -->
+<div id="titleScreen">
+  <div class="title-sky"></div>
+  <div class="title-inner">
+    <div class="title-badge">受験勉強RPG</div>
+    <h1 class="title-main">早稲田政経<br><span class="title-quest">クエスト</span></h1>
+    <div class="title-art" id="titleArt"></div>
+    <button class="title-start" onclick="startGame()">▶ START</button>
+    <div class="title-foot">ToDoの まものを 討伐せよ</div>
+  </div>
+</div>
 <div class="wrap">
 
   <!-- ステータス窓 -->
@@ -548,6 +605,16 @@
     <button class="v-ok" style="border-color:#7ab8df;color:#9fe0ff" onclick="restAtInn()">🏨 やどやで やすむ（HP/MP全回復）</button>
   </div>
 </div>
+
+<!-- ボトムナビ（パズドラ風） -->
+<nav id="bottomNav">
+  <button onclick="navTo('quest')"><span class="ni">⚔</span>クエスト</button>
+  <button onclick="navTo('equip')"><span class="ni">🛡</span>そうび</button>
+  <button onclick="navTo('shop')"><span class="ni">🏪</span>しょうにん</button>
+  <button onclick="navTo('record')"><span class="ni">📅</span>きろく</button>
+  <button onclick="navTo('dex')"><span class="ni">📕</span>ずかん</button>
+  <button onclick="navTo('plan')"><span class="ni">📜</span>さくせん</button>
+</nav>
 
 <script>
 /* =========================================================
@@ -4329,6 +4396,43 @@ function showPage(name){
   document.querySelectorAll(".page").forEach(p=>p.classList.remove("show"));
   document.getElementById("page-"+name).classList.add("show");
   window.scrollTo({top:0});
+  syncNav(name);
+}
+/* ボトムナビの アクティブ表示 */
+function syncNav(page){
+  const map = { quest:0, equip:0, shop:0, record:3, dex:0, plan:5 };
+  const btns = document.querySelectorAll("#bottomNav button");
+  btns.forEach((b,i)=>b.classList.toggle("active", i===(map[page]!==undefined?map[page]:0)));
+}
+/* ボトムナビの遷移：どのページからでも安全に動く */
+function navTo(dest){
+  sfxMenu();
+  if(dest==="quest"){ showPage("quest"); window.scrollTo({top:0}); }
+  else if(dest==="record"){ showPage("record"); }
+  else if(dest==="plan"){ showPage("plan"); }
+  else if(dest==="equip"){ showPage("quest"); openModal("equipModal"); }
+  else if(dest==="dex"){ showPage("quest"); openModal("dexModal"); }
+  else if(dest==="shop"){ showPage("quest"); enterShop(); }
+}
+/* タイトル画面 → ゲーム開始 */
+function startGame(){
+  try{ audio(); if(state.settings.bgm){ bgmKill(); bgmLoop(); } }catch(e){}
+  sfxMenu();
+  const t = document.getElementById("titleScreen");
+  t.classList.add("hide");
+  setTimeout(()=>{ t.style.display = "none"; showLoginBonus(); }, 520);
+}
+/* タイトル画面の ドット絵アート（味方＋まもの） */
+function drawTitleArt(){
+  const box = document.getElementById("titleArt");
+  if(!box) return;
+  box.innerHTML = "";
+  /* 味方4人 */
+  HEROES.forEach(h=>box.appendChild(drawSprite(h.s, h.p, 4)));
+  /* まもの1体（その日の魔物 or スライム） */
+  const m = (state.monster && state.monster.s) ? state.monster : MONSTERS[0];
+  const pal = Object.assign({k:"#10131f"}, m.p);
+  box.appendChild(drawSprite(m.s, pal, 4));
 }
 
 /* ================= 起動 ================= */
@@ -4336,7 +4440,7 @@ checkLoginBonus();
 dailyTick();
 applyMode();
 render();
-showLoginBonus();
+drawTitleArt();
 document.getElementById("bgmBtn").textContent = state.settings.bgm ? "♪ ON" : "♪ OFF";
 if(state.monster) msg(`${state.monster.boss?"👑 ボス！ ":""}${state.monster.n}が あらわれた！`, true);
 else if(isResting()) msg("🏨 きょうは やどで きゅうそくちゅう。タスクは じっくり ふくしゅうタイムだ。", true);
