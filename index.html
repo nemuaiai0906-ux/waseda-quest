@@ -1877,6 +1877,15 @@ function glLoop(){
     o.material.opacity=Math.min(1,d.life);
     if(d.life<=0) GL.scene.remove(o);
   });
+  /* プレイヤーのオーラ柱：わき立って 回転しながら 消える */
+  GL.scene.children.filter(o=>o.userData.aura).forEach(o=>{
+    const a=o.userData.aura;
+    a.life-=.022;
+    o.rotation.y+=.06;
+    o.position.y+=.05;
+    o.material.opacity = Math.sin(Math.max(0,a.life)*Math.PI)*.5;   /* 出て→消える */
+    if(a.life<=0) GL.scene.remove(o);
+  });
   GL.renderer.render(GL.scene,GL.camera);
 }
 function glAttackFx(color){
@@ -3018,42 +3027,79 @@ function attackAnim(dmg, fx){
   bv.appendChild(fly);
   setTimeout(()=>fly.remove(), 850);
 }
-/* プレイヤー側（画面下部）から立ちのぼる エフェクト（回復・補助用。魔物には影響しない） */
-function playerBurst(emojis, color){
-  const bv = document.getElementById("battleView");
-  for(let i=0;i<10;i++){
-    const p = document.createElement("div");
-    p.textContent = emojis[i%emojis.length];
-    p.style.cssText = `position:absolute;left:${18+(seedHash("pb"+i+performance.now())%64)}%;bottom:8px;font-size:22px;z-index:8;pointer-events:none;text-shadow:0 0 8px ${color}`;
-    bv.appendChild(p);
-    const dy = -(55+(seedHash("pby"+i)%90));
-    const dx = (seedHash("pbx"+i)%44)-22;
-    p.animate([
-      {transform:"translate(0,0) scale(.5)", opacity:1},
-      {transform:`translate(${dx}px, ${dy}px) scale(1.2)`, opacity:0}
-    ],{duration:780+(i%4)*90, easing:"ease-out"}).onfinish=()=>p.remove();
-  }
-}
 /* HUDの数値を 一瞬 光らせる */
 function pulseHud(id, color){
   const e = document.getElementById(id); if(!e) return;
   e.style.transition = "none"; e.style.textShadow = `0 0 10px ${color}, 0 0 18px ${color}`;
   setTimeout(()=>{ e.style.transition = "text-shadow .7s"; e.style.textShadow = "none"; }, 60);
 }
-/* 回復エフェクト（HP=緑 / MP=青）：プレイヤー側だけに出す（魔物には出さない） */
-function healAnim(kind){
-  if(kind==="mp"){ playerBurst(["💧","✨","💧","🔹"], "#4aa8f0"); pulseHud("pMpNum", "#7ad0ff"); }
-  else { playerBurst(["💚","✨","💚","🌟"], "#3adf6a"); pulseHud("pHpNum", "#7adf9a"); }
+/* ===== プレイヤーのオーラ演出（回復・補助）：魔物には一切でない =====
+   2D＝画面下部から 光の柱＋魔法陣＋立ちのぼる粒子 / 3D＝キャラの周りに 光のオーラ */
+function playerAura(color, emojis){
+  const bv = document.getElementById("battleView");
+  const is3d = state.settings.mode==="3d" && GL;
+  if(is3d){
+    glPlayerAura(color);
+  }else{
+    /* 下からわき立つ 光のグロー */
+    const glow = document.createElement("div");
+    glow.style.cssText = `position:absolute;left:50%;bottom:-18%;width:78%;height:85%;transform:translateX(-50%);z-index:6;pointer-events:none;opacity:0;border-radius:50%;background:radial-gradient(ellipse at center bottom, ${color}dd 0%, ${color}66 38%, transparent 72%)`;
+    bv.appendChild(glow);
+    glow.animate([{opacity:0,transform:"translateX(-50%) scaleY(.5)"},{opacity:.9,offset:.3,transform:"translateX(-50%) scaleY(1)"},{opacity:0,transform:"translateX(-50%) scaleY(1.18)"}],{duration:950,easing:"ease-out"}).onfinish=()=>glow.remove();
+    /* 足元の 魔法陣リング */
+    const ring = document.createElement("div");
+    ring.style.cssText = `position:absolute;left:50%;bottom:6px;width:170px;height:50px;transform:translateX(-50%);border:3px solid ${color};border-radius:50%;box-shadow:0 0 20px ${color}, inset 0 0 20px ${color};z-index:6;pointer-events:none;opacity:0`;
+    bv.appendChild(ring);
+    ring.animate([{opacity:0,transform:"translateX(-50%) scale(.4)"},{opacity:.95,offset:.3},{opacity:0,transform:"translateX(-50%) scale(1.35)"}],{duration:880,easing:"ease-out"}).onfinish=()=>ring.remove();
+  }
+  /* 立ちのぼる 粒子（2D・3D共通のDOMオーバーレイ） */
+  for(let i=0;i<18;i++){
+    const p = document.createElement("div");
+    p.textContent = emojis[i%emojis.length];
+    p.style.cssText = `position:absolute;left:${16+(seedHash("pa"+i+performance.now())%68)}%;bottom:4px;font-size:${20+(i%3)*4}px;z-index:8;pointer-events:none;text-shadow:0 0 10px ${color}`;
+    bv.appendChild(p);
+    const dy = -(60+(seedHash("pay"+i)%110));
+    const dx = (seedHash("pax"+i)%50)-25;
+    p.animate([
+      {transform:"translate(0,0) scale(.4)", opacity:0},
+      {transform:`translate(${dx*0.4}px, ${dy*0.3}px) scale(1)`, opacity:1, offset:.25},
+      {transform:`translate(${dx}px, ${dy}px) scale(1.25)`, opacity:0}
+    ],{duration:850+(i%5)*90, easing:"ease-out"}).onfinish=()=>p.remove();
+  }
 }
-/* 補助呪文エフェクト（攻撃UP=赤 / 防御=青 / 無敵=水色 / 治療=白）：プレイヤー側だけ */
+/* 3D：パーティの周りに 光の柱＋キャラ発光 */
+function glPlayerAura(colorHex){
+  if(!GL) return;
+  const col = new THREE.Color(colorHex);
+  const geo = new THREE.CylinderGeometry(4.2, 5.2, 9, 24, 1, true);
+  const mat = new THREE.MeshBasicMaterial({color:col, transparent:true, opacity:0, side:THREE.DoubleSide, depthWrite:false, blending:THREE.AdditiveBlending});
+  const pillar = new THREE.Mesh(geo, mat);
+  pillar.position.set(0, 4, 4.2);   /* パーティの いる あたり */
+  pillar.userData.aura = { life:1 };
+  GL.scene.add(pillar);
+  /* キャラを 一瞬 発光させる */
+  GL.heroGrps.forEach(g=>g.traverse(o=>{
+    if(o.isMesh && o.material && o.material.emissive){
+      if(!o.material.userData.oae) o.material.userData.oae = o.material.emissive.clone();
+      o.material.emissive.copy(col).multiplyScalar(.6);
+      setTimeout(()=>{ try{ o.material.emissive.copy(o.material.userData.oae); }catch(e){} }, 750);
+    }
+  }));
+}
+/* 回復エフェクト（HP=緑 / MP=青）：プレイヤーのオーラ */
+function healAnim(kind){
+  if(kind==="mp"){ playerAura("#2f9aef", ["💧","✨","🔹","💧"]); pulseHud("pMpNum", "#7ad0ff"); }
+  else { playerAura("#2fcf5a", ["💚","✨","🌟","💚"]); pulseHud("pHpNum", "#7adf9a"); }
+}
+/* 補助呪文エフェクト（攻撃UP=赤 / 防御=青 / 無敵=水色 / 治療=白）：プレイヤーのオーラ */
 function buffAnim(kind){
   const cfg = {
-    atk:  {em:["💪","🔺","⚔️","✨"], color:"#ff7a4a"},
-    def:  {em:["🛡","🔷","✨"],      color:"#5aa8ff"},
-    guard:{em:["🛡","✨","💠"],      color:"#7ad4ff"},
-    cure: {em:["✨","💫","🌟"],      color:"#cdeaff"}
-  }[kind] || {em:["✨"], color:"#fff"};
-  playerBurst(cfg.em, cfg.color);
+    atk:  {em:["💪","🔥","⚔️","✨"], color:"#ff6a2a"},
+    def:  {em:["🛡","🔷","✨","🛡"], color:"#3a8aff"},
+    guard:{em:["🛡","💠","✨"],      color:"#3ad0ff"},
+    cure: {em:["✨","💫","🌟","✨"], color:"#d0eaff"}
+  }[kind] || {em:["✨"], color:"#ffffff"};
+  playerAura(cfg.color, cfg.em);
 }
 
 /* ================= ドロップ演出 ================= */
