@@ -798,7 +798,11 @@ const SPELLS = [
   {n:"ギガデイン",   mp:34, login:true, type:"atk", el:"thunder", pow:100,d:"⭐⚡いかずちの だいダメージ（ログイン限定）"},
   {n:"ベホマズン",   mp:40, login:true, type:"healfull", d:"⭐HPもMPも ぜんかいふく（ログイン限定）"},
   {n:"バイキルガイア",mp:18, login:true, type:"buff3",   d:"⭐つぎのこうげき ダメージ3ばい（ログイン限定）"},
-  {n:"ミナデイン",   mp:50, login:true, type:"atk", el:"holy",    pow:160,d:"⭐✨ゆうしゃの ひっさつ呪文（ログイン限定）"}
+  {n:"ミナデイン",   mp:50, login:true, type:"atk", el:"holy",    pow:160,d:"⭐✨ゆうしゃの ひっさつ呪文（ログイン限定）"},
+  {n:"イオナズン",   mp:38, login:true, type:"atk", el:"none",    pow:120,d:"⭐💥ばくれつの だいダメージ（ログイン限定）"},
+  {n:"グランドクロス",mp:44,login:true, type:"atk", el:"holy",    pow:150,d:"⭐✨せいなる じゅうじか（ログイン限定）"},
+  {n:"マダンテ",     mp:60, login:true, type:"atk", el:"none",    pow:280,d:"⭐🌟いのちを けずる さいきょう呪文（ログイン限定）"},
+  {n:"アストロン",   mp:20, login:true, type:"invincible",        d:"⭐🛡つぎの 敵の こうげきを 1回 むこうかする（ログイン限定）"}
 ];
 const LOGIN_SPELLS = SPELLS.map((s,i)=>i).filter(i=>SPELLS[i].login);
 const HEROES = [
@@ -973,6 +977,13 @@ const SEED_CYCLE = [
   {n:"いのちのきのみ", stat:"sHp",  add:15, txt:"さいだいHP ＋15"},
   {n:"まほうのきのみ", stat:"sMp",  add:8,  txt:"さいだいMP ＋8"}
 ];
+/* 全呪文コンプ後の7日目に毎週もらえる でんせつのたね（永続大強化） */
+const BIG_SEED = [
+  {n:"でんせつの ちからのたね", stat:"sPow", add:5,  txt:"こうげき力 ＋5"},
+  {n:"でんせつの まもりのたね", stat:"sDef", add:5,  txt:"ぼうぎょ力 ＋5"},
+  {n:"でんせつの いのちのみ",   stat:"sHp",  add:40, txt:"さいだいHP ＋40"},
+  {n:"でんせつの まほうのみ",   stat:"sMp",  add:20, txt:"さいだいMP ＋20"}
+];
 /* 報酬パーツ（prev＝カレンダー短文 / make()＝確定処理つきの本体） */
 const RW = {
   herb:n =>({icon:"🌿", prev:`やくそう×${n}`,         text:`やくそう ×${n}`,         do:()=>{state.items.herb+=n;}}),
@@ -999,7 +1010,12 @@ const WEEK_THEMES = [
 function weekTheme(day){ return WEEK_THEMES[loginWeekIdx(day) % WEEK_THEMES.length]; }
 /* カレンダー用の短い説明（その週のテーマに連動） */
 function loginPreview(day, pos){
-  if(pos===7) return {icon:"⭐", t:"でんせつ呪文＋2000G", big:true};
+  if(pos===7){
+    const allDone = LOGIN_SPELLS.every(i=>state.spellsOwned.includes(i));
+    return allDone
+      ? {icon:"🌟", t:"でんせつのたね＋5000G", big:true}
+      : {icon:"⭐", t:"でんせつ呪文＋2000G", big:true};
+  }
   const rw = weekTheme(day).days[pos-1];
   return {icon:rw.icon, t:rw.prev, big:rw.big};
 }
@@ -1019,7 +1035,10 @@ function buildLoginItems(day){
     if(nextLogin !== undefined){
       items.push({icon:"⭐", big:true, text:`でんせつ呪文「${SPELLS[nextLogin].n}」を しゅうとく！`, do:()=>{ if(!state.spellsOwned.includes(nextLogin)) state.spellsOwned.push(nextLogin); }});
     }else{
-      items.push({icon:"✨", big:true, text:"ぜんでんせつ呪文 しゅうとくずみ！ ボーナス +1000G", do:()=>{ state.gold += 1000; }});
+      /* 全呪文コンプ後：でんせつのたね（永続+大強化）が毎週もらえる */
+      const bs = BIG_SEED[loginWeekIdx(day) % BIG_SEED.length];
+      items.push({icon:"🌟", big:true, text:`${bs.n}（${bs.txt}）`, do:()=>{ state[bs.stat]+=bs.add; if(bs.stat==="sHp")state.hp+=bs.add; if(bs.stat==="sMp")state.mp+=bs.add; }});
+      items.push({icon:"💰", big:true, text:"ボーナス +3000G", do:()=>{ state.gold += 3000; }});
     }
     items.push({icon:"👑", big:true, text:"1しゅうかん たっせい！ ボーナス +2000G", do:()=>{ state.gold += 2000; }});
   }
@@ -2391,6 +2410,14 @@ function maybeCounter(dealt){
 /* プレイヤー被ダメージの共通処理（HP0で教会シーンへ） */
 let churchOpen = false;
 function playerDamage(dmg, text){
+  /* アストロン：つぎの被ダメージを完全無効化 */
+  if(state.astron){
+    state.astron = false;
+    msg("🛡 アストロンの ちからで こうげきを むこうかした！", true);
+    sfxSpell();
+    save(); render();
+    return;
+  }
   /* どくけしそうの まもり：つぎの被ダメージを半減 */
   if(state.guardNext){
     state.guardNext = false;
@@ -3064,6 +3091,10 @@ function castSpell(i){
   }else if(sp.type==="guard"){
     state.scala = TODAY;
     msg("スカラ！ こんやの やしゅうダメージが はんげんする！", true);
+    sfxSpell();
+  }else if(sp.type==="invincible"){
+    state.astron = true;
+    msg("アストロン！ つぎの 敵の こうげきを 1回 むこうかする！", true);
     sfxSpell();
   }else{
     /* 攻撃呪文：属性相性つき */
