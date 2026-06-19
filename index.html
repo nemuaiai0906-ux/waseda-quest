@@ -724,13 +724,15 @@ function armorRes(attackEl){
   const ael = ARMORS[state.armor].el;
   return (ael && ael !== "none" && ael === attackEl) ? 0.5 : 1;
 }
-/* ===== 状態異常 ===== */
+/* ===== 状態異常（レベル1=軽症 / レベル2=重症）===== */
 const AILMENTS = {
-  poison: {icon:"🟣", name:"どく",   d:"こうげきのたび すこしHPがへる"},
-  burn:   {icon:"🔥", name:"やけど", d:"あたえるダメージが へる＋HPじわじわ"},
-  para:   {icon:"⚡", name:"まひ",   d:"ときどき こうげきが あたらない"},
-  sleep:  {icon:"😴", name:"ねむり", d:"めをさますまで こうげきが あたらない"}
+  poison: {icon:"🟣", name:"どく",   icon2:"☠️", name2:"もうどく"},
+  burn:   {icon:"🔥", name:"やけど", icon2:"🔥", name2:"だいやけど"},
+  para:   {icon:"⚡", name:"まひ",   icon2:"⚡", name2:"ぜんしんまひ"},
+  sleep:  {icon:"😴", name:"ねむり", icon2:"💤", name2:"ばくすい"}
 };
+/* レベルに応じた アイコン＋名前 */
+function ailLabel(k){ const a=AILMENTS[k], lv=state.ailments[k]||0; return lv>=2 ? a.icon2+a.name2 : a.icon+a.name; }
 const ENEMY_SPELL = {
   fire:["メラ","ベギラマ"], ice:["ヒャド","マヒャド"], thunder:["デイン","ギガデイン"],
   holy:["ギラ","ホーリーレイ"], dark:["ドルマ","ドルモーア"], none:["ねんりき","エナジーボルト"]
@@ -795,7 +797,8 @@ const ITEMS_SHOP = [
   {key:"hether", n:"まほうのせいすい大",d:"MPを 40 かいふくする",            cost:160},
   {key:"bomb",   n:"バクダンいし",     d:"まものに 60の ダメージ",          cost:120},
   {key:"holywater",n:"せいすい",       d:"こんやの やしゅうを かいひする",  cost:80},
-  {key:"antidote",n:"どくけしそう",    d:"じょうたいいじょうを ぜんかいふく＋HP15",cost:50}
+  {key:"antidote",n:"どくけしそう",    d:"どくを 1だんかい なおす＋HP15",          cost:50},
+  {key:"fullmoon", n:"まんげつそう",    d:"すべての じょうたいいじょうを ぜんかいふく", cost:240}
 ];
 /* 永続強化アイテム（買ったら即つかう・在庫を持たない） */
 const BOOST_SHOP = [
@@ -810,6 +813,7 @@ const SPELLS = [
   {n:"バイキルト",   mp:10, cost:0,    type:"buff",     d:"つぎのこうげきの ダメージ2ばい"},
   {n:"ベホイミ",     mp:14, cost:600,  type:"heal",     min:50, max:75, d:"HPを 50〜75 かいふくする"},
   {n:"スカラ",       mp:8,  cost:500,  type:"guard",    d:"こんやの やしゅうダメージを はんげん"},
+  {n:"キアリク",     mp:10, cost:700,  type:"cure",     d:"すべての じょうたいいじょうを なおす"},
   {n:"ベホマ",       mp:26, cost:2600, type:"healfull", d:"HPを ぜんかいふくする"},
   {n:"メラミ",       mp:15, cost:1200, type:"atk", el:"fire",    pow:40, d:"🔥ほのおのダメージ（氷にばつぐん）"},
   {n:"ヒャダルコ",   mp:15, cost:1200, type:"atk", el:"ice",     pow:40, d:"❄️こおりのダメージ（雷にばつぐん）"},
@@ -885,7 +889,9 @@ function load(){
   ITEMS_SHOP.forEach(it=>{ if(s.items[it.key] === undefined) s.items[it.key] = 0; });
   /* 永続強化ステータス */
   if(s.sPow === undefined){ s.sPow = 0; s.sDef = 0; s.sHp = 0; s.sMp = 0; }
-  if(!s.ailments) s.ailments = {};   /* {poison:true, burn:true, ...} */
+  if(!s.ailments) s.ailments = {};   /* {poison:1or2, ...} 1=軽症 2=重症 */
+  /* 旧 true → レベル1 へ移行 */
+  Object.keys(s.ailments).forEach(k=>{ if(s.ailments[k]===true) s.ailments[k]=1; });
   /* 武器ラインナップ拡張（v2）に伴う旧インデックスの引き継ぎ */
   if(!s.weaponV2){
     s.weaponV2 = true;
@@ -2267,8 +2273,10 @@ function render(){
   const arow = document.getElementById("ailmentRow");
   const active = Object.keys(AILMENTS).filter(k=>state.ailments[k]);
   if(active.length){
+    const hasSevere = active.some(k=>state.ailments[k]>=2);
     arow.style.display = "";
-    arow.innerHTML = "じょうたい： " + active.map(k=>`${AILMENTS[k].icon}${AILMENTS[k].name}`).join("　") + "　（どくけしそう or 一晩ねむりで かいふく）";
+    arow.innerHTML = "じょうたい： " + active.map(k=>ailLabel(k)).join("　") +
+      `　（${hasSevere?"まんげつそう/キアリク or 一晩ねむり":"どくけしそう/まんげつそう or 一晩ねむり"}で かいふく）`;
   }else{
     arow.style.display = "none";
   }
@@ -2388,23 +2396,24 @@ function toggle(task){
       setTimeout(()=>{
         if(!state.monster) return;
         if(buffed) msg("バイキルトの ちからが はじけた！", true);
-        /* 😴 ねむり：めをさますまで こうげきが あたらない（勉強XPは入っている） */
+        /* 😴 ねむり：めをさますまで こうげきが あたらない（勉強XPは入っている。重症ほど めざめにくい） */
         if(state.ailments.sleep){
-          msg(`😴 ねむっていて ${state.monster.n}に こうげきが あたらない…`, true);
-          if(Math.random() < 0.6){ state.ailments.sleep = false; msg("…ハッ！ きみは めをさました！", true); }
-          statusChip(); save(); render(); return;
+          msg(`${ailLabel("sleep")[0]} ねむっていて ${state.monster.n}に こうげきが あたらない…`, true);
+          const wake = state.ailments.sleep>=2 ? 0.35 : 0.6;
+          if(Math.random() < wake){ delete state.ailments.sleep; msg("…ハッ！ きみは めをさました！", true); }
+          statusTurn(); save(); render(); return;
         }
-        /* ⚡ まひ：30%で からだが うごかない */
-        if(state.ailments.para && Math.random() < 0.3){
+        /* ⚡ まひ：からだが うごかない（重症ほど 高確率） */
+        if(state.ailments.para && Math.random() < (state.ailments.para>=2 ? 0.5 : 0.3)){
           msg("⚡ しびれて からだが うごかない！", true);
-          statusChip(); save(); render(); return;
+          statusTurn(); save(); render(); return;
         }
         const roll = Math.random();
         /* ミス（5%）：攻撃が空振り */
         if(roll < 0.05){
           missDodge();
           msg(`ミス！ ${state.monster.n}に ひらりと かわされた！`, true);
-          statusChip(); save(); render();
+          statusTurn(); save(); render();
           return;
         }
         /* 会心の一撃（8%）：ダメージ1.5〜2倍 */
@@ -2414,8 +2423,8 @@ function toggle(task){
           sfxCrit();
           msg("💥 かいしんの いちげき！！", true);
         }
-        /* 🔥 やけど：あたえるダメージが へる */
-        if(state.ailments.burn) final = Math.max(1, Math.round(final * 0.7));
+        /* 🔥 やけど：あたえるダメージが へる（重症ほど 大きく） */
+        if(state.ailments.burn) final = Math.max(1, Math.round(final * (state.ailments.burn>=2 ? 0.5 : 0.7)));
         attackAnim(final);
         state.monster.hp -= final;
         if(mult > 1) msg(`${EL_ICON[wEl]}こうかは ばつぐんだ！`, true);
@@ -2425,7 +2434,7 @@ function toggle(task){
         if(state.monster.hp <= 0){
           setTimeout(()=>killMonster(beforeLv), 600);
         }else{
-          statusChip();
+          statusTurn();
           maybeCounter(final);
         }
       }, 700);
@@ -2459,14 +2468,32 @@ function maybeCounter(dealt){
   if(Math.random()*100 >= p) return;
   setTimeout(counterAttack, 750);
 }
-/* 毒・やけどの スリップダメージ */
+/* 毒・やけどの スリップダメージ（重症は2倍） */
 function statusChip(){
-  if(!state.ailments.poison && !state.ailments.burn) return;
+  const pz = state.ailments.poison||0, bn = state.ailments.burn||0;
+  if(!pz && !bn) return;
   const lv = levelInfo(state.xp).lv;
   let total = 0, parts = [];
-  if(state.ailments.poison){ total += Math.max(3, Math.round(maxHp(lv)*0.04)); parts.push("🟣どく"); }
-  if(state.ailments.burn){   total += Math.max(2, Math.round(maxHp(lv)*0.03)); parts.push("🔥やけど"); }
+  if(pz){ total += Math.max(3, Math.round(maxHp(lv)*(pz>=2?0.08:0.04))); parts.push(ailLabel("poison")); }
+  if(bn){ total += Math.max(2, Math.round(maxHp(lv)*(bn>=2?0.06:0.03))); parts.push(ailLabel("burn")); }
   if(total > 0) playerDamage(total, `${parts.join("・")}で ${total}の ダメージ！`);
+}
+/* ターンごとの 進行抽選：軽症は 自然治癒/悪化/そのまま、重症は 治らない */
+function statusProgress(){
+  Object.keys(AILMENTS).forEach(k=>{
+    const lv = state.ailments[k]||0;
+    if(lv === 1){
+      const r = Math.random();
+      if(r < 0.20){ delete state.ailments[k]; msg(`✨ ${AILMENTS[k].name}が しぜんに なおった！`, true); }
+      else if(r < 0.45){ state.ailments[k] = 2; msg(`⚠️ ${AILMENTS[k].name}が ${AILMENTS[k].name2}に あっかした！`, true); sfxEnemySpell(); }
+    }
+    /* 重症(lv2)は 自然には治らない → どうぐ・じゅもんが ひつよう */
+  });
+}
+/* 1ターン分の状態異常処理（スリップ→進行） */
+function statusTurn(){
+  statusChip();
+  if(state.hp > 0) statusProgress();
 }
 /* 状態異常をすべて治す */
 function cureAilments(){ state.ailments = {}; }
@@ -2476,7 +2503,7 @@ function maybeInflict(){
   if(!m || !m.st || state.ailments[m.st]) return;
   const chance = m.boss ? 0.5 : 0.35;
   if(Math.random() < chance){
-    state.ailments[m.st] = true;
+    state.ailments[m.st] = 1;
     const a = AILMENTS[m.st];
     msg(`${a.icon} きみは ${a.name}に おかされた！`, true);
     sfxEnemySpell();
@@ -3176,6 +3203,11 @@ function castSpell(i){
     state.scala = TODAY;
     msg("スカラ！ こんやの やしゅうダメージが はんげんする！", true);
     sfxSpell();
+  }else if(sp.type==="cure"){
+    const had = Object.keys(state.ailments).filter(k=>state.ailments[k]).length;
+    cureAilments();
+    msg(`キアリク！ ${had>0?"すべての じょうたいいじょうが なおった！":"…じょうたいいじょうは なかった。"}`, true);
+    sfxSpell();
   }else if(sp.type==="invincible"){
     state.astron = true;
     msg("アストロン！ つぎの 敵の こうげきを 1回 むこうかする！", true);
@@ -3259,10 +3291,17 @@ function useItem(key){
     state.scala = TODAY; state.scalaFull = true;
     msg("せいすいを まいた！ こんやの やしゅうを かいひする！", true); sfxSpell();
   }else if(key==="antidote"){
+    /* どくけしそうは「どく」専用。もうどく(lv2)は 1だんかいだけ和らげる */
+    const pz = state.ailments.poison||0;
+    if(pz >= 2){ state.ailments.poison = 1; msg("どくけしそう！ もうどくが すこし やわらいだ（まだ どく状態）。", true); }
+    else if(pz === 1){ delete state.ailments.poison; msg("どくけしそう！ どくが なおった！", true); }
+    else { msg("どくけしそう！ HPが かいふくした。（どくには かかっていない）", true); }
+    state.hp = Math.min(maxHp(lv), state.hp + 15);
+    sfxHeal();
+  }else if(key==="fullmoon"){
     const had = Object.keys(state.ailments).filter(k=>state.ailments[k]).length;
     cureAilments();
-    state.hp = Math.min(maxHp(lv), state.hp + 15);
-    msg(`どくけしそう！ ${had>0?"すべての じょうたいいじょうが なおった！＋":""}HP15かいふく！`, true); sfxHeal();
+    msg(`まんげつそう！ ${had>0?"すべての じょうたいいじょうが なおった！":"…とくに へんかは なかった。"}`, true); sfxSpell();
   }else if(key==="bomb"){
     const beforeLv = lv;
     scrollToBattle();
