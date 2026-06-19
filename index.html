@@ -3747,9 +3747,15 @@ function minRecMonth(){
   Object.keys(state.history).forEach(ds=>{ if(ds < min) min = ds; });
   const m = new Date(min+"T12:00:00"); m.setDate(1); return m;
 }
+/* 進める上限：本番（政経入試）か いちばん先の予定の さらに先まで */
+function maxRecMonth(){
+  let max = monthIdx(SEIKEI);
+  state.events.forEach(e=>{ const mi = monthIdx(new Date(e.date+"T12:00:00")); if(mi>max) max=mi; });
+  return max + 6;   /* さらに半年 先まで見られる */
+}
 function recNav(dir){
   const m = new Date(recMonth); m.setMonth(m.getMonth()+dir);
-  const lo = monthIdx(minRecMonth()), hi = monthIdx(new Date());
+  const lo = monthIdx(minRecMonth()), hi = maxRecMonth();
   if(monthIdx(m) < lo || monthIdx(m) > hi) return;
   sfxMenu();
   recMonth = m;
@@ -3879,7 +3885,7 @@ function renderRecord(){
   document.getElementById("calMonth").textContent = y+"年"+(mo+1)+"月";
   const navs=document.querySelectorAll(".navbtn");
   navs[0].classList.toggle("off", monthIdx(recMonth)<=monthIdx(minRecMonth()));
-  navs[1].classList.toggle("off", monthIdx(recMonth)>=monthIdx(new Date()));
+  navs[1].classList.toggle("off", monthIdx(recMonth)>=maxRecMonth());
 
   const cal=document.getElementById("cal");
   cal.innerHTML="";
@@ -3940,12 +3946,34 @@ function showDay(ds){
       doneList.forEach(t=>{ html+=`<div class="dtask"><span class="sub">【${t.s}】</span>${t.t}</div>`; });
       restList.forEach(t=>{ html+=`<div class="dtask undone"><span class="sub">【${t.s}】</span>${t.t}</div>`; });
     }
-  }else if(!dayEvents.length){
-    html += `<div class="note">この日の よていは まだない。したの フォームで かきこめる。</div>`;
   }
+  /* この日に 直接 予定を ついか できる インラインフォーム */
+  html += `<div class="listtitle" style="margin-top:10px"><span>📌 この日に よていを ついか</span></div>`;
+  html += `<div class="evform">
+      <input id="dayEvTitle" type="text" placeholder="例：英語 単語テスト" maxlength="24">
+      <div class="evform-row">
+        <select id="dayEvImp">
+          <option value="3">🔴 重要（高）</option>
+          <option value="2" selected>🟡 ふつう（中）</option>
+          <option value="1">🔵 ひくい（低）</option>
+        </select>
+        <button onclick="addEventOn('${ds}')">この日に ついか</button>
+      </div>
+    </div>`;
   el.innerHTML=html;
   el.style.display="block";
   renderRecord();
+}
+/* カレンダーの日付クリックから直接 予定を追加 */
+function addEventOn(ds){
+  const inp = document.getElementById("dayEvTitle");
+  const title = (inp.value||"").trim();
+  const imp = parseInt((document.getElementById("dayEvImp")||{}).value)||2;
+  if(!title){ alert("よていの なまえを いれてね"); return; }
+  state.events.push({ id:"e"+state.events.length+"_"+ds+"_"+title.slice(0,4), date:ds, title:title.slice(0,24), imp });
+  sfxMenu();
+  save(); render();
+  showDay(ds);   /* 追加後も その日の詳細を ひらいたまま */
 }
 
 /* ================= 作戦書 ================= */
