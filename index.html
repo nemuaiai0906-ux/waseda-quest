@@ -55,8 +55,9 @@
   .gfx-card{position:absolute;z-index:6;width:260px;max-width:80%;padding:22px 18px;border-radius:16px;opacity:0;
     background:linear-gradient(160deg,#1a1f3a,#0a0d1f);text-align:center;overflow:hidden;
     border:3px solid var(--c,#fff);box-shadow:0 0 40px var(--c,#fff),0 0 90px var(--c,#fff)}
-  .gfx-card.show{animation:gfxCardIn .5s cubic-bezier(.2,1.5,.4,1) forwards}
+  .gfx-card.show{animation:gfxCardIn .5s cubic-bezier(.2,1.5,.4,1) forwards, gfxCardPulse 1.5s .5s ease-in-out infinite}
   @keyframes gfxCardIn{0%{transform:scale(.3) rotate(-8deg);opacity:0}60%{opacity:1}100%{transform:scale(1) rotate(0);opacity:1}}
+  @keyframes gfxCardPulse{0%,100%{box-shadow:0 0 34px var(--c,#fff),0 0 70px var(--c,#fff)}50%{box-shadow:0 0 60px var(--c,#fff),0 0 120px var(--c,#fff)}}
   .gfx-card .gc-rank{font-size:30px;font-weight:bold;letter-spacing:2px;color:var(--c,#fff);text-shadow:0 0 16px var(--c,#fff)}
   .gfx-card .gc-name{font-size:17px;color:#fff;margin-top:10px;line-height:1.5}
   .gfx-card .gc-more{font-size:12px;color:#9aa6cc;margin-top:10px}
@@ -3428,9 +3429,9 @@ function doGacha(n){
   save(); render();
   gachaAnim(n, results);   /* 演出 → 終わったら 結果表示 */
 }
-/* ガチャ演出：スロットが回って → レア度の光が走り → 結果 */
-/* ===== ガチャ演出（チャージ → 爆発 → カード） ===== */
+/* ===== ガチャ演出（チャージ → 爆発 → カード／豪華版） ===== */
 let gachaRAF = null, gachaParts = [], gachaSkipData = null;
+let gCtx=null, gCv=null, gCx=0, gCy=0, gColor="#9ac4ff", gActive=false, gPillar=null, gFrameN=0;
 function gachaAnim(n, results){
   const best = Math.max(...results.map(g=>g.r));
   const R = RARITY[best];
@@ -3442,108 +3443,250 @@ function gachaAnim(n, results){
   const flash = document.getElementById("gfxFlash");
   const card = document.getElementById("gfxCard");
   /* チャージ中は 期待感を煽る 中立色（白青）。終盤で レア色に染まる */
-  const chargeCol = "#9ac4ff";
-  fx.style.setProperty("--c", chargeCol);
+  gColor = "#9ac4ff";
+  fx.style.setProperty("--c", gColor);
   fx.classList.add("show");
   card.classList.remove("show"); card.style.opacity = 0; card.innerHTML = "";
   gachaSkipData = { n, results };
-  const dur = best>=4 ? 2000 : best>=3 ? 1700 : 1200;   /* レアほど 溜めが長い */
+  /* レアほど 溜めが長い（じっくり 豪華に） */
+  const dur = best>=4 ? 3400 : best>=3 ? 2700 : 1800;
 
-  /* キャンバス初期化 */
-  const cv = document.getElementById("gfxCanvas");
-  const ctx = cv.getContext("2d");
-  cv.width = fx.clientWidth; cv.height = fx.clientHeight;
-  gachaParts = [];
+  /* キャンバス初期化 → 最初から ずっと回す */
+  gCv = document.getElementById("gfxCanvas");
+  gCtx = gCv.getContext("2d");
+  gCv.width = fx.clientWidth; gCv.height = fx.clientHeight;
+  gCx = gCv.width/2; gCy = gCv.height*0.45;
+  gachaParts = []; gPillar = null; gFrameN = 0;
+  startGachaCanvas();
 
   /* チャージ phase：CSSトランジションで オーブ・魔法陣を 育てる */
   rays.style.transition = circle.style.transition = core.style.transition = `opacity ${dur}ms, transform ${dur}ms`;
-  rays.style.opacity = ".5"; rays.style.transform = "scale(.7)";
-  circle.style.opacity = "1"; circle.style.transform = "scale(1.15) rotate(140deg)";
-  core.style.opacity = "1"; core.style.transform = "scale(2.6)";
+  rays.style.opacity = ".55"; rays.style.transform = "scale(.65)";
+  circle.style.opacity = "1"; circle.style.transform = "scale(1.2) rotate(200deg)";
+  core.style.opacity = "1"; core.style.transform = "scale(2.8)";
   circle.style.animation = "none"; void circle.offsetWidth; circle.style.animation = "";
-  /* 上昇する チャージ音 */
+  /* 多層チャージ音 */
   gachaChargeSound(dur, best);
-  /* 終盤で レア色に 染める（チラ見せ）*/
-  const tease = setTimeout(()=>{ fx.style.setProperty("--c", R.c); }, dur*0.62);
-  gachaTimers.push(tease);
+
+  /* チャージ中：エネルギーが 中心に吸い込まれる粒子＋脈動リングを 連続生成 */
+  let spawnGap = 60;
+  const inSpawn = setInterval(()=>{ spawnInward(best); }, 55);
+  gachaTimers.push(inSpawn);
+  const ringGap = setInterval(()=>{ spawnPulseRing(); }, best>=4?260:320);
+  gachaTimers.push(ringGap);
+
+  /* 終盤：レア色を 高速フリッカー（アタリを煽る）→ バーストで確定 */
+  const teaser = ["#9ac4ff","#7ad4ff","#ffd24a","#ff7af0","#ffffff","#b9ffd0"];
+  const flickerStart = setTimeout(()=>{
+    let k=0;
+    const fl = setInterval(()=>{ gColor = teaser[(k++)%teaser.length]; fx.style.setProperty("--c", gColor); }, 85);
+    gachaTimers.push(fl);
+  }, dur*0.62);
+  gachaTimers.push(flickerStart);
 
   /* 爆発 phase */
   const burst = setTimeout(()=>{
+    /* フリッカー停止 → 本当のレア色に確定 */
+    gachaTimers.forEach(t=>clearInterval(t));
+    gColor = R.c;
     fx.style.setProperty("--c", R.c);
     /* 白フラッシュ */
-    flash.style.transition = "none"; flash.style.opacity = best>=3 ? ".95" : ".7";
-    requestAnimationFrame(()=>{ flash.style.transition = "opacity .5s"; flash.style.opacity = "0"; });
+    flash.style.transition = "none"; flash.style.opacity = best>=4 ? "1" : best>=3 ? ".95" : ".7";
+    requestAnimationFrame(()=>{ flash.style.transition = "opacity .6s"; flash.style.opacity = "0"; });
     /* オーブ消える */
     core.style.transition = "opacity .2s, transform .2s"; core.style.opacity = "0"; core.style.transform = "scale(.2)";
-    circle.style.opacity = "0";
-    /* 衝撃波 */
+    circle.style.opacity = "0"; rays.style.opacity = best>=3 ? ".5" : "0";
+    /* DOM衝撃波 */
     shock.style.transition = "none"; shock.style.opacity = ".9"; shock.style.transform = "scale(1)";
-    requestAnimationFrame(()=>{ shock.style.transition = "opacity .7s, transform .7s cubic-bezier(.1,.8,.3,1)"; shock.style.opacity = "0"; shock.style.transform = "scale(22)"; });
-    /* パーティクル爆発（canvas） */
-    spawnGachaParticles(cv.width/2, cv.height*0.45, R.c, best>=4?180:best>=3?120:60);
-    startGachaCanvas(ctx, cv);
-    /* サウンド */
-    if(best>=4){ sfxLevelUp(); setTimeout(()=>sfxVictory(),350); }
-    else if(best>=3){ sfxLevelUp(); }
-    else { sfxCoin(); }
+    requestAnimationFrame(()=>{ shock.style.transition = "opacity .8s, transform .8s cubic-bezier(.1,.8,.3,1)"; shock.style.opacity = "0"; shock.style.transform = "scale(24)"; });
+    /* canvas：光の柱＋多重衝撃波＋大爆発（＋SSRは紙吹雪） */
+    gPillar = { life:1 };
+    [0,140,300].forEach((d,i)=>{ const rt=setTimeout(()=>spawnShockRing(), d); gachaTimers.push(rt); });
+    spawnGachaParticles(best>=4?240:best>=3?150:80, R.c);
+    if(best>=4) spawnConfetti(120);
+    /* サウンド：衝撃 → レア度別ファンファーレ */
+    gachaBurstSound(best);
+    setTimeout(()=>gachaFanfare(best), 180);
     /* レアカード 登場 */
-    const cardT = setTimeout(()=>showGachaCard(n, results, best), 360);
+    const cardT = setTimeout(()=>showGachaCard(n, results, best), 430);
     gachaTimers.push(cardT);
-    /* 自動で 結果一覧へ */
-    const fin = setTimeout(()=>finishGacha(), best>=3 ? 2600 : 1900);
+    /* 自動で 結果一覧へ（レアほど 長く見せる） */
+    const fin = setTimeout(()=>finishGacha(), best>=4 ? 3600 : best>=3 ? 2900 : 2000);
     gachaTimers.push(fin);
   }, dur);
   gachaTimers.push(burst);
 }
-/* 上昇するチャージ音 */
-function gachaChargeSound(dur, best){
-  try{
-    const a=audio(), o=a.createOscillator(), g=a.createGain(), t=a.currentTime;
-    o.type="sawtooth";
-    o.frequency.setValueAtTime(120, t);
-    o.frequency.exponentialRampToValueAtTime(best>=4?1400:best>=3?900:600, t+dur/1000);
-    g.gain.setValueAtTime(.04, t); g.gain.linearRampToValueAtTime(.09, t+dur/1000);
-    o.connect(g); g.connect(a.destination); o.start(t); o.stop(t+dur/1000);
-  }catch(e){}
-}
-function spawnGachaParticles(cx, cy, colorHex, count){
-  const c = new THREE.Color(colorHex);
-  for(let i=0;i<count;i++){
-    const ang = Math.random()*Math.PI*2;
-    const spd = 3 + Math.random()*11;
-    gachaParts.push({
-      x:cx, y:cy, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd - 2,
-      life:1, size:2+Math.random()*4,
-      col:`rgb(${Math.round((c.r*0.5+0.5)*255)},${Math.round((c.g*0.5+0.5)*255)},${Math.round((c.b*0.5+0.5)*255)})`,
-      tw:Math.random()*6.28
-    });
+
+/* ---- canvas パーティクル ---- */
+function litCol(hex){ const c=new THREE.Color(hex); return `rgb(${Math.round((c.r*0.45+0.55)*255)},${Math.round((c.g*0.45+0.55)*255)},${Math.round((c.b*0.45+0.55)*255)})`; }
+function spawnInward(best){
+  const n = best>=4?3:2;
+  for(let i=0;i<n;i++){
+    const ang=Math.random()*Math.PI*2, rad=140+Math.random()*220;
+    gachaParts.push({ t:"in", x:gCx+Math.cos(ang)*rad, y:gCy+Math.sin(ang)*rad, ang, rad, sp:2.5+Math.random()*3,
+      size:1.5+Math.random()*2.5, col:litCol(gColor), tw:Math.random()*6.28, life:1 });
   }
 }
-function startGachaCanvas(ctx, cv){
+function spawnPulseRing(){ gachaParts.push({ t:"ring", r:30, vr:2.2, w:3, col:litCol(gColor), life:1, decay:.012 }); }
+function spawnShockRing(){ gachaParts.push({ t:"ring", r:20, vr:14, w:7, col:litCol(gColor), life:1, decay:.022 }); }
+function spawnGachaParticles(count, colorHex){
+  for(let i=0;i<count;i++){
+    const ang=Math.random()*Math.PI*2, spd=3+Math.random()*13;
+    gachaParts.push({ t:"burst", x:gCx, y:gCy, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd-2,
+      life:1, size:2+Math.random()*4, col:litCol(colorHex), tw:Math.random()*6.28, decay:.012+Math.random()*.01 });
+  }
+}
+function spawnConfetti(count){
+  for(let i=0;i<count;i++){
+    const hue=Math.floor(Math.random()*360);
+    gachaParts.push({ t:"conf", x:gCx+(Math.random()*2-1)*60, y:gCy-40, vx:(Math.random()*2-1)*5, vy:-6-Math.random()*7,
+      w:4+Math.random()*5, h:8+Math.random()*8, rot:Math.random()*6.28, vrot:(Math.random()*2-1)*.3,
+      col:`hsl(${hue},90%,65%)`, life:1, decay:.006 });
+  }
+}
+function startGachaCanvas(){
   if(gachaRAF) cancelAnimationFrame(gachaRAF);
+  gActive = true;
   function frame(){
-    ctx.clearRect(0,0,cv.width,cv.height);
+    gFrameN++;
+    gCtx.clearRect(0,0,gCv.width,gCv.height);
+    /* 光の柱 */
+    if(gPillar && gPillar.life>0){
+      gPillar.life -= .02;
+      const w = (1-gPillar.life)*220 + 30;
+      const grad = gCtx.createLinearGradient(gCx-w/2,0,gCx+w/2,0);
+      grad.addColorStop(0,"rgba(255,255,255,0)"); grad.addColorStop(.5,litCol(gColor)); grad.addColorStop(1,"rgba(255,255,255,0)");
+      gCtx.globalAlpha = Math.max(0,gPillar.life)*.55; gCtx.fillStyle = grad;
+      gCtx.fillRect(gCx-w/2, 0, w, gCv.height); gCtx.globalAlpha=1;
+    }
+    gCtx.globalCompositeOperation = "lighter";
     let alive=0;
     gachaParts.forEach(p=>{
-      if(p.life<=0) return; alive++;
-      p.x+=p.vx; p.y+=p.vy; p.vy+=.18; p.vx*=.985; p.vy*=.985; p.life-=.014; p.tw+=.4;
-      const a=Math.max(0,p.life)*(0.6+0.4*Math.sin(p.tw));
-      ctx.globalAlpha=a; ctx.fillStyle=p.col;
-      ctx.beginPath(); ctx.arc(p.x,p.y,p.size*(0.5+p.life*0.7),0,6.28); ctx.fill();
-      /* 光のにじみ */
-      ctx.globalAlpha=a*0.35; ctx.beginPath(); ctx.arc(p.x,p.y,p.size*2.2,0,6.28); ctx.fill();
+      if(p.life<=0) return;
+      if(p.t==="in"){
+        p.rad -= p.sp; p.sp*=1.02; p.tw+=.5;
+        p.x = gCx+Math.cos(p.ang)*p.rad; p.y = gCy+Math.sin(p.ang)*p.rad;
+        if(p.rad<14){ p.life=0; return; }
+        alive++;
+        const a=0.7+0.3*Math.sin(p.tw);
+        gCtx.globalAlpha=a; gCtx.fillStyle=p.col;
+        gCtx.beginPath(); gCtx.arc(p.x,p.y,p.size,0,6.28); gCtx.fill();
+        gCtx.globalAlpha=a*.3; gCtx.beginPath(); gCtx.arc(p.x,p.y,p.size*2.4,0,6.28); gCtx.fill();
+      } else if(p.t==="ring"){
+        p.r += p.vr; p.vr*=.97; p.life -= p.decay; alive++;
+        gCtx.globalAlpha=Math.max(0,p.life)*.8; gCtx.strokeStyle=p.col; gCtx.lineWidth=p.w;
+        gCtx.beginPath(); gCtx.arc(gCx,gCy,p.r,0,6.28); gCtx.stroke();
+      } else if(p.t==="burst"){
+        p.x+=p.vx; p.y+=p.vy; p.vy+=.18; p.vx*=.985; p.vy*=.985; p.life-=p.decay; p.tw+=.4; alive++;
+        const a=Math.max(0,p.life)*(0.6+0.4*Math.sin(p.tw));
+        gCtx.globalAlpha=a; gCtx.fillStyle=p.col;
+        gCtx.beginPath(); gCtx.arc(p.x,p.y,p.size*(0.5+p.life*0.7),0,6.28); gCtx.fill();
+        gCtx.globalAlpha=a*.35; gCtx.beginPath(); gCtx.arc(p.x,p.y,p.size*2.2,0,6.28); gCtx.fill();
+      } else if(p.t==="conf"){
+        p.x+=p.vx; p.y+=p.vy; p.vy+=.22; p.vx*=.99; p.rot+=p.vrot; p.life-=p.decay; alive++;
+        gCtx.save(); gCtx.globalCompositeOperation="source-over";
+        gCtx.globalAlpha=Math.max(0,Math.min(1,p.life*1.5)); gCtx.translate(p.x,p.y); gCtx.rotate(p.rot);
+        gCtx.fillStyle=p.col; gCtx.fillRect(-p.w/2,-p.h/2,p.w,p.h*(0.6+0.4*Math.abs(Math.sin(p.rot))));
+        gCtx.restore();
+      }
     });
-    ctx.globalAlpha=1;
-    if(alive>0) gachaRAF=requestAnimationFrame(frame);
+    gCtx.globalCompositeOperation = "source-over"; gCtx.globalAlpha=1;
+    if(alive>5000) gachaParts = gachaParts.filter(p=>p.life>0);
+    if(gActive) gachaRAF=requestAnimationFrame(frame);
   }
   gachaRAF=requestAnimationFrame(frame);
 }
+
+/* ---- サウンド ---- */
+function gtone(f, when, d, type, vol, opt){
+  opt=opt||{}; try{
+    const a=audio(), o=a.createOscillator(), g=a.createGain();
+    o.type=type; o.frequency.value=f; if(opt.detune) o.detune.value=opt.detune;
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(vol, when+(opt.atk||.02));
+    g.gain.exponentialRampToValueAtTime(.0004, when+d);
+    let node=g;
+    if(opt.filter){ const fl=a.createBiquadFilter(); fl.type="lowpass"; fl.frequency.value=opt.filter; g.connect(fl); node=fl; }
+    o.connect(g); node.connect(a.destination); o.start(when); o.stop(when+d+.05);
+  }catch(e){}
+}
+function gchord(freqs, when, d, vol){
+  freqs.forEach(f=>{ gtone(f,when,d,"triangle",vol,{atk:.04,filter:3800});
+    gtone(f,when,d,"triangle",vol*.45,{detune:7,atk:.04}); gtone(f,when,d,"triangle",vol*.45,{detune:-7,atk:.04}); });
+}
+function gNoiseRiser(when, d, peak){
+  try{
+    const a=audio(), len=Math.floor(a.sampleRate*d), buf=a.createBuffer(1,len,a.sampleRate), ch=buf.getChannelData(0);
+    for(let i=0;i<len;i++) ch[i]=Math.random()*2-1;
+    const src=a.createBufferSource(); src.buffer=buf;
+    const bp=a.createBiquadFilter(); bp.type="bandpass"; bp.Q.value=.8;
+    bp.frequency.setValueAtTime(400,when); bp.frequency.exponentialRampToValueAtTime(7000,when+d);
+    const g=a.createGain(); g.gain.setValueAtTime(.0001,when); g.gain.exponentialRampToValueAtTime(peak,when+d);
+    src.connect(bp); bp.connect(g); g.connect(a.destination); src.start(when); src.stop(when+d);
+  }catch(e){}
+}
+function gachaChargeSound(dur, best){
+  try{
+    const a=audio(), t=a.currentTime, sec=dur/1000;
+    const top = best>=4?1568:best>=3?1047:784;
+    /* 上昇するドローン（デチューン3本＋開くローパス） */
+    const fl=a.createBiquadFilter(); fl.type="lowpass"; fl.frequency.setValueAtTime(280,t); fl.frequency.exponentialRampToValueAtTime(4500,t+sec); fl.connect(a.destination);
+    const dg=a.createGain(); dg.gain.setValueAtTime(.05,t); dg.gain.linearRampToValueAtTime(.13,t+sec); dg.connect(fl);
+    [0,9,-9].forEach(dt=>{ const o=a.createOscillator(); o.type="sawtooth"; o.detune.value=dt;
+      o.frequency.setValueAtTime(70,t); o.frequency.exponentialRampToValueAtTime(top*.5,t+sec);
+      o.connect(dg); o.start(t); o.stop(t+sec+.05); });
+    /* 速まる 鼓動 */
+    let bt=0, p=0;
+    while(bt<sec-.1){ tone(68, t+bt, .12, "sine", .15); p++; bt += Math.max(.11, .44 - p*.028); }
+    /* 加速する キラキラ アルペジオ */
+    const scale=[523,587,659,784,880,1047,1319,1568];
+    let at=0, i=0;
+    while(at<sec-.1){ tone(scale[i%scale.length]*(i<scale.length?1:2), t+at, .14, "triangle", .05); i++; at += Math.max(.045, .22 - at*.05); }
+    /* 終盤の 緊張の高まり（ノイズ・ライザー） */
+    const sw=Math.max(0, sec-0.85);
+    gNoiseRiser(t+sw, sec-sw, best>=4?.09:.06);
+  }catch(e){}
+}
+function gachaBurstSound(best){
+  try{
+    const a=audio(), t=a.currentTime;
+    /* 低音の衝撃 */
+    const o=a.createOscillator(), g=a.createGain(); o.type="sine";
+    o.frequency.setValueAtTime(190,t); o.frequency.exponentialRampToValueAtTime(38,t+.5);
+    g.gain.setValueAtTime(.55,t); g.gain.exponentialRampToValueAtTime(.001,t+.6);
+    o.connect(g); g.connect(a.destination); o.start(t); o.stop(t+.65);
+    /* 明るいクラッシュ */
+    const cg=a.createGain(); cg.gain.setValueAtTime(best>=3?.32:.2,t); cg.gain.exponentialRampToValueAtTime(.001,t+.5);
+    const hp=a.createBiquadFilter(); hp.type="highpass"; hp.frequency.value=1800; hp.connect(a.destination); cg.connect(hp);
+    noiseBurst(t,.5,.6,cg);
+  }catch(e){}
+}
+function gachaFanfare(best){
+  try{
+    const a=audio(), t=a.currentTime+.02;
+    const C5=523.25,D5=587.33,E5=659.25,G5=784,A5=880,C6=1046.5,E6=1318.5,G6=1568,C7=2093,G4=392;
+    if(best<=1){ tone(C6,t,.1,"square",.08); tone(E6,t+.1,.22,"square",.08); return; }
+    if(best===2){ [C5,E5,G5].forEach((f,i)=>tone(f,t+i*.1,.18,"triangle",.09)); gchord([C5,E5,G5,C6],t+.32,.7,.05); tone(C7,t+.32,.5,"sine",.04); return; }
+    if(best===3){
+      const run=[C5,D5,E5,G5,A5,C6]; run.forEach((f,i)=>tone(f,t+i*.09,.16,"triangle",.085));
+      const ct=t+run.length*.09; gchord([C5,E5,G5,C6],ct,1.1,.055); tone(C7,ct,.9,"sine",.05);
+      gchord([E5,G5,C6,E6],ct+.55,.9,.045); return;
+    }
+    /* best===4：壮大なファンファーレ */
+    const run=[G4,C5,E5,G5,C6,E6,G6]; run.forEach((f,i)=>tone(f,t+i*.075,.16,"triangle",.09));
+    const ct=t+run.length*.075;
+    gchord([C5,E5,G5,C6],ct,1.7,.06);
+    [C7,G6,E6,C7].forEach((f,i)=>tone(f,ct+i*.12,.55,"sine",.06));      /* きらめく鐘 */
+    gchord([E5,G5,C6,E6],ct+.55,1.3,.05);                               /* 二段目の和音 */
+    for(let i=0;i<12;i++) tone([C6,E6,G6,C7][i%4], ct+.35+i*.07, .3, "triangle", .03); /* 余韻のきらめき */
+  }catch(e){}
+}
 function showGachaCard(n, results, best){
   const R = RARITY[best];
-  const fx = document.getElementById("gachaFx");
   const card = document.getElementById("gfxCard");
   /* 一番レアな景品を 大きく表示 */
   const bestItem = results.find(g=>g.r===best);
+  const stars = "★".repeat(best) + (best>=4?"🌈":"");
   const others = n>1 ? `<div class="gc-more">ほか ${n-1}こ かくとく！（とじると いちらん）</div>` : "";
   card.innerHTML = `<div class="gc-shine"></div><div class="gc-rank">${R.s} ${R.n}</div><div class="gc-name">${bestItem.name}</div>${others}`;
   card.classList.remove("show"); void card.offsetWidth; card.classList.add("show");
@@ -3552,8 +3695,10 @@ function gachaSkip(){ finishGacha(); }
 function finishGacha(){
   gachaTimers.forEach(t=>{ clearTimeout(t); clearInterval(t); });
   gachaTimers = [];
+  gActive = false;
   if(gachaRAF){ cancelAnimationFrame(gachaRAF); gachaRAF=null; }
-  gachaParts = [];
+  gachaParts = []; gPillar = null;
+  if(gCtx && gCv) gCtx.clearRect(0,0,gCv.width,gCv.height);
   const fx = document.getElementById("gachaFx");
   /* 表示をリセット */
   ["gfxRays","gfxCircle","gfxCore","gfxShock","gfxFlash","gfxCard"].forEach(id=>{
