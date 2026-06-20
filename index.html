@@ -230,6 +230,48 @@
   .mode3d .c3{width:110px;height:28px;top:14px;left:78%;animation:drift 34s linear infinite}
   @keyframes drift{from{transform:translateX(0)}to{transform:translateX(-620px)}}
 
+  /* 2D背景（クラシックな草原フィールド） */
+  .mode2d .bg-sky{display:block;position:absolute;inset:0;background:linear-gradient(#2f6cb0 0%,#5b9bdc 30%,#a9d6f2 48%)}
+  .mode2d .sun{display:block;position:absolute;top:12px;right:18px;width:50px;height:50px;border-radius:50%;
+    background:radial-gradient(circle,#fff7d8 0 46%,#ffe9a0 60%,transparent 74%)}
+  .mode2d .mtn{display:block;position:absolute;left:0;right:0;height:18%}
+  .mode2d .mtn2{bottom:46%;background:linear-gradient(#7fb0c8,#a6cfe0);
+    clip-path:polygon(0 100%,8% 58%,20% 86%,32% 50%,46% 88%,60% 58%,72% 90%,84% 56%,94% 82%,100% 62%,100% 100%)}
+  .mode2d .mtn1{bottom:47%;background:linear-gradient(#4f7a52,#6f9c64);
+    clip-path:polygon(0 100%,10% 44%,22% 74%,34% 30%,48% 78%,60% 46%,74% 84%,86% 36%,96% 70%,100% 56%,100% 100%)}
+  .mode2d .bg-ground{display:block;position:absolute;bottom:0;left:0;right:0;height:48%;
+    background:
+      repeating-linear-gradient(0deg,#57a64c 0 14px,#4c9743 14px 28px),
+      linear-gradient(#62b256,#3d7536)}
+  .mode2d .bg-ground::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:#84d06e}
+  .mode2d .fog{display:none}
+  .mode2d .cloud{display:block;position:absolute;background:#fff;border-radius:99px;opacity:.9}
+  .mode2d .cloud::before{content:"";position:absolute;width:52%;height:150%;background:#fff;border-radius:50%;top:-72%;left:16%}
+  .mode2d .cloud::after{content:"";position:absolute;width:38%;height:115%;background:#fff;border-radius:50%;top:-48%;right:12%}
+  .mode2d .c1{width:80px;height:20px;top:16px;left:8%;animation:drift 34s linear infinite}
+  .mode2d .c2{width:54px;height:15px;top:40px;left:58%;animation:drift 44s linear infinite}
+  .mode2d .c3{width:96px;height:24px;top:9px;left:80%;animation:drift 38s linear infinite}
+
+  /* 2D：魔物を上方に */
+  .mode2d .stage{align-items:flex-start;padding-top:16px}
+  .mode2d .m-shadow{display:block;width:84px;height:13px;background:rgba(0,0,30,.26);border-radius:50%;margin:-6px auto 0;filter:blur(2px)}
+
+  /* 2Dパーティ（後ろ姿・隊列） */
+  .mode2d .party3d{display:block;position:absolute;left:0;right:0;bottom:2px;height:48%;z-index:3}
+  .mode2d .party3d .hero{position:absolute;bottom:6px;text-align:center}
+  .mode2d .party3d .hero canvas{display:block;margin:0 auto;image-rendering:pixelated;animation:bob 2.6s ease-in-out infinite}
+  .mode2d .party3d .h-shadow{background:rgba(0,0,30,.3);border-radius:50%;margin:-3px auto 0}
+  .mode2d .hero.p-lead{left:50%;transform:translateX(-50%);z-index:5}
+  .mode2d .hero.p-lead .h-shadow{width:50px;height:11px}
+  .mode2d .hero.p-l{left:12%;bottom:3px;z-index:4}
+  .mode2d .hero.p-r{right:12%;left:auto;bottom:3px;z-index:4}
+  .mode2d .hero.p-l .h-shadow,.mode2d .hero.p-r .h-shadow{width:38px;height:9px}
+  .mode2d .hero.p-back{left:50%;transform:translateX(-50%);bottom:60px;z-index:2;opacity:.95}
+  .mode2d .hero.p-back .h-shadow{width:28px;height:7px}
+  .mode2d .party3d .hero:nth-child(2) canvas{animation-delay:.3s}
+  .mode2d .party3d .hero:nth-child(3) canvas{animation-delay:.6s}
+  .mode2d .party3d .hero:nth-child(4) canvas{animation-delay:.9s}
+
   /* WebGL 3Dシーン（three.js が読めた場合はこちらを使用） */
   .battle canvas.gl{position:absolute;inset:0;z-index:1;display:none}
   .glmode canvas.gl{display:block}
@@ -1641,6 +1683,89 @@ function drawSprite(shape, pal, scale){
   return c;
 }
 
+/* 色を明暗させる（#hex → rgb文字列） */
+function shadeHex(hex, f){
+  hex = (hex||"#888888").replace("#","");
+  if(hex.length===3) hex = hex.split("").map(c=>c+c).join("");
+  let r=parseInt(hex.slice(0,2),16), g=parseInt(hex.slice(2,4),16), b=parseInt(hex.slice(4,6),16);
+  const cl=v=>Math.max(0,Math.min(255,Math.round(v*f)));
+  return `rgb(${cl(r)},${cl(g)},${cl(b)})`;
+}
+/* いま装備中の防具の色（属性→色 or 防御力ティア） */
+function armorColor(){
+  const ar = curArmor();
+  const ec = {fire:"#d4632e",ice:"#54a8d6",thunder:"#d8b432",holy:"#e6d99a",dark:"#5a4a72"}[ar.el];
+  if(ec) return ec;
+  const d = ar.def||0;
+  if(d<3) return "#9a8a6a"; if(d<8) return "#8a6f4a"; if(d<14) return "#7a8493"; if(d<24) return "#9aa6bc"; return "#bcc8dc";
+}
+function weaponColor(){ return curWeapon().c || "#c8d4e0"; }
+/* 後ろ姿のヒーローを手続き的に描く（装備で見た目が変わる） */
+function makeHeroBack(opts, scale){
+  scale = scale||4;
+  const W=16, H=21;
+  const cv=document.createElement("canvas"); cv.width=W*scale; cv.height=H*scale;
+  const x=cv.getContext("2d");
+  const px=(gx,gy,gw,gh,col)=>{ x.fillStyle=col; x.fillRect(gx*scale,gy*scale,gw*scale,gh*scale); };
+  const disc=(cx,cy,r,col)=>{ x.fillStyle=col; x.beginPath(); x.arc(cx*scale,cy*scale,r*scale,0,6.28); x.fill(); };
+  const k="#0c0f1a";
+  const body=opts.body||"#7a8493", dark=shadeHex(body,.6), hi=shadeHex(body,1.22);
+  const hair=opts.hair||"#46301f", hairhi=shadeHex(hair,1.3);
+  const trim=opts.trim||"#e8b489";
+  /* 影 */
+  x.fillStyle="rgba(0,0,30,.28)"; x.beginPath(); x.ellipse(8*scale,(H-1.2)*scale,4.6*scale,1.3*scale,0,0,6.28); x.fill();
+  /* あし */
+  px(6,16,2,4,dark); px(8,16,2,4,dark); px(6,15,2,1,body); px(8,15,2,1,body);
+  px(6,19,2,1,k); px(8,19,2,1,k);
+  /* どう（背中） */
+  px(5,8,6,7,body); px(5,8,6,1,hi); px(7,8,2,6,shadeHex(body,.8)); px(5,14,6,1,dark);
+  if(opts.cape){ px(5,8,6,7,opts.cape); px(7,8,2,7,shadeHex(opts.cape,.78)); px(5,8,6,1,shadeHex(opts.cape,1.2)); }
+  px(4,8,1,3,body); px(11,8,1,3,body);
+  px(4,8,1,7,k); px(11,8,1,7,k); px(5,7,6,1,k);
+  /* あたま（後頭部） */
+  disc(8,5,2.4,k); disc(8,5,2.1,hair); px(6,3,4,1,hairhi);
+  if(opts.helm){ px(5,3,6,1,shadeHex(opts.helmCol||"#bcc8dc",1.12)); px(5,4,6,1,opts.helmCol||"#bcc8dc"); px(5,3,1,2,k); px(10,3,1,2,k); }
+  px(7,7,2,1,trim);
+  /* ひだりうで＋たて */
+  if(opts.shield){
+    const sc=opts.shieldCol||"#c8d0dc";
+    px(3,9,2,3,body); px(3,9,1,3,k);
+    disc(2.5,11.3,2.7,k); disc(2.5,11.1,2.2,shadeHex(sc,.78)); disc(2.5,10.9,1.5,sc); disc(2.5,10.7,.7,shadeHex(sc,1.45));
+  } else { px(3,9,2,4,body); px(3,9,1,4,k); }
+  /* みぎうで＋ぶき */
+  const wt=(opts.weapon&&opts.weapon.type)||"none";
+  const wc=(opts.weapon&&opts.weapon.col)||"#c8d4e0";
+  if(wt==="sword"){
+    px(11,9,2,3,body); px(12,9,1,3,k); px(13,5,1,5,body);
+    px(13,0,1,5,wc); px(13,0,1,1,shadeHex(wc,1.7)); px(12,4,3,1,"#e0c24a"); px(13,5,1,1,"#caa23c");
+  } else if(wt==="staff"){
+    px(11,9,2,3,body); px(12,2,1,9,"#7a5530"); disc(12.5,2.4,1.5,wc); disc(12.5,2.2,.8,shadeHex(wc,1.5));
+  } else if(wt==="dagger"){
+    px(11,9,2,3,body); px(13,6,1,4,body); px(13,3,1,4,wc); px(13,3,1,1,shadeHex(wc,1.7)); px(12,6,3,1,"#caa23c");
+  } else { px(11,9,2,4,body); px(12,9,1,4,k); }
+  return cv;
+}
+function heroBackOpts(i, lead){
+  const base = [
+    {body:"#7a8493",hair:"#46301f",helm:true,helmCol:"#bcc8dc"},
+    {body:"#3f5aa0",hair:"#e8a23c",cape:"#d04848"},
+    {body:"#ece4d0",hair:"#caa44a",trim:"#e8c890"},
+    {body:"#4a3f8a",hair:"#5f4ab0"}
+  ][i] || {body:"#7a8493",hair:"#46301f"};
+  const o = Object.assign({}, base);
+  o.weapon = i===2 ? {type:"staff",col:"#ffe08a"} : i===3 ? {type:"staff",col:"#7adfff"} : {type:"sword",col:"#c8d4e0"};
+  if(lead){
+    const ac = armorColor(), w = curWeapon();
+    o.body = ac; o.helm = true; o.helmCol = shadeHex(ac,1.15); o.cape = null;
+    let wt = "sword";
+    if(/つえ|ロッド|ワンド|ステッキ/.test(w.n)) wt="staff";
+    else if(/ダガー|ナイフ|きば|ファング|かま|おおがま/.test(w.n)) wt="dagger";
+    o.weapon = {type:wt, col:w.c||"#c8d4e0"};
+    o.shield = true; o.shieldCol = shadeHex(ac,1.12);
+  }
+  return o;
+}
+
 /* ================= 本物の3D戦闘シーン（three.js / ボクセル） ================= */
 let GL = null;
 function glReady(){ return typeof THREE !== "undefined"; }
@@ -2491,13 +2616,27 @@ function drawSprites(){
   }
   const party = document.getElementById("party3d");
   party.innerHTML = "";
-  HEROES.forEach((h,i)=>{
-    const d=document.createElement("div"); d.className="hero pos"+i;
-    d.appendChild(drawSprite(h.s, h.p, 4));
-    const sh=document.createElement("div"); sh.className="h-shadow";
-    d.appendChild(sh);
-    party.appendChild(d);
-  });
+  if(!is3d){
+    /* 2D：後ろ姿の隊列（先頭=装備が反映される勇者） */
+    const cls=["p-lead","p-l","p-r","p-back"];
+    HEROES.forEach((h,i)=>{
+      const d=document.createElement("div"); d.className="hero "+(cls[i]||"p-back");
+      const lead = i===0;
+      const sc = lead?6 : (cls[i]==="p-back"?3.6:4.6);
+      d.appendChild(makeHeroBack(heroBackOpts(i, lead), sc));
+      const sh=document.createElement("div"); sh.className="h-shadow";
+      d.appendChild(sh);
+      party.appendChild(d);
+    });
+  }else{
+    HEROES.forEach((h,i)=>{
+      const d=document.createElement("div"); d.className="hero pos"+i;
+      d.appendChild(drawSprite(h.s, h.p, 4));
+      const sh=document.createElement("div"); sh.className="h-shadow";
+      d.appendChild(sh);
+      party.appendChild(d);
+    });
+  }
 }
 
 function render(){
@@ -3413,6 +3552,18 @@ function renderGacha(){
   row(`🎰 1かい まわす <span class="cost">${GACHA_COST}G</span>`, can1?"":"disabled", can1?()=>doGacha(1):null);
   row(`🎰 10かい まわす <span class="cost">${GACHA_COST10}G</span><div class="mdesc">10れんは すこし おとく！</div>`, can10?"":"disabled", can10?()=>doGacha(10):null);
   const res = document.createElement("div"); res.id="gachaResult"; res.style.marginTop="8px"; body.appendChild(res);
+  /* ラインナップ＋排出確率 */
+  const RATES = {1:60,2:28,3:10,4:2};
+  const line = document.createElement("div"); line.style.marginTop="14px";
+  line.innerHTML = `<div class="listtitle"><span>📋 ラインナップ</span><span>はいしゅつかくりつ</span></div>`;
+  [4,3,2,1].forEach(r=>{
+    const R = RARITY[r], items = GACHA_POOL.filter(g=>g.r===r), per = RATES[r]/items.length;
+    let html = `<div style="margin:8px 0 2px;color:${R.c};font-weight:bold;font-size:13px">${R.s} ${R.n}　<span style="color:#9aa0b5;font-weight:normal">けい ${RATES[r]}%</span></div>`;
+    html += items.map(g=>`<div style="font-size:12px;line-height:1.6;display:flex;justify-content:space-between;gap:8px;border-bottom:1px dotted #2a3050;padding:3px 2px"><span>${g.name}</span><span style="color:#9aa0b5;flex-shrink:0">${per>=1?per.toFixed(1):per.toFixed(2)}%</span></div>`).join("");
+    line.innerHTML += html;
+  });
+  line.innerHTML += `<div class="mdesc" style="margin-top:8px">※ 10れんは さいてい1つ ★★いじょう かくてい。`;
+  body.appendChild(line);
 }
 let gachaTimers = [];
 function doGacha(n){
