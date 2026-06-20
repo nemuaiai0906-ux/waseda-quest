@@ -258,11 +258,11 @@
   .mode2d .m-shadow{display:block;width:84px;height:13px;background:rgba(0,0,30,.26);border-radius:50%;margin:-6px auto 0;filter:blur(2px)}
 
   /* ===== FF風 キャラパネル（立ち絵＋HP/MP） ===== */
-  .charpanel{display:flex;gap:12px;align-items:flex-end;padding:8px 12px;
+  .charpanel{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 14px 10px;
     background:linear-gradient(#13234e,#0a1430);border-color:#3f5fa0;
     box-shadow:0 0 0 2px #000, inset 0 0 0 2px #000, inset 0 0 0 3px #5b7fc8}
-  .charpanel .cp-portrait{width:84px;height:116px;flex:0 0 auto;align-self:flex-end}
-  .charpanel .cp-info{flex:1;min-width:0;padding-bottom:6px}
+  .charpanel .cp-portrait{width:170px;height:216px;flex:0 0 auto}
+  .charpanel .cp-info{width:100%;min-width:0}
   .cp-name{display:flex;justify-content:space-between;align-items:baseline;font-size:14px;color:#eaf0ff;margin-bottom:8px;text-shadow:1px 1px 0 #000}
   .cp-name .cp-lv{color:#ffd24a;font-size:13px}
   .cp-bar{display:flex;align-items:center;gap:7px;margin:5px 0}
