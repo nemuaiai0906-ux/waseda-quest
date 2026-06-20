@@ -10,12 +10,19 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  /* 左右の ゆれ（横スクロール／バウンス）を 完全に 固定する */
+  html,body{
+    overflow-x:hidden;width:100%;max-width:100%;
+    overscroll-behavior:none;touch-action:pan-y;
+  }
   body{
     background:#000;color:#fff;min-height:100vh;
     font-family:"DotGothic16","Hiragino Kaku Gothic ProN",monospace;
     image-rendering:pixelated;
   }
-  .wrap{max-width:560px;margin:0 auto;padding:10px 10px calc(72px + env(safe-area-inset-bottom))}
+  /* 横スクロールが 必要な部分だけ 例外的に 許可 */
+  .shoptabs{touch-action:pan-x}
+  .wrap{max-width:560px;margin:0 auto;padding:10px 10px calc(70px + env(safe-area-inset-bottom));overflow-x:hidden}
 
   /* ===== タイトル画面 ===== */
   #titleScreen{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
@@ -66,7 +73,7 @@
   .dqwin{
     background:#000;border:3px solid #fff;border-radius:8px;
     box-shadow:0 0 0 2px #000, inset 0 0 0 2px #000, inset 0 0 0 3px #fff;
-    padding:12px 14px;margin-bottom:10px;color:#fff;
+    padding:9px 12px;margin-bottom:7px;color:#fff;
   }
   .mode3d .dqwin{background:rgba(0,0,30,.78)}
   .gold{color:#ffd24a}
@@ -140,9 +147,9 @@
 
   /* ===== バトル画面 ===== */
   .battle{
-    position:relative;height:300px;border:3px solid #fff;border-radius:8px;
+    position:relative;height:34vh;min-height:200px;max-height:320px;border:3px solid #fff;border-radius:8px;
     box-shadow:0 0 0 2px #000, inset 0 0 0 2px #000, inset 0 0 0 3px #fff;
-    margin-bottom:10px;overflow:hidden;background:#000;
+    margin-bottom:8px;overflow:hidden;background:#000;
   }
   .battle.shake{animation:bshake .3s}
   @keyframes bshake{0%,100%{transform:translate(0)}25%{transform:translate(-6px,2px)}50%{transform:translate(5px,-2px)}75%{transform:translate(-3px,1px)}}
@@ -236,7 +243,7 @@
   .ehp .bar>div{height:100%;background:linear-gradient(90deg,#e23b3b,#ff8a5c);transition:width .4s}
 
   /* ===== メッセージ窓 ===== */
-  .msgwin{min-height:86px;font-size:14px;line-height:1.9}
+  .msgwin{min-height:64px;max-height:120px;overflow-y:auto;font-size:13px;line-height:1.7}
   .msgwin .line::before{content:"＊「";color:#9fe0ff}
   .msgwin .line.sys::before{content:"▶ ";color:#ffd24a}
   .msgwin .blink{animation:blink 1s steps(2) infinite}
