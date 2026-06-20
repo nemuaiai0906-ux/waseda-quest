@@ -556,9 +556,9 @@
   </div>
 
   <!-- そうびモーダル -->
-  <div class="overlay" id="equipModal">
-    <div class="dqwin v-win">
-      <div class="mback" onclick="closeModal('equipModal')">← もどる</div>
+  <div class="page" id="page-equip">
+    <div class="dqwin">
+      <div class="mback" onclick="navTo('quest')">← もどる</div>
       <div class="mtitle"><span>⚔ そうび</span><span id="equipStat"></span></div>
       <div id="equipBody"></div>
     </div>
@@ -573,20 +573,20 @@
     </div>
   </div>
 
-  <!-- メニュー（さくせん＋ずかん 統合）モーダル -->
-  <div class="overlay" id="menuModal">
-    <div class="dqwin v-win">
-      <div class="mback" onclick="closeModal('menuModal')">← もどる</div>
+  <!-- メニュー（さくせん＋ずかん 統合）ページ -->
+  <div class="page" id="page-menu">
+    <div class="dqwin">
+      <div class="mback" onclick="navTo('quest')">← もどる</div>
       <div class="mtitle"><span>📚 メニュー</span></div>
-      <div class="mrow" onclick="closeModal('menuModal'); openModal('dexModal')">📕 まものずかん<div class="mdesc">であった まものの ずかん・よわてん</div></div>
-      <div class="mrow" onclick="closeModal('menuModal'); showPage('plan')">📜 さくせん<div class="mdesc">がくしゅうプラン・もくひょう</div></div>
+      <div class="mrow" onclick="openModal('dexModal')">📕 まものずかん<div class="mdesc">であった まものの ずかん・よわてん</div></div>
+      <div class="mrow" onclick="showPage('plan')">📜 さくせん<div class="mdesc">がくしゅうプラン・もくひょう</div></div>
     </div>
   </div>
 
-  <!-- ガチャモーダル -->
-  <div class="overlay" id="gachaModal">
-    <div class="dqwin v-win">
-      <div class="mback" onclick="closeModal('gachaModal')">← もどる</div>
+  <!-- ガチャページ -->
+  <div class="page" id="page-gacha">
+    <div class="dqwin">
+      <div class="mback" onclick="navTo('quest')">← もどる</div>
       <div class="mtitle"><span>🎰 まじんガチャ</span><span class="gold" id="gachaGold">0G</span></div>
       <div id="gachaBody"></div>
     </div>
@@ -3352,8 +3352,6 @@ function openModal(id){
   if(id==="itemModal") renderItems();
   if(id==="bookModal"){ bookView = "main"; renderBooks(); }
   if(id==="dexModal"){ dexSel = null; renderDex(); }
-  if(id==="equipModal") renderEquip();
-  if(id==="gachaModal") renderGacha();
   document.getElementById(id).classList.add("show");
 }
 
@@ -4417,7 +4415,7 @@ function equipOwned(slot, i){
   msg(`${(slot==="weapon"?WEAPONS:ARMORS)[i].n}を そうびした！`, true);
   sfxCoin(); save();
   if(shopOpen && document.getElementById("shopPanel").style.display!=="none") renderShop();
-  if(document.getElementById("equipModal").classList.contains("show")) renderEquip();
+  if(document.getElementById("page-equip").classList.contains("show")) renderEquip();
   render();
 }
 function buySpell(i){
@@ -4830,7 +4828,7 @@ function showPage(name){
 /* ボトムナビの アクティブ表示 */
 function syncNav(page){
   /* ナビ並び: 0クエスト 1そうび 2しょうにん 3ガチャ 4きろく 5メニュー */
-  const map = { quest:0, equip:0, shop:0, gacha:3, record:4, plan:5, dex:5, menu:5 };
+  const map = { quest:0, equip:1, shop:0, gacha:3, record:4, plan:5, dex:5, menu:5 };
   const btns = document.querySelectorAll("#bottomNav button");
   btns.forEach((b,i)=>b.classList.toggle("active", i===(map[page]!==undefined?map[page]:0)));
 }
@@ -4840,9 +4838,9 @@ function navTo(dest){
   if(dest==="quest"){ showPage("quest"); window.scrollTo({top:0}); }
   else if(dest==="record"){ showPage("record"); }
   else if(dest==="plan"){ showPage("plan"); }
-  else if(dest==="equip"){ showPage("quest"); openModal("equipModal"); }
-  else if(dest==="menu"){ showPage("quest"); openModal("menuModal"); }
-  else if(dest==="gacha"){ showPage("quest"); openModal("gachaModal"); }
+  else if(dest==="equip"){ if(shopOpen) leaveShop(); renderEquip(); showPage("equip"); }
+  else if(dest==="menu"){ if(shopOpen) leaveShop(); showPage("menu"); }
+  else if(dest==="gacha"){ if(shopOpen) leaveShop(); renderGacha(); showPage("gacha"); }
   else if(dest==="shop"){ showPage("quest"); enterShop(); }
 }
 /* タイトル画面 → ゲーム開始 */
