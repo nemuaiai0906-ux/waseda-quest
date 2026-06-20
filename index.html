@@ -1700,68 +1700,127 @@ function armorColor(){
   if(d<3) return "#9a8a6a"; if(d<8) return "#8a6f4a"; if(d<14) return "#7a8493"; if(d<24) return "#9aa6bc"; return "#bcc8dc";
 }
 function weaponColor(){ return curWeapon().c || "#c8d4e0"; }
-/* 後ろ姿のヒーローを手続き的に描く（装備で見た目が変わる） */
+/* 後ろ姿のヒーローを手続き的に描く（装備で見た目が変わる・陰影/アウトライン付き） */
 function makeHeroBack(opts, scale){
-  scale = scale||4;
-  const W=16, H=21;
-  const cv=document.createElement("canvas"); cv.width=W*scale; cv.height=H*scale;
+  scale = scale || 4;
+  const W=22, H=28, cx=11, k="#0b0e16";
+  const cv=document.createElement("canvas"); cv.width=Math.round(W*scale); cv.height=Math.round(H*scale);
   const x=cv.getContext("2d");
-  const px=(gx,gy,gw,gh,col)=>{ x.fillStyle=col; x.fillRect(gx*scale,gy*scale,gw*scale,gh*scale); };
-  const disc=(cx,cy,r,col)=>{ x.fillStyle=col; x.beginPath(); x.arc(cx*scale,cy*scale,r*scale,0,6.28); x.fill(); };
-  const k="#0c0f1a";
-  const body=opts.body||"#7a8493", dark=shadeHex(body,.6), hi=shadeHex(body,1.22);
-  const hair=opts.hair||"#46301f", hairhi=shadeHex(hair,1.3);
-  const trim=opts.trim||"#e8b489";
-  /* 影 */
-  x.fillStyle="rgba(0,0,30,.28)"; x.beginPath(); x.ellipse(8*scale,(H-1.2)*scale,4.6*scale,1.3*scale,0,0,6.28); x.fill();
-  /* あし */
-  px(6,16,2,4,dark); px(8,16,2,4,dark); px(6,15,2,1,body); px(8,15,2,1,body);
-  px(6,19,2,1,k); px(8,19,2,1,k);
-  /* どう（背中） */
-  px(5,8,6,7,body); px(5,8,6,1,hi); px(7,8,2,6,shadeHex(body,.8)); px(5,14,6,1,dark);
-  if(opts.cape){ px(5,8,6,7,opts.cape); px(7,8,2,7,shadeHex(opts.cape,.78)); px(5,8,6,1,shadeHex(opts.cape,1.2)); }
-  px(4,8,1,3,body); px(11,8,1,3,body);
-  px(4,8,1,7,k); px(11,8,1,7,k); px(5,7,6,1,k);
-  /* あたま（後頭部） */
-  disc(8,5,2.4,k); disc(8,5,2.1,hair); px(6,3,4,1,hairhi);
-  if(opts.helm){ px(5,3,6,1,shadeHex(opts.helmCol||"#bcc8dc",1.12)); px(5,4,6,1,opts.helmCol||"#bcc8dc"); px(5,3,1,2,k); px(10,3,1,2,k); }
-  px(7,7,2,1,trim);
-  /* ひだりうで＋たて */
-  if(opts.shield){
-    const sc=opts.shieldCol||"#c8d0dc";
-    px(3,9,2,3,body); px(3,9,1,3,k);
-    disc(2.5,11.3,2.7,k); disc(2.5,11.1,2.2,shadeHex(sc,.78)); disc(2.5,10.9,1.5,sc); disc(2.5,10.7,.7,shadeHex(sc,1.45));
-  } else { px(3,9,2,4,body); px(3,9,1,4,k); }
-  /* みぎうで＋ぶき */
+  const R=(gx,gy,gw,gh,col)=>{ x.fillStyle=col; x.fillRect(gx*scale,gy*scale,gw*scale,gh*scale); };
+  const D=(gcx,gcy,gr,col)=>{ x.fillStyle=col; x.beginPath(); x.arc(gcx*scale,gcy*scale,gr*scale,0,6.28); x.fill(); };
+  const Rk=(gx,gy,gw,gh,col)=>{ R(gx-0.5,gy-0.5,gw+1,gh+1,k); R(gx,gy,gw,gh,col); };
+  const Dk=(gcx,gcy,gr,col)=>{ D(gcx,gcy,gr+0.5,k); D(gcx,gcy,gr,col); };
+  const tri=(ax,ay,bx,by,ccx,ccy,col)=>{ x.fillStyle=col; x.beginPath(); x.moveTo(ax*scale,ay*scale); x.lineTo(bx*scale,by*scale); x.lineTo(ccx*scale,ccy*scale); x.closePath(); x.fill(); };
+  const body=opts.body||"#7a8493";
+  const sh1=shadeHex(body,.74), sh2=shadeHex(body,.56), hi=shadeHex(body,1.26);
+  const hair=opts.hair||"#46301f", hairhi=shadeHex(hair,1.32);
+  const skin=opts.trim||"#e8b489";
   const wt=(opts.weapon&&opts.weapon.type)||"none";
   const wc=(opts.weapon&&opts.weapon.col)||"#c8d4e0";
-  if(wt==="sword"){
-    px(11,9,2,3,body); px(12,9,1,3,k); px(13,5,1,5,body);
-    px(13,0,1,5,wc); px(13,0,1,1,shadeHex(wc,1.7)); px(12,4,3,1,"#e0c24a"); px(13,5,1,1,"#caa23c");
+
+  /* 地面の影 */
+  x.fillStyle="rgba(0,0,30,.25)"; x.beginPath(); x.ellipse(cx*scale,(H-1)*scale,6*scale,1.5*scale,0,0,6.28); x.fill();
+
+  /* マント（最背面） */
+  if(opts.cape){
+    const cp=opts.cape, cpd=shadeHex(cp,.66);
+    x.fillStyle=k; x.beginPath();
+    x.moveTo((cx-5.2)*scale,11.5*scale); x.lineTo((cx+5.2)*scale,11.5*scale);
+    x.lineTo((cx+5.6)*scale,23.5*scale); x.lineTo(cx*scale,22*scale); x.lineTo((cx-5.6)*scale,23.5*scale);
+    x.closePath(); x.fill();
+    x.fillStyle=cp; x.beginPath();
+    x.moveTo((cx-4.6)*scale,12*scale); x.lineTo((cx+4.6)*scale,12*scale);
+    x.lineTo((cx+5.0)*scale,22.9*scale); x.lineTo(cx*scale,21.4*scale); x.lineTo((cx-5.0)*scale,22.9*scale);
+    x.closePath(); x.fill();
+    R(cx-0.4,13,0.8,9,cpd); R(cx-3,13,0.7,8.8,cpd); R(cx+2.3,13,0.7,8.8,cpd);
+  }
+
+  /* 左うで＋盾 */
+  Rk(cx-6,12.6,2.4,4.6, sh1);
+  if(opts.shield){
+    const sc=opts.shieldCol||"#c8d0dc", scd=shadeHex(sc,.66), sch=shadeHex(sc,1.32);
+    const sX=cx-6.7, sY=16.4;
+    Dk(sX,sY,4.2, scd); D(sX,sY,3.5, sc);
+    R(sX-0.45,sY-2.7,0.9,5.4, scd); R(sX-2.7,sY-0.45,5.4,0.9, scd); /* 紋章の十字 */
+    D(sX-1.0,sY-1.0,2.0, shadeHex(sc,1.12)); /* 面のハイライト */
+    Dk(sX,sY,1.25, sch); D(sX-0.35,sY-0.35,0.55,"#ffffff"); /* ボス（中央鋲） */
+    [[0,-3.1],[3.1,0],[0,3.1],[-3.1,0]].forEach(o=>D(sX+o[0],sY+o[1],0.42,scd)); /* 鋲 */
+  } else { Rk(cx-6.6,15,2.4,3.6, sh1); }
+
+  /* 右うで＋ぶき */
+  Rk(cx+3.6,12.6,2.4,4.6, sh1);
+  if(wt==="sword" || wt==="dagger"){
+    const top = wt==="dagger" ? 5 : 2;
+    Rk(cx+5.4,7.5,2.2,5.6, sh1);                 /* かかげた前腕 */
+    const bx=cx+5.9, bw=1.4;
+    Rk(bx,top,bw,8-top, wc);                       /* 刀身 */
+    R(bx+0.45,top+0.4,0.5,7-top, shadeHex(wc,1.5)); /* 樋ハイライト */
+    tri(bx-0.5,top, bx+bw+0.5,top, bx+bw/2,top-1.5, k);   /* 切先 黒縁 */
+    tri(bx,top, bx+bw,top, bx+bw/2,top-1.1, wc);          /* 切先 */
+    Rk(cx+4.4,8,4,1.1,"#d8b23c");                  /* つば */
+    R(cx+5.9,9,1.2,1.6,"#6a4a2a"); Dk(cx+6.5,11,0.9,"#e8c24a"); /* 柄・柄頭 */
   } else if(wt==="staff"){
-    px(11,9,2,3,body); px(12,2,1,9,"#7a5530"); disc(12.5,2.4,1.5,wc); disc(12.5,2.2,.8,shadeHex(wc,1.5));
-  } else if(wt==="dagger"){
-    px(11,9,2,3,body); px(13,6,1,4,body); px(13,3,1,4,wc); px(13,3,1,1,shadeHex(wc,1.7)); px(12,6,3,1,"#caa23c");
-  } else { px(11,9,2,4,body); px(12,9,1,4,k); }
+    Rk(cx+5.2,7,2,6, sh1);
+    Rk(cx+5.7,2.4,1.2,10.6,"#7a5530");            /* 杖 */
+    Dk(cx+6.3,2.2,1.8, wc); D(cx+5.9,1.7,0.75, shadeHex(wc,1.5)); /* 宝珠 */
+  } else { Rk(cx+5,13,2.2,4, sh1); }
+
+  /* あし＋ブーツ */
+  Rk(cx-3.2,20,3,6.2, sh1); Rk(cx+0.2,20,3,6.2, sh1);
+  R(cx-3,20.5,2.6,1, body); R(cx+0.4,20.5,2.6,1, body);
+  Rk(cx-3.4,25.4,3.4,2,"#3a2a1e"); Rk(cx+0.0,25.4,3.4,2,"#3a2a1e");
+
+  /* どう（背中） */
+  Rk(cx-4.2,11,8.4,9, body);
+  R(cx-4.2,11,8.4,1.4, hi);
+  R(cx+1.6,12,2.6,7.5, sh1);
+  R(cx-0.5,12,1,7, sh2);
+  R(cx-4,14.3,8,0.7, sh1); R(cx-4,16.6,8,0.7, sh1);
+  Rk(cx-4.2,18.8,8.4,1.6,"#5a4326"); Dk(cx,19.6,0.95,"#e8c24a");
+
+  /* 肩当て */
+  Dk(cx-4.6,12,2.3, shadeHex(body,1.05)); D(cx-4.9,11.4,1.0, hi);
+  Dk(cx+4.6,12,2.3, shadeHex(body,1.05)); D(cx+4.3,11.4,1.0, hi);
+
+  /* くび */
+  Rk(cx-1.6,9,3.2,2, skin);
+  /* あたま */
+  Dk(cx,7,3.7, hair); D(cx-1.1,5.8,1.4, hairhi);
+  if(opts.helm){
+    const hc=opts.helmCol||"#bcc8dc", hcd=shadeHex(hc,.72), hch=shadeHex(hc,1.25);
+    x.fillStyle=k; x.beginPath(); x.arc(cx*scale,7*scale,4.0*scale,Math.PI,0); x.closePath(); x.fill();
+    x.fillStyle=hc; x.beginPath(); x.arc(cx*scale,7*scale,3.5*scale,Math.PI,0); x.closePath(); x.fill();
+    R(cx-3.5,6.4,7,0.8,hch);
+    Rk(cx-4,7.4,8,1.2, hcd);                       /* ひさし */
+    Rk(cx-0.5,2.3,1,4.7,"#c0392b");                /* 前立て（赤） */
+    R(cx-3.8,7.4,1.2,2.4,hcd); R(cx+2.6,7.4,1.2,2.4,hcd); /* 横の鎧 */
+  } else if(opts.hood){
+    const hd=opts.hoodCol||body, hdd=shadeHex(hd,.66);
+    x.fillStyle=k; x.beginPath(); x.moveTo((cx-4.2)*scale,10*scale); x.lineTo((cx+4.2)*scale,10*scale); x.lineTo(cx*scale,1.8*scale); x.closePath(); x.fill();
+    x.fillStyle=hd; x.beginPath(); x.moveTo((cx-3.5)*scale,9.6*scale); x.lineTo((cx+3.5)*scale,9.6*scale); x.lineTo(cx*scale,2.7*scale); x.closePath(); x.fill();
+    R(cx-0.4,3.5,0.8,6,hdd);
+  } else {
+    D(cx-1.0,5.4,1.0, hairhi);                     /* 無帽：髪のつや */
+  }
   return cv;
 }
 function heroBackOpts(i, lead){
   const base = [
-    {body:"#7a8493",hair:"#46301f",helm:true,helmCol:"#bcc8dc"},
-    {body:"#3f5aa0",hair:"#e8a23c",cape:"#d04848"},
-    {body:"#ece4d0",hair:"#caa44a",trim:"#e8c890"},
-    {body:"#4a3f8a",hair:"#5f4ab0"}
-  ][i] || {body:"#7a8493",hair:"#46301f"};
+    {body:"#8791a3",hair:"#4a3322",helm:true,helmCol:"#c2cee0"},
+    {body:"#3f5aa0",hair:"#e8a23c",cape:"#cf3b3b"},
+    {body:"#ece4d0",hair:"#caa44a",hood:true,hoodCol:"#e8dcc0",trim:"#e8c890"},
+    {body:"#4a3f8a",hair:"#5f4ab0",hood:true,hoodCol:"#5142a0"}
+  ][i] || {body:"#8791a3",hair:"#4a3322"};
   const o = Object.assign({}, base);
   o.weapon = i===2 ? {type:"staff",col:"#ffe08a"} : i===3 ? {type:"staff",col:"#7adfff"} : {type:"sword",col:"#c8d4e0"};
   if(lead){
     const ac = armorColor(), w = curWeapon();
-    o.body = ac; o.helm = true; o.helmCol = shadeHex(ac,1.15); o.cape = null;
+    o.body = ac; o.helm = true; o.hood = false; o.helmCol = shadeHex(ac,1.18); o.cape = null;
     let wt = "sword";
     if(/つえ|ロッド|ワンド|ステッキ/.test(w.n)) wt="staff";
     else if(/ダガー|ナイフ|きば|ファング|かま|おおがま/.test(w.n)) wt="dagger";
     o.weapon = {type:wt, col:w.c||"#c8d4e0"};
-    o.shield = true; o.shieldCol = shadeHex(ac,1.12);
+    o.shield = true; o.shieldCol = shadeHex(ac,1.14);
   }
   return o;
 }
@@ -2622,7 +2681,7 @@ function drawSprites(){
     HEROES.forEach((h,i)=>{
       const d=document.createElement("div"); d.className="hero "+(cls[i]||"p-back");
       const lead = i===0;
-      const sc = lead?6 : (cls[i]==="p-back"?3.6:4.6);
+      const sc = lead?4.6 : (cls[i]==="p-back"?2.8:3.4);
       d.appendChild(makeHeroBack(heroBackOpts(i, lead), sc));
       const sh=document.createElement("div"); sh.className="h-shadow";
       d.appendChild(sh);
