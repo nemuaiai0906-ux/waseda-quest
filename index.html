@@ -620,8 +620,20 @@
     <div class="dqwin">
       <div class="mback" onclick="navTo('quest')">← もどる</div>
       <div class="mtitle"><span>📚 メニュー</span></div>
+      <div class="mrow" onclick="openAvatarCreator()">🧍 キャラメイク<div class="mdesc">じぶんの 髪・目・はだ・たいけいを 設定</div></div>
       <div class="mrow" onclick="openModal('dexModal')">📕 まものずかん<div class="mdesc">であった まものの ずかん・よわてん</div></div>
       <div class="mrow" onclick="showPage('plan')">📜 さくせん<div class="mdesc">がくしゅうプラン・もくひょう</div></div>
+    </div>
+  </div>
+
+  <!-- キャラメイクページ -->
+  <div class="page" id="page-avatar">
+    <div class="dqwin">
+      <div class="mback" onclick="finishAvatar()">← もどる</div>
+      <div class="mtitle"><span>🧍 キャラメイク</span></div>
+      <div id="avatarPreview" style="text-align:center;padding:6px 0 2px"></div>
+      <div id="avatarOpts"></div>
+      <div class="note" style="margin-top:10px">髪・目・はだ・たいけいは あなた じしんの 初期設定。服・武器・盾は「そうび」で 着せ替え できる。</div>
     </div>
   </div>
 
@@ -1175,6 +1187,11 @@ function load(){
   if(!s.ownedW.includes(0)) s.ownedW.push(0);
   if(!s.ownedA.includes(0)) s.ownedA.push(0);
   if(!s.events) s.events = [];   /* [{id, date:"YYYY-MM-DD", title, imp:1/2/3}] */
+  if(!s.avatar){
+    s.avatar = { skin:"#ffdcb6", hair:"#6b4329", eye:"#5b3a1e", body:"normal", hairStyle:0 };
+    /* すでに遊んでいるデータは「作成済み」扱い（強制キャラメイクを出さない） */
+    s.avatar.created = (s.xp>0 || (s.kills||0)>0 || Object.keys(s.history||{}).length>0);
+  }
   if(!s.ailments) s.ailments = {};   /* {poison:1or2, ...} 1=軽症 2=重症 */
   /* 旧 true → レベル1 へ移行 */
   Object.keys(s.ailments).forEach(k=>{ if(s.ailments[k]===true) s.ailments[k]=1; });
@@ -1426,6 +1443,8 @@ function closeLoginBonus(){
   }
   document.getElementById("loginOverlay").classList.remove("show");
   render();
+  /* はじめて あそぶ ときは キャラメイクへ */
+  if(state.avatar && !state.avatar.created) setTimeout(openAvatarCreator, 200);
 }
 /* コマンド「ログボ」：受け取れるなら受取画面、済みなら週間カレンダー */
 function openLoginCalendar(){
@@ -1819,8 +1838,14 @@ function heroBackOpts(i, lead){
   const o = Object.assign({}, base);
   o.weapon = i===2 ? {type:"staff",col:"#ffe08a"} : i===3 ? {type:"staff",col:"#7adfff"} : {type:"sword",col:"#c8d4e0"};
   if(lead){
-    const ac = armorColor(), w = curWeapon();
-    o.body = ac; o.helm = true; o.hood = false; o.helmCol = shadeHex(ac,1.18); o.cape = null;
+    const ac = armorColor(), w = curWeapon(), av = state.avatar||{};
+    /* 髪・顔が見えるよう 先頭キャラは かぶとなし（髪はプレイヤー設定） */
+    o.body = ac; o.helm = false; o.hood = false; o.hat = false; o.cape = null;
+    /* プレイヤーの初期設定（髪・目・肌・体型）を反映 */
+    if(av.hair) o.hair = av.hair;
+    o.skin = av.skin || "#ffdcb6";
+    o.eye = av.eye || "#5b3a1e";
+    o.bodyType = av.body || "normal";
     let wt = "sword";
     if(/つえ|ロッド|ワンド|ステッキ/.test(w.n)) wt="staff";
     else if(/ダガー|ナイフ|きば|ファング|かま|おおがま/.test(w.n)) wt="dagger";
@@ -1837,7 +1862,10 @@ function makeHeroChibi(opts, px){
   const c=cv.getContext("2d"); c.scale(U,U); c.lineJoin="round"; c.lineCap="round";
   const body=opts.body||"#8791a3";
   const bodHi=shadeHex(body,1.3), bodLo=shadeHex(body,.6), bodMid=shadeHex(body,.82);
-  const skin="#ffdcb6", skinSh="#eeb78e";
+  const skin=opts.skin||"#ffdcb6", skinSh=shadeHex(skin,.86);
+  const eye=opts.eye||"#3a2a40";
+  const BW={slim:.86,normal:1,big:1.18}[opts.bodyType]||1;
+  const HR=opts.bodyType==="big"?24.5:opts.bodyType==="slim"?21.5:23;
   const hair=opts.hair||"#5a3a22", hairHi=shadeHex(hair,1.3);
   const wt=(opts.weapon&&opts.weapon.type)||"none", wc=(opts.weapon&&opts.weapon.col)||"#c8d4e0";
   const lin=(x0,y0,x1,y1,st)=>{const g=c.createLinearGradient(x0,y0,x1,y1);st.forEach(s=>g.addColorStop(s[0],s[1]));return g;};
@@ -1890,24 +1918,25 @@ function makeHeroChibi(opts, px){
   };
 
   /* 脚＋ブーツ */
-  [cx-13,cx+1].forEach(lx=>{
-    rr(lx,90,12,24,5); c.fillStyle=lin(lx,90,lx,114,[[0,bodMid],[1,bodLo]]); c.fill(); sk(OUT,3);
+  const legW=12, legGap=2*BW;
+  [cx-legGap/2-legW, cx+legGap/2].forEach(lx=>{
+    rr(lx,90,legW,24,5); c.fillStyle=lin(lx,90,lx,114,[[0,bodMid],[1,bodLo]]); c.fill(); sk(OUT,3);
     rr(lx-1.5,106,15,12,5); c.fillStyle=lin(0,106,0,118,[[0,"#6a4d34"],[1,"#3a2a1c"]]); c.fill(); sk(OUT,3);
   });
 
   /* 胴（鎧） */
   c.beginPath();
-  c.moveTo(cx-19,64); c.quadraticCurveTo(cx-22,60,cx-13,57);
-  c.quadraticCurveTo(cx,54,cx+13,57); c.quadraticCurveTo(cx+22,60,cx+19,64);
-  c.lineTo(cx+15,96); c.quadraticCurveTo(cx,103,cx-15,96); c.closePath();
+  c.moveTo(cx-19*BW,64); c.quadraticCurveTo(cx-22*BW,60,cx-13*BW,57);
+  c.quadraticCurveTo(cx,54,cx+13*BW,57); c.quadraticCurveTo(cx+22*BW,60,cx+19*BW,64);
+  c.lineTo(cx+15*BW,96); c.quadraticCurveTo(cx,103,cx-15*BW,96); c.closePath();
   c.fillStyle=lin(cx,55,cx,98,[[0,bodHi],[.5,body],[1,bodLo]]); c.fill(); sk(OUT,3.4);
   /* 胸の飾り＆ベルト */
   c.beginPath(); c.moveTo(cx,60); c.lineTo(cx,90); c.strokeStyle=shadeHex(body,.7); c.lineWidth=2; c.stroke();
-  rr(cx-16,86,32,8,4); c.fillStyle=lin(cx,86,cx,94,[[0,"#6a4d2e"],[1,"#46301c"]]); c.fill(); sk(OUT,2.8);
+  rr(cx-16*BW,86,32*BW,8,4); c.fillStyle=lin(cx,86,cx,94,[[0,"#6a4d2e"],[1,"#46301c"]]); c.fill(); sk(OUT,2.8);
   c.beginPath(); c.arc(cx,90,3.2,0,6.28); c.fillStyle="#f0cf5a"; c.fill(); sk(OUT,2);
 
   /* 肩当て */
-  [cx-17,cx+17].forEach(sxx=>{ c.beginPath(); c.arc(sxx,61,7.5,0,6.28);
+  [cx-17*BW,cx+17*BW].forEach(sxx=>{ c.beginPath(); c.arc(sxx,61,7.5,0,6.28);
     c.fillStyle=rad(sxx,61,8,[[0,bodHi],[1,shadeHex(body,.7)]]); c.fill(); sk(OUT,3); });
 
   drawShield();
@@ -1916,8 +1945,8 @@ function makeHeroChibi(opts, px){
   rr(cx-6,46,12,8,3); c.fillStyle=skinSh; c.fill();
 
   /* あたま */
-  const hx=cx, hy=34, hr=23;
-  c.beginPath(); c.arc(hx,hy,hr,0,6.28); c.fillStyle=rad(hx,hy,hr,[[0,"#fff0dd"],[.7,skin],[1,skinSh]]); c.fill(); sk(OUT,3.4);
+  const hx=cx, hy=34, hr=HR;
+  c.beginPath(); c.arc(hx,hy,hr,0,6.28); c.fillStyle=rad(hx,hy,hr,[[0,shadeHex(skin,1.12)],[.7,skin],[1,skinSh]]); c.fill(); sk(OUT,3.4);
   /* 髪（前髪） */
   if(!opts.hat){
     c.beginPath(); c.moveTo(hx-hr,hy-2); c.quadraticCurveTo(hx-hr+2,hy-hr-2,hx,hy-hr-1);
@@ -1926,13 +1955,12 @@ function makeHeroChibi(opts, px){
     c.quadraticCurveTo(hx-14,hy-12,hx-hr,hy-2); c.closePath();
     c.fillStyle=lin(hx,hy-hr,hx,hy,[[0,hairHi],[1,hair]]); c.fill(); sk(OUT,3);
   }
-  /* 顔 */
-  c.fillStyle=OUT;
-  c.beginPath(); c.ellipse(hx-8,hy+3,3,4.2,0,0,6.28); c.fill();
-  c.beginPath(); c.ellipse(hx+8,hy+3,3,4.2,0,0,6.28); c.fill();
-  c.fillStyle="#fff";
-  c.beginPath(); c.arc(hx-9,hy+1,1.2,0,6.28); c.fill();
-  c.beginPath(); c.arc(hx+7,hy+1,1.2,0,6.28); c.fill();
+  /* 顔（目は えらんだ色） */
+  [-8,8].forEach(dx=>{
+    c.fillStyle=OUT; c.beginPath(); c.ellipse(hx+dx,hy+3,3.4,4.6,0,0,6.28); c.fill();
+    c.fillStyle=eye; c.beginPath(); c.ellipse(hx+dx,hy+3.3,2.4,3.6,0,0,6.28); c.fill();
+    c.fillStyle="#fff"; c.beginPath(); c.arc(hx+dx-1,hy+1.4,1.2,0,6.28); c.fill();
+  });
   c.fillStyle="rgba(255,150,150,.5)";
   c.beginPath(); c.ellipse(hx-12,hy+9,3.5,2.4,0,0,6.28); c.fill();
   c.beginPath(); c.ellipse(hx+12,hy+9,3.5,2.4,0,0,6.28); c.fill();
@@ -3733,6 +3761,35 @@ function gachaRoll(){
   const pool = GACHA_POOL.filter(g=>g.r===r);
   return pool[Math.floor(Math.random()*pool.length)];
 }
+/* ===== キャラメイク（髪・目・はだ・たいけいの初期設定） ===== */
+const AVATAR_HAIR = ["#1c1b22","#3a2a1e","#6b4329","#9a6b3a","#caa44a","#e8a23c","#d23b32","#8a4fd0","#3a6fb0","#5fae6a","#e87ab0","#eae4da"];
+const AVATAR_EYE  = ["#1c1b22","#5b3a1e","#3a6fb0","#2e8a52","#8a4fd0","#c0392b","#d8a23c","#5a6a8a"];
+const AVATAR_SKIN = ["#ffe6cf","#ffdcb6","#f0c69a","#d8a87a","#b07a4e","#8a5a36"];
+const AVATAR_BODY = [["slim","ほそみ"],["normal","ふつう"],["big","がっしり"]];
+function openAvatarCreator(){ sfxMenu(); renderAvatar(); showPage("avatar"); }
+function avatarSet(k,v){ if(!state.avatar) state.avatar={}; state.avatar[k]=v; save(); sfxMenu(); renderAvatar(); render(); }
+function renderAvatar(){
+  const av = state.avatar;
+  /* プレビュー：素の見た目（中立の服）で 髪・目・はだ・たいけいを 確認 */
+  const prev = document.getElementById("avatarPreview"); prev.innerHTML = "";
+  const cvs = makeHeroChibi({ hair:av.hair, skin:av.skin, eye:av.eye, bodyType:av.body, body:"#5a78b8", weapon:{type:"none"}, shield:false }, 156);
+  cvs.style.cssText = "filter:drop-shadow(0 4px 7px rgba(0,0,0,.45))";
+  prev.appendChild(cvs);
+  const sw = (label,arr,key)=>
+    `<div style="font-size:13px;color:#9fe0ff;margin:12px 0 5px">${label}</div>`+
+    `<div style="display:flex;flex-wrap:wrap;gap:9px">`+
+    arr.map(col=>`<div onclick="avatarSet('${key}','${col}')" style="width:32px;height:32px;border-radius:50%;background:${col};cursor:pointer;border:3px solid ${av[key]===col?'#ffd24a':'#2a3050'};box-shadow:0 1px 3px rgba(0,0,0,.4)"></div>`).join("")+
+    `</div>`;
+  document.getElementById("avatarOpts").innerHTML =
+    sw("髪の色", AVATAR_HAIR, "hair") +
+    sw("目の色", AVATAR_EYE, "eye") +
+    sw("はだの色", AVATAR_SKIN, "skin") +
+    `<div style="font-size:13px;color:#9fe0ff;margin:12px 0 5px">たいけい</div>`+
+    `<div style="display:flex;gap:8px">`+
+    AVATAR_BODY.map(b=>`<div onclick="avatarSet('body','${b[0]}')" class="stab${av.body===b[0]?' act':''}" style="flex:1;font-size:13px;padding:8px 0">${b[1]}</div>`).join("")+
+    `</div>`;
+}
+function finishAvatar(){ if(state.avatar) state.avatar.created=true; save(); sfxMenu(); showPage("quest"); }
 function renderGacha(){
   document.getElementById("gachaGold").textContent = state.gold + "G";
   const body = document.getElementById("gachaBody");
@@ -5175,7 +5232,7 @@ function showPage(name){
 /* ボトムナビの アクティブ表示 */
 function syncNav(page){
   /* ナビ並び: 0クエスト 1そうび 2しょうにん 3ガチャ 4きろく 5メニュー */
-  const map = { quest:0, equip:1, shop:0, gacha:3, record:4, plan:5, dex:5, menu:5 };
+  const map = { quest:0, equip:1, shop:0, gacha:3, record:4, plan:5, dex:5, menu:5, avatar:5 };
   const btns = document.querySelectorAll("#bottomNav button");
   btns.forEach((b,i)=>b.classList.toggle("active", i===(map[page]!==undefined?map[page]:0)));
 }
