@@ -1,0 +1,9 @@
+{
+  "character": "hero_f",
+  "gender": "female",
+  "default": "base",
+  "costumes": [
+    { "id": "base",     "name": "冒険者",   "file": "hero_f_base.png" },
+    { "id": "military", "name": "軍装",     "file": "hero_f_military.png" }
+  ]
+}

@@ -272,6 +272,20 @@
   .mode2d .party3d .hero:nth-child(3) canvas{animation-delay:.6s}
   .mode2d .party3d .hero:nth-child(4) canvas{animation-delay:.9s}
 
+  /* ===== 主人公の立ち絵（透過PNG・足元基準で中央寄せ） ===== */
+  .portrait-frame{position:relative}
+  .portrait-frame img.hero-portrait{position:absolute;left:50%;bottom:0;transform:translateX(-50%);
+    height:100%;width:auto;max-width:none;display:block;pointer-events:none;
+    filter:drop-shadow(0 3px 5px rgba(0,0,0,.4))}
+  .pf-battle{width:120px;height:172px}        /* 戦闘の主人公 */
+  .pf-card{width:200px;height:240px;margin:0 auto}   /* 装備・キャラ・ガチャのプレビュー */
+  .mode2d .hero.portrait-lead{bottom:2px}
+  /* 衣装セレクタ */
+  .costume-sel{display:flex;gap:8px;justify-content:center;margin:6px 0 2px;flex-wrap:wrap}
+  .costume-sel .cbtn{font-family:inherit;font-size:13px;padding:8px 16px;border:2px solid #3d4570;border-radius:8px;
+    background:#11142a;color:#cdd6f0;cursor:pointer;user-select:none}
+  .costume-sel .cbtn.act{border-color:#ffd24a;color:#ffd24a;background:#2a2410}
+
   /* WebGL 3Dシーン（three.js が読めた場合はこちらを使用） */
   .battle canvas.gl{position:absolute;inset:0;z-index:1;display:none}
   .glmode canvas.gl{display:block}
@@ -2828,6 +2842,66 @@ function msg(text, sys){
 
 /* ================= 描画 ================= */
 let currentMonster = null;
+/* ===================================================================
+   主人公の着せ替え立ち絵システム（透過PNG）
+   ・状態は currentCostumeId に集約（localStorageで永続）
+   ・共通描画は renderHeroPortrait() 1個だけ（全画面で使い回す）
+   =================================================================== */
+const COSTUME_KEY = "wqCostume";
+let COSTUMES = { character:"hero_f", gender:"female", default:"base", costumes:[] };
+let costumeMap = {};
+let costumesReady = false;
+let currentCostumeId = localStorage.getItem(COSTUME_KEY) || null;
+function costumeList(){ return COSTUMES.costumes || []; }
+async function loadCostumes(){
+  try{
+    const r = await fetch("assets/characters/costumes.json", {cache:"no-cache"});
+    const j = await r.json();
+    if(j && j.costumes) COSTUMES = j;
+  }catch(e){ /* 読めなくても 既存のチビ絵に フォールバック */ }
+  costumeMap = {};
+  costumeList().forEach(c=>{ costumeMap[c.id]=c; });
+  if(!currentCostumeId || !costumeMap[currentCostumeId]) currentCostumeId = COSTUMES.default || (costumeList()[0]&&costumeList()[0].id) || null;
+  costumesReady = costumeList().length>0;
+}
+/* 共通描画：container に 立ち絵を 1枚 表示（足元基準で 中央寄せ・アスペクト維持） */
+function renderHeroPortrait(container, costumeId){
+  if(!container) return;
+  const id = costumeId || currentCostumeId;
+  const c = costumeMap[id];
+  container.innerHTML = "";
+  if(!c){ return; }
+  const img = document.createElement("img");
+  img.className = "hero-portrait";
+  img.alt = c.name || "";
+  img.src = "assets/characters/" + c.file;
+  container.appendChild(img);
+}
+/* "current" を見ている全画面の立ち絵枠を 一括更新（特定衣装固定の枠は触らない） */
+function refreshAllPortraits(){
+  document.querySelectorAll("[data-portrait]").forEach(el=>{
+    const tag = el.getAttribute("data-portrait");
+    renderHeroPortrait(el, tag==="current" ? currentCostumeId : tag);
+  });
+  /* 戦闘の主人公は drawSprites 内で 立ち絵に差し替えるので 再描画 */
+  if(document.getElementById("party3d")) drawSprites();
+}
+/* 衣装を変える → 保存 → 全画面同時更新 */
+function setCostume(id){
+  if(!costumeMap[id]) return;
+  currentCostumeId = id;
+  localStorage.setItem(COSTUME_KEY, id);
+  document.querySelectorAll(".costume-sel .cbtn").forEach(b=>b.classList.toggle("act", b.getAttribute("data-cid")===id));
+  refreshAllPortraits();
+}
+/* 衣装きりかえボタン（全画面で使い回す） */
+function costumeSelectorHTML(){
+  if(!costumeList().length) return "";
+  return `<div class="costume-sel">`+
+    costumeList().map(c=>`<div class="cbtn${c.id===currentCostumeId?' act':''}" data-cid="${c.id}" onclick="setCostume('${c.id}')">${c.name||c.id}</div>`).join("")+
+    `</div>`;
+}
+
 function drawSprites(){
   if(state.settings.mode==="3d" && GL){ glRefreshMonster(); return; }
   const wrap = document.getElementById("spriteWrap");
@@ -2844,13 +2918,24 @@ function drawSprites(){
     /* 2D：後ろ姿の隊列（先頭=装備が反映される勇者） */
     const cls=["p-lead","p-l","p-r","p-back"];
     HEROES.forEach((h,i)=>{
-      const d=document.createElement("div"); d.className="hero "+(cls[i]||"p-back");
       const lead = i===0;
-      const ph = lead?148 : (cls[i]==="p-back"?96:116);
-      d.appendChild(makeHeroChibi(heroBackOpts(i, lead), ph));
-      const sh=document.createElement("div"); sh.className="h-shadow";
-      d.appendChild(sh);
-      party.appendChild(d);
+      const d=document.createElement("div"); d.className="hero "+(cls[i]||"p-back");
+      if(lead && costumesReady && currentCostumeId){
+        /* 主人公は 立ち絵に差し替え */
+        d.classList.add("portrait-lead");
+        const pf=document.createElement("div"); pf.className="portrait-frame pf-battle"; pf.setAttribute("data-portrait","current");
+        d.appendChild(pf);
+        const sh=document.createElement("div"); sh.className="h-shadow";
+        d.appendChild(sh);
+        party.appendChild(d);
+        renderHeroPortrait(pf, currentCostumeId);
+      }else{
+        const ph = lead?148 : (cls[i]==="p-back"?96:116);
+        d.appendChild(makeHeroChibi(heroBackOpts(i, lead), ph));
+        const sh=document.createElement("div"); sh.className="h-shadow";
+        d.appendChild(sh);
+        party.appendChild(d);
+      }
     });
   }else{
     HEROES.forEach((h,i)=>{
@@ -3744,6 +3829,7 @@ const GACHA_POOL = [
   {r:2, name:"バクダンいし ×2",        do:()=>{ state.items.bomb+=2; }},
   {r:2, name:"ゴールド +400G",         do:()=>{ state.gold+=400; }},
   /* ★★★ 激レア（10%）*/
+  {r:3, name:"👗 軍装コスチューム",    costume:"military", do:()=>{ if(costumeMap["military"]) setCostume("military"); }},
   {r:3, name:"せかいじゅのは ×1",      do:()=>{ state.items.elixir+=1; }},
   {r:3, name:"ちからのたね（こうげき+2）", do:()=>{ state.sPow+=2; }},
   {r:3, name:"まもりのたね（ぼうぎょ+2）", do:()=>{ state.sDef+=2; }},
@@ -3770,11 +3856,17 @@ function openAvatarCreator(){ sfxMenu(); renderAvatar(); showPage("avatar"); }
 function avatarSet(k,v){ if(!state.avatar) state.avatar={}; state.avatar[k]=v; save(); sfxMenu(); renderAvatar(); render(); }
 function renderAvatar(){
   const av = state.avatar;
-  /* プレビュー：素の見た目（中立の服）で 髪・目・はだ・たいけいを 確認 */
+  /* メイン表示：立ち絵（読み込めない時は チビ絵に フォールバック） */
   const prev = document.getElementById("avatarPreview"); prev.innerHTML = "";
-  const cvs = makeHeroChibi({ hair:av.hair, skin:av.skin, eye:av.eye, bodyType:av.body, body:"#5a78b8", weapon:{type:"none"}, shield:false }, 156);
-  cvs.style.cssText = "filter:drop-shadow(0 4px 7px rgba(0,0,0,.45))";
-  prev.appendChild(cvs);
+  if(costumesReady && currentCostumeId){
+    const pf=document.createElement("div"); pf.className="portrait-frame pf-card"; pf.setAttribute("data-portrait","current");
+    prev.appendChild(pf); renderHeroPortrait(pf, currentCostumeId);
+    prev.insertAdjacentHTML("beforeend", costumeSelectorHTML());
+  }else{
+    const cvs = makeHeroChibi({ hair:av.hair, skin:av.skin, eye:av.eye, bodyType:av.body, body:"#5a78b8", weapon:{type:"none"}, shield:false }, 156);
+    cvs.style.cssText = "filter:drop-shadow(0 4px 7px rgba(0,0,0,.45))";
+    prev.appendChild(cvs);
+  }
   const sw = (label,arr,key)=>
     `<div style="font-size:13px;color:#9fe0ff;margin:12px 0 5px">${label}</div>`+
     `<div style="display:flex;flex-wrap:wrap;gap:9px">`+
@@ -3799,6 +3891,12 @@ function renderGacha(){
        <div style="font-size:12px;color:#9aa0b5;line-height:1.8">まものを たおして あつめた ゴールドで まわそう！<br>
        <span style="color:#9aa6cc">★ノーマル</span>／<span style="color:#7ad4ff">★★レア</span>／<span style="color:#ffd24a">★★★激レア</span>／<span style="color:#ff7af0">🌈超激レア</span></div>
      </div>`;
+  /* いまの主人公の立ち絵（衣装きりかえ可） */
+  if(costumesReady && currentCostumeId){
+    const pf=document.createElement("div"); pf.className="portrait-frame pf-card"; pf.setAttribute("data-portrait","current"); pf.style.height="200px";
+    body.appendChild(pf); renderHeroPortrait(pf, currentCostumeId);
+    body.insertAdjacentHTML("beforeend", costumeSelectorHTML());
+  }
   const can1 = state.gold >= GACHA_COST, can10 = state.gold >= GACHA_COST10;
   const row=(html,cls,fn)=>{ const e=document.createElement("div"); e.className="mrow"+(cls?" "+cls:""); e.innerHTML=html; if(fn) e.onclick=fn; body.appendChild(e); };
   body.insertAdjacentHTML("beforeend","");
@@ -4113,8 +4211,14 @@ function finishGacha(){
   gachaSkipData = null;
   const res = document.getElementById("gachaResult");
   if(res){
-    res.innerHTML = `<div class="listtitle"><span>けっか</span><span>${n}かい</span></div>` +
+    /* 衣装が出ていたら 立ち絵を 大きく表示 */
+    const wonCostume = results.filter(g=>g.costume && costumeMap[g.costume]).slice(-1)[0];
+    const portraitHTML = wonCostume
+      ? `<div style="text-align:center;margin:4px 0 8px"><div style="color:#ffd24a;font-size:13px;margin-bottom:4px">🎉 「${costumeMap[wonCostume.costume].name}」を てにいれた！</div><div class="portrait-frame pf-card" data-portrait="${wonCostume.costume}" style="height:230px"></div></div>`
+      : "";
+    res.innerHTML = portraitHTML + `<div class="listtitle"><span>けっか</span><span>${n}かい</span></div>` +
       results.map(g=>{ const R=RARITY[g.r]; return `<div class="mrow" style="border-color:${R.c}44"><span style="color:${R.c}">${R.s}</span> ${g.name}</div>`; }).join("");
+    if(wonCostume) renderHeroPortrait(res.querySelector('[data-portrait]'), wonCostume.costume);
   }
 }
 
@@ -4123,6 +4227,12 @@ function renderEquip(){
   document.getElementById("equipStat").innerHTML = `こうげき<span class="gold">${atkNow()}</span>　ぼうぎょ<span class="gold">${defNow()}</span>`;
   const body = document.getElementById("equipBody");
   body.innerHTML = "";
+  /* キャラプレビュー（立ち絵＋衣装きりかえ） */
+  if(costumesReady && currentCostumeId){
+    const pf=document.createElement("div"); pf.className="portrait-frame pf-card"; pf.setAttribute("data-portrait","current");
+    body.appendChild(pf); renderHeroPortrait(pf, currentCostumeId);
+    body.insertAdjacentHTML("beforeend", costumeSelectorHTML());
+  }
   const head = (t)=>{ const h=document.createElement("div"); h.className="listtitle"; h.style.marginTop="8px"; h.innerHTML=`<span>${t}</span>`; body.appendChild(h); };
   const row = (html, cls, fn)=>{ const el=document.createElement("div"); el.className="mrow"+(cls?" "+cls:""); el.innerHTML=html; if(fn) el.onclick=fn; body.appendChild(el); };
 
@@ -5274,6 +5384,8 @@ dailyTick();
 applyMode();
 render();
 drawTitleArt();
+/* 着せ替え立ち絵を よみこんで 全画面に反映 */
+loadCostumes().then(()=>{ if(costumesReady){ refreshAllPortraits(); if(document.getElementById("page-avatar").classList.contains("show")) renderAvatar(); } });
 document.getElementById("bgmBtn").textContent = state.settings.bgm ? "♪ ON" : "♪ OFF";
 if(state.monster) msg(`${state.monster.boss?"👑 ボス！ ":""}${state.monster.n}が あらわれた！`, true);
 else if(isResting()) msg("🏨 きょうは やどで きゅうそくちゅう。タスクは じっくり ふくしゅうタイムだ。", true);
