@@ -531,6 +531,25 @@
     </div>
   </div>
 
+  <!-- メニュー（さくせん＋ずかん 統合）モーダル -->
+  <div class="overlay" id="menuModal">
+    <div class="dqwin v-win">
+      <div class="mback" onclick="closeModal('menuModal')">← もどる</div>
+      <div class="mtitle"><span>📚 メニュー</span></div>
+      <div class="mrow" onclick="closeModal('menuModal'); openModal('dexModal')">📕 まものずかん<div class="mdesc">であった まものの ずかん・よわてん</div></div>
+      <div class="mrow" onclick="closeModal('menuModal'); showPage('plan')">📜 さくせん<div class="mdesc">がくしゅうプラン・もくひょう</div></div>
+    </div>
+  </div>
+
+  <!-- ガチャモーダル -->
+  <div class="overlay" id="gachaModal">
+    <div class="dqwin v-win">
+      <div class="mback" onclick="closeModal('gachaModal')">← もどる</div>
+      <div class="mtitle"><span>🎰 まじんガチャ</span><span class="gold" id="gachaGold">0G</span></div>
+      <div id="gachaBody"></div>
+    </div>
+  </div>
+
 
   <!-- ===== 記録ページ ===== -->
   <div class="page" id="page-record">
@@ -618,9 +637,9 @@
   <button onclick="navTo('quest')"><span class="ni">⚔</span>クエスト</button>
   <button onclick="navTo('equip')"><span class="ni">🛡</span>そうび</button>
   <button onclick="navTo('shop')"><span class="ni">🏪</span>しょうにん</button>
+  <button onclick="navTo('gacha')"><span class="ni">🎰</span>ガチャ</button>
   <button onclick="navTo('record')"><span class="ni">📅</span>きろく</button>
-  <button onclick="navTo('dex')"><span class="ni">📕</span>ずかん</button>
-  <button onclick="navTo('plan')"><span class="ni">📜</span>さくせん</button>
+  <button onclick="navTo('menu')"><span class="ni">📚</span>メニュー</button>
 </nav>
 
 <script>
@@ -3280,6 +3299,7 @@ function openModal(id){
   if(id==="bookModal"){ bookView = "main"; renderBooks(); }
   if(id==="dexModal"){ dexSel = null; renderDex(); }
   if(id==="equipModal") renderEquip();
+  if(id==="gachaModal") renderGacha();
   document.getElementById(id).classList.add("show");
 }
 
@@ -3294,6 +3314,73 @@ function resistsOf(el){
   return r;
 }
 /* ===== そうび（装備の付け替え）===== */
+/* ===== 🎰 まじんガチャ ===== */
+const GACHA_COST = 300, GACHA_COST10 = 2700;
+/* レアリティ別の景品（do()で受け取り処理）*/
+const GACHA_POOL = [
+  /* ★ ノーマル（60%）*/
+  {r:1, name:"やくそう ×2",            do:()=>{ state.items.herb+=2; }},
+  {r:1, name:"まほうのせいすい ×2",    do:()=>{ state.items.ether+=2; }},
+  {r:1, name:"ゴールド +120G",         do:()=>{ state.gold+=120; }},
+  {r:1, name:"どくけしそう ×2",        do:()=>{ state.items.antidote+=2; }},
+  /* ★★ レア（28%）*/
+  {r:2, name:"じょうやくそう ×2",      do:()=>{ state.items.hherb+=2; }},
+  {r:2, name:"まほうのせいすい大 ×2",  do:()=>{ state.items.hether+=2; }},
+  {r:2, name:"バクダンいし ×2",        do:()=>{ state.items.bomb+=2; }},
+  {r:2, name:"ゴールド +400G",         do:()=>{ state.gold+=400; }},
+  /* ★★★ 激レア（10%）*/
+  {r:3, name:"せかいじゅのは ×1",      do:()=>{ state.items.elixir+=1; }},
+  {r:3, name:"ちからのたね（こうげき+2）", do:()=>{ state.sPow+=2; }},
+  {r:3, name:"まもりのたね（ぼうぎょ+2）", do:()=>{ state.sDef+=2; }},
+  {r:3, name:"ゴールド +900G",         do:()=>{ state.gold+=900; }},
+  /* 🌈 超激レア（2%）*/
+  {r:4, name:"でんせつのいのち（最大HP+40）", do:()=>{ const lv=levelInfo(state.xp).lv; state.sHp+=40; state.hp+=40; }},
+  {r:4, name:"フェニックスのは ×1",    do:()=>{ state.items.phoenix=(state.items.phoenix||0)+1; }},
+  {r:4, name:"ゴールド +3000G！",      do:()=>{ state.gold+=3000; }}
+];
+const RARITY = { 1:{c:"#9aa6cc",s:"★",n:"ノーマル"}, 2:{c:"#7ad4ff",s:"★★",n:"レア"}, 3:{c:"#ffd24a",s:"★★★",n:"激レア"}, 4:{c:"#ff7af0",s:"🌈",n:"超激レア"} };
+function gachaRoll(){
+  const x = Math.random()*100;
+  let r;
+  if(x < 60) r=1; else if(x < 88) r=2; else if(x < 98) r=3; else r=4;
+  const pool = GACHA_POOL.filter(g=>g.r===r);
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+function renderGacha(){
+  document.getElementById("gachaGold").textContent = state.gold + "G";
+  const body = document.getElementById("gachaBody");
+  body.innerHTML =
+    `<div style="text-align:center;padding:6px 0 10px">
+       <div style="font-size:40px">🎰</div>
+       <div style="font-size:12px;color:#9aa0b5;line-height:1.8">まものを たおして あつめた ゴールドで まわそう！<br>
+       <span style="color:#9aa6cc">★ノーマル</span>／<span style="color:#7ad4ff">★★レア</span>／<span style="color:#ffd24a">★★★激レア</span>／<span style="color:#ff7af0">🌈超激レア</span></div>
+     </div>`;
+  const can1 = state.gold >= GACHA_COST, can10 = state.gold >= GACHA_COST10;
+  const row=(html,cls,fn)=>{ const e=document.createElement("div"); e.className="mrow"+(cls?" "+cls:""); e.innerHTML=html; if(fn) e.onclick=fn; body.appendChild(e); };
+  body.insertAdjacentHTML("beforeend","");
+  row(`🎰 1かい まわす <span class="cost">${GACHA_COST}G</span>`, can1?"":"disabled", can1?()=>doGacha(1):null);
+  row(`🎰 10かい まわす <span class="cost">${GACHA_COST10}G</span><div class="mdesc">10れんは すこし おとく！</div>`, can10?"":"disabled", can10?()=>doGacha(10):null);
+  const res = document.createElement("div"); res.id="gachaResult"; res.style.marginTop="8px"; body.appendChild(res);
+}
+function doGacha(n){
+  const cost = n===10 ? GACHA_COST10 : GACHA_COST;
+  if(state.gold < cost) return;
+  state.gold -= cost;
+  const results = [];
+  for(let i=0;i<n;i++){ const g = gachaRoll(); g.do(); results.push(g); }
+  /* 10連は 最高レアを 1つ保証で 引き上げ（最低でも★★）*/
+  if(n===10 && !results.some(g=>g.r>=2)){ const g=GACHA_POOL.filter(x=>x.r===2)[0]; g.do(); results.push(g); }
+  sfxCoin();
+  const best = Math.max(...results.map(g=>g.r));
+  if(best>=4){ sfxLevelUp(); setTimeout(sfxVictory,500); } else if(best>=3){ sfxLevelUp(); }
+  /* 結果表示 */
+  const res = document.getElementById("gachaResult");
+  res.innerHTML = `<div class="listtitle"><span>けっか</span><span>${n}かい</span></div>` +
+    results.map(g=>{ const R=RARITY[g.r]; return `<div class="mrow" style="border-color:${R.c}44"><span style="color:${R.c}">${R.s}</span> ${g.name}</div>`; }).join("");
+  document.getElementById("gachaGold").textContent = state.gold + "G";
+  save(); render();
+}
+
 function renderEquip(){
   const lv = levelInfo(state.xp).lv;
   document.getElementById("equipStat").innerHTML = `こうげき<span class="gold">${atkNow()}</span>　ぼうぎょ<span class="gold">${defNow()}</span>`;
@@ -4407,7 +4494,8 @@ function showPage(name){
 }
 /* ボトムナビの アクティブ表示 */
 function syncNav(page){
-  const map = { quest:0, equip:0, shop:0, record:3, dex:0, plan:5 };
+  /* ナビ並び: 0クエスト 1そうび 2しょうにん 3ガチャ 4きろく 5メニュー */
+  const map = { quest:0, equip:0, shop:0, gacha:3, record:4, plan:5, dex:5, menu:5 };
   const btns = document.querySelectorAll("#bottomNav button");
   btns.forEach((b,i)=>b.classList.toggle("active", i===(map[page]!==undefined?map[page]:0)));
 }
@@ -4418,7 +4506,8 @@ function navTo(dest){
   else if(dest==="record"){ showPage("record"); }
   else if(dest==="plan"){ showPage("plan"); }
   else if(dest==="equip"){ showPage("quest"); openModal("equipModal"); }
-  else if(dest==="dex"){ showPage("quest"); openModal("dexModal"); }
+  else if(dest==="menu"){ showPage("quest"); openModal("menuModal"); }
+  else if(dest==="gacha"){ showPage("quest"); openModal("gachaModal"); }
   else if(dest==="shop"){ showPage("quest"); enterShop(); }
 }
 /* タイトル画面 → ゲーム開始 */
