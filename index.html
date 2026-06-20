@@ -95,6 +95,8 @@
 
   /* ===== メニューモーダル（じゅもん/どうぐ/ぶきや） ===== */
   .mtitle{font-size:13px;color:#9fe0ff;margin-bottom:6px;display:flex;justify-content:space-between}
+  .mback{font-size:14px;color:#ffd24a;padding:6px 4px 8px;cursor:pointer;user-select:none;border-bottom:1px dotted #2a3050;margin-bottom:6px}
+  .mback:active{opacity:.6}
   .mrow{font-size:14px;line-height:1.6;padding:9px 4px 9px 24px;position:relative;cursor:pointer;user-select:none;border-bottom:1px dotted #2a3050}
   .mrow:last-of-type{border-bottom:none}
   .mrow:hover::before,.mrow:active::before{content:"▶";position:absolute;left:2px}
@@ -129,8 +131,9 @@
   .lgrow .lgstat{font-size:11px;flex-shrink:0;color:#9aa0b5}
   .lgrow.today .lgstat{color:#ffd24a;font-weight:bold}
 
-  .shoptabs{display:flex;gap:4px;margin-bottom:8px}
-  .stab{flex:1;text-align:center;font-size:12px;padding:6px 2px;border:2px solid #3d4570;border-radius:6px;cursor:pointer;user-select:none;color:#9aa0b5}
+  .shoptabs{display:flex;gap:4px;margin-bottom:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+  .shoptabs::-webkit-scrollbar{display:none}
+  .stab{flex:0 0 auto;white-space:nowrap;text-align:center;font-size:12px;padding:6px 10px;border:2px solid #3d4570;border-radius:6px;cursor:pointer;user-select:none;color:#9aa0b5}
   .stab.act{border-color:#ffd24a;color:#ffd24a}
   .xpbar{flex:1;height:8px;border:1px solid #fff;border-radius:3px;overflow:hidden;background:#15203a}
   .xpbar>div{height:100%;background:linear-gradient(90deg,#2e9bff,#7ad0ff);transition:width .4s}
@@ -440,6 +443,7 @@
 
     <!-- 商人の家 商品リスト（店内表示中だけ出る） -->
     <div class="dqwin" id="shopPanel" style="display:none">
+      <div class="mback" onclick="leaveShop()">← みせをでる</div>
       <div class="mtitle"><span>🏠 しょうにんのいえ</span><span class="gold" id="shopGold">0G</span></div>
       <div class="shoptabs">
         <span class="stab" data-t="w" onclick="setShopTab('w')">ぶき</span>
@@ -451,7 +455,6 @@
         <span class="stab" data-t="sell" onclick="setShopTab('sell')">うる</span>
       </div>
       <div id="shopList"></div>
-      <div class="mrow" onclick="leaveShop()">みせをでる</div>
     </div>
 
     <!-- タスクリスト窓 -->
@@ -479,15 +482,16 @@
   <!-- じゅもんモーダル -->
   <div class="overlay" id="spellModal">
     <div class="dqwin v-win">
+      <div class="mback" onclick="closeModal('spellModal')">← もどる</div>
       <div class="mtitle"><span>じゅもん</span><span id="spellMpLabel">MP -</span></div>
       <div id="spellList"></div>
-      <div class="mrow" onclick="closeModal('spellModal')">もどる</div>
     </div>
   </div>
 
   <!-- ぼうけんのしょモーダル -->
   <div class="overlay" id="bookModal">
     <div class="dqwin v-win">
+      <div class="mback" onclick="bookBack()">← もどる</div>
       <div class="mtitle"><span id="bookTitle">📖 ぼうけんのしょ</span><span id="bookCount"></span></div>
       <div id="bookBody"></div>
     </div>
@@ -496,6 +500,7 @@
   <!-- まもの図鑑モーダル -->
   <div class="overlay" id="dexModal">
     <div class="dqwin v-win">
+      <div class="mback" onclick="dexBack()">← もどる</div>
       <div class="mtitle"><span id="dexTitle">📕 まものずかん</span><span id="dexCount"></span></div>
       <div id="dexBody"></div>
     </div>
@@ -504,18 +509,18 @@
   <!-- そうびモーダル -->
   <div class="overlay" id="equipModal">
     <div class="dqwin v-win">
+      <div class="mback" onclick="closeModal('equipModal')">← もどる</div>
       <div class="mtitle"><span>⚔ そうび</span><span id="equipStat"></span></div>
       <div id="equipBody"></div>
-      <div class="mrow" onclick="closeModal('equipModal')">もどる</div>
     </div>
   </div>
 
   <!-- どうぐモーダル -->
   <div class="overlay" id="itemModal">
     <div class="dqwin v-win">
+      <div class="mback" onclick="closeModal('itemModal')">← もどる</div>
       <div class="mtitle"><span>どうぐぶくろ</span></div>
       <div id="itemList"></div>
-      <div class="mrow" onclick="closeModal('itemModal')">もどる</div>
     </div>
   </div>
 
@@ -3333,6 +3338,12 @@ function equipArmor(bossIdx){
   sfxCoin(); save(); renderEquip(); render();
 }
 
+/* 図鑑の もどる：詳細中ならリストへ、リスト中ならモーダルを閉じる */
+function dexBack(){
+  sfxMenu();
+  if(dexSel){ dexSel = null; renderDex(); }
+  else closeModal("dexModal");
+}
 function renderDex(){
   const body = document.getElementById("dexBody");
   const title = document.getElementById("dexTitle");
@@ -3368,7 +3379,6 @@ function renderDex(){
         row(`？？？ <span class="cost" style="color:#6b7090">みはっけん</span>`, "disabled");
       }
     });
-    row("もどる", "", ()=>closeModal("dexModal"));
   }else{
     /* 詳細 */
     const m = all.find(x=>x.n === dexSel);
@@ -3376,11 +3386,6 @@ function renderDex(){
     const lore = LORE[m.n] || {like:"？？？", lore:"なぞにつつまれている。"};
     title.textContent = `${m.boss?"👑":""}${m.n}`;
     count.textContent = EL_ICON[m.el] ? `${EL_ICON[m.el]}${EL_NAME[m.el]}` : "むぞくせい";
-    const back = document.createElement("div");
-    back.className = "mrow";
-    back.textContent = "← ずかんに もどる";
-    back.onclick = ()=>{ dexSel = null; sfxMenu(); renderDex(); };
-    body.appendChild(back);
     /* スプライト */
     const spriteBox = document.createElement("div");
     spriteBox.style.cssText = "text-align:center;padding:12px 0";
@@ -3427,6 +3432,12 @@ function slotInfo(slot){
     return { at:d.at, lv:levelInfo(d.state.xp||0).lv, gold:d.state.gold||0 };
   }catch(e){ return null; }
 }
+/* ぼうけんのしょの もどる：サブ画面ならメインへ、メインならモーダルを閉じる */
+function bookBack(){
+  sfxMenu();
+  if(bookView !== "main"){ bookView = "main"; renderBooks(); }
+  else closeModal("bookModal");
+}
 function renderBooks(){
   migrateOldSnap();
   const body = document.getElementById("bookBody");
@@ -3450,12 +3461,10 @@ function renderBooks(){
     bookRow(body, "🗑 しょを けす", "", ()=>{ bookView="delete"; sfxMenu(); renderBooks(); });
     bookRow(body, "💾 セーブする（スロット1〜99）", "", ()=>{ bookView="save"; sfxMenu(); renderBooks(); });
     bookRow(body, "📂 ロードする", "", ()=>{ bookView="load"; sfxMenu(); renderBooks(); });
-    bookRow(body, "もどる", "", ()=>closeModal("bookModal"));
 
   }else if(bookView === "delete"){
     title.textContent = "🗑 しょを けす";
     count.textContent = "";
-    bookRow(body, "← もどる", "", backToMain);
     META.books.forEach(b=>{
       bookRow(body,
         `${b.name}${b.id===META.active?"（つかってる）":""} <span class="cost" style="color:#f87171">けす</span>`,
@@ -3463,12 +3472,10 @@ function renderBooks(){
         ()=>deleteBook(b.id));
     });
     if(META.books.length<=1) bookRow(body, `<div class="mdesc">さいごの1さつは けせない</div>`, "disabled");
-    bookRow(body, "もどる", "", backToMain);
 
   }else if(bookView === "save"){
     title.textContent = "💾 セーブする";
     count.textContent = "スロットをえらぶ";
-    bookRow(body, "← もどる", "", backToMain);
     for(let s=1; s<=99; s++){
       const info = slotInfo(s);
       if(info){
@@ -3477,12 +3484,10 @@ function renderBooks(){
         bookRow(body, `スロット${s} <span class="cost" style="color:#6b7090">あいてる</span>`, "", ()=>saveToSlot(s));
       }
     }
-    bookRow(body, "もどる", "", backToMain);
 
   }else{ /* load */
     title.textContent = "📂 ロードする";
     count.textContent = "";
-    bookRow(body, "← もどる", "", backToMain);
     let any = false;
     for(let s=1; s<=99; s++){
       const info = slotInfo(s);
@@ -3491,7 +3496,6 @@ function renderBooks(){
       bookRow(body, `スロット${s} <span class="cost">Lv${info.lv}・${info.gold}G</span><div class="mdesc">${info.at} ─ タップで よみこむ</div>`, "", ()=>loadFromSlot(s));
     }
     if(!any) bookRow(body, `セーブが まだない<div class="mdesc">さきに「セーブする」で スロットに きろくしよう</div>`, "disabled");
-    bookRow(body, "もどる", "", backToMain);
   }
 }
 function switchBook(id){
