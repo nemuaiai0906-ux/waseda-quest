@@ -24,27 +24,46 @@
   .shoptabs{touch-action:pan-x}
   .wrap{max-width:560px;margin:0 auto;padding:10px 10px calc(70px + env(safe-area-inset-bottom));overflow-x:hidden}
 
-  /* ===== ガチャ演出 ===== */
+  /* ===== ガチャ演出（カジノ風） ===== */
   #gachaFx{position:fixed;inset:0;z-index:110;display:none;align-items:center;justify-content:center;
-    background:radial-gradient(ellipse at center,#10142e,#05070f 75%);overflow:hidden}
+    background:radial-gradient(ellipse at center,#0b1024,#020308 78%);overflow:hidden}
   #gachaFx.show{display:flex}
-  .gfx-rays{position:absolute;width:200vmax;height:200vmax;opacity:0;
-    background:repeating-conic-gradient(from 0deg, transparent 0deg 8deg, var(--ray,#ffd24a55) 8deg 16deg);
-    animation:gfxSpin 7s linear infinite}
-  #gachaFx.burst .gfx-rays{opacity:.55;transition:opacity .4s}
+  #gfxCanvas{position:absolute;inset:0;width:100%;height:100%;z-index:3;pointer-events:none}
+  /* 吸い込まれる 光のレイ */
+  .gfx-rays{position:absolute;width:230vmax;height:230vmax;opacity:0;z-index:1;
+    background:repeating-conic-gradient(from 0deg, transparent 0deg 6deg, var(--c,#88aaff33) 6deg 12deg);
+    -webkit-mask:radial-gradient(circle, transparent 18%, #000 55%);mask:radial-gradient(circle, transparent 18%, #000 55%);
+    animation:gfxSpin 9s linear infinite}
   @keyframes gfxSpin{to{transform:rotate(360deg)}}
-  .gfx-orb{position:relative;font-size:90px;filter:drop-shadow(0 0 24px var(--ray,#7a86c0));
-    animation:gfxShake .18s infinite}
-  #gachaFx.burst .gfx-orb{animation:gfxPop .5s forwards}
-  @keyframes gfxShake{0%,100%{transform:rotate(-7deg) scale(1)}50%{transform:rotate(7deg) scale(1.05)}}
-  @keyframes gfxPop{0%{transform:scale(1)}40%{transform:scale(1.5)}100%{transform:scale(1.25)}}
-  .gfx-label{position:absolute;bottom:26%;font-size:30px;font-weight:bold;letter-spacing:3px;opacity:0;
-    color:var(--ray,#fff);text-shadow:0 0 20px var(--ray,#fff)}
-  #gachaFx.burst .gfx-label{opacity:1;animation:gfxLabel .5s cubic-bezier(.2,1.6,.4,1)}
-  @keyframes gfxLabel{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
-  .gfx-skip{position:absolute;bottom:40px;font-size:12px;color:#9aa6cc;cursor:pointer}
-  .gfx-spark{position:absolute;font-size:24px;pointer-events:none;animation:gfxSparkFly .9s forwards}
-  @keyframes gfxSparkFly{0%{opacity:1;transform:translate(0,0) scale(.5)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(1.3)}}
+  /* 魔法陣（二重リング） */
+  .gfx-circle{position:absolute;width:230px;height:230px;border-radius:50%;z-index:2;opacity:0;
+    border:3px solid var(--c,#88aaff);box-shadow:0 0 30px var(--c,#88aaff),inset 0 0 30px var(--c,#88aaff)}
+  .gfx-circle::before,.gfx-circle::after{content:"";position:absolute;border-radius:50%;}
+  .gfx-circle::before{inset:18px;border:2px dashed var(--c,#88aaff);animation:gfxSpin 4s linear infinite reverse}
+  .gfx-circle::after{inset:42px;border:2px solid var(--c,#88aaff);opacity:.6;
+    background:conic-gradient(from 0deg, transparent, var(--c,#88aaff33), transparent 60%)}
+  /* 中心の チャージオーブ */
+  .gfx-core{position:absolute;width:80px;height:80px;border-radius:50%;z-index:3;opacity:0;
+    background:radial-gradient(circle, #fff 0%, var(--c,#88aaff) 45%, transparent 72%);
+    box-shadow:0 0 60px var(--c,#88aaff)}
+  /* 衝撃波リング */
+  .gfx-shock{position:absolute;width:40px;height:40px;border-radius:50%;z-index:4;opacity:0;
+    border:6px solid var(--c,#fff);box-shadow:0 0 40px var(--c,#fff)}
+  /* 白フラッシュ */
+  .gfx-flash{position:absolute;inset:0;z-index:5;background:#fff;opacity:0;pointer-events:none}
+  /* 結果カード */
+  .gfx-card{position:absolute;z-index:6;width:260px;max-width:80%;padding:22px 18px;border-radius:16px;opacity:0;
+    background:linear-gradient(160deg,#1a1f3a,#0a0d1f);text-align:center;overflow:hidden;
+    border:3px solid var(--c,#fff);box-shadow:0 0 40px var(--c,#fff),0 0 90px var(--c,#fff)}
+  .gfx-card.show{animation:gfxCardIn .5s cubic-bezier(.2,1.5,.4,1) forwards}
+  @keyframes gfxCardIn{0%{transform:scale(.3) rotate(-8deg);opacity:0}60%{opacity:1}100%{transform:scale(1) rotate(0);opacity:1}}
+  .gfx-card .gc-rank{font-size:30px;font-weight:bold;letter-spacing:2px;color:var(--c,#fff);text-shadow:0 0 16px var(--c,#fff)}
+  .gfx-card .gc-name{font-size:17px;color:#fff;margin-top:10px;line-height:1.5}
+  .gfx-card .gc-more{font-size:12px;color:#9aa6cc;margin-top:10px}
+  .gfx-card .gc-shine{position:absolute;top:0;left:-60%;width:50%;height:100%;
+    background:linear-gradient(105deg,transparent,rgba(255,255,255,.55),transparent);animation:gfxShine 1.1s .25s ease-in-out}
+  @keyframes gfxShine{from{left:-60%}to{left:120%}}
+  .gfx-skip{position:absolute;bottom:38px;font-size:12px;color:#9aa6cc;cursor:pointer;z-index:7}
 
   /* ===== タイトル画面 ===== */
   #titleScreen{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
@@ -574,9 +593,13 @@
 
   <!-- ガチャ演出オーバーレイ -->
   <div id="gachaFx">
+    <canvas id="gfxCanvas"></canvas>
     <div class="gfx-rays" id="gfxRays"></div>
-    <div class="gfx-orb" id="gfxOrb">🔮</div>
-    <div class="gfx-label" id="gfxLabel"></div>
+    <div class="gfx-circle" id="gfxCircle"></div>
+    <div class="gfx-core" id="gfxCore"></div>
+    <div class="gfx-shock" id="gfxShock"></div>
+    <div class="gfx-flash" id="gfxFlash"></div>
+    <div class="gfx-card" id="gfxCard"></div>
     <div class="gfx-skip" onclick="gachaSkip()">タップで スキップ ▶</div>
   </div>
 
@@ -3406,60 +3429,138 @@ function doGacha(n){
   gachaAnim(n, results);   /* 演出 → 終わったら 結果表示 */
 }
 /* ガチャ演出：スロットが回って → レア度の光が走り → 結果 */
+/* ===== ガチャ演出（チャージ → 爆発 → カード） ===== */
+let gachaRAF = null, gachaParts = [], gachaSkipData = null;
 function gachaAnim(n, results){
   const best = Math.max(...results.map(g=>g.r));
   const R = RARITY[best];
   const fx = document.getElementById("gachaFx");
-  const orb = document.getElementById("gfxOrb");
-  const label = document.getElementById("gfxLabel");
-  fx.style.setProperty("--ray", R.c + "aa");
-  fx.classList.remove("burst");
-  orb.textContent = "🔮";
-  label.textContent = "";
+  const rays = document.getElementById("gfxRays");
+  const circle = document.getElementById("gfxCircle");
+  const core = document.getElementById("gfxCore");
+  const shock = document.getElementById("gfxShock");
+  const flash = document.getElementById("gfxFlash");
+  const card = document.getElementById("gfxCard");
+  /* チャージ中は 期待感を煽る 中立色（白青）。終盤で レア色に染まる */
+  const chargeCol = "#9ac4ff";
+  fx.style.setProperty("--c", chargeCol);
   fx.classList.add("show");
+  card.classList.remove("show"); card.style.opacity = 0; card.innerHTML = "";
   gachaSkipData = { n, results };
-  /* 抽選中：オーブの絵文字をパラパラ切り替え（レア度をチラ見せ）*/
-  const faces = ["🔮","⭐","💫","🎁","✨","💎"];
-  let tick = 0;
-  const spin = setInterval(()=>{ orb.textContent = faces[tick++ % faces.length]; sfxMenu(); }, 110);
-  gachaTimers.push(spin);
-  /* 確定演出 */
-  const reveal = setTimeout(()=>{
-    clearInterval(spin);
-    fx.classList.add("burst");
-    orb.textContent = best>=4 ? "🌈" : best>=3 ? "💛" : best>=2 ? "💠" : "🎁";
-    label.textContent = R.s + " " + R.n + "！";
-    /* レア度に応じた サウンドと キラキラ */
-    if(best>=4){ sfxLevelUp(); setTimeout(sfxVictory,400); gachaSparks(40); }
-    else if(best>=3){ sfxLevelUp(); gachaSparks(24); }
-    else { sfxCoin(); gachaSparks(10); }
-    /* 少し見せてから 結果一覧へ */
-    const fin = setTimeout(()=>finishGacha(), best>=3 ? 1300 : 900);
+  const dur = best>=4 ? 2000 : best>=3 ? 1700 : 1200;   /* レアほど 溜めが長い */
+
+  /* キャンバス初期化 */
+  const cv = document.getElementById("gfxCanvas");
+  const ctx = cv.getContext("2d");
+  cv.width = fx.clientWidth; cv.height = fx.clientHeight;
+  gachaParts = [];
+
+  /* チャージ phase：CSSトランジションで オーブ・魔法陣を 育てる */
+  rays.style.transition = circle.style.transition = core.style.transition = `opacity ${dur}ms, transform ${dur}ms`;
+  rays.style.opacity = ".5"; rays.style.transform = "scale(.7)";
+  circle.style.opacity = "1"; circle.style.transform = "scale(1.15) rotate(140deg)";
+  core.style.opacity = "1"; core.style.transform = "scale(2.6)";
+  circle.style.animation = "none"; void circle.offsetWidth; circle.style.animation = "";
+  /* 上昇する チャージ音 */
+  gachaChargeSound(dur, best);
+  /* 終盤で レア色に 染める（チラ見せ）*/
+  const tease = setTimeout(()=>{ fx.style.setProperty("--c", R.c); }, dur*0.62);
+  gachaTimers.push(tease);
+
+  /* 爆発 phase */
+  const burst = setTimeout(()=>{
+    fx.style.setProperty("--c", R.c);
+    /* 白フラッシュ */
+    flash.style.transition = "none"; flash.style.opacity = best>=3 ? ".95" : ".7";
+    requestAnimationFrame(()=>{ flash.style.transition = "opacity .5s"; flash.style.opacity = "0"; });
+    /* オーブ消える */
+    core.style.transition = "opacity .2s, transform .2s"; core.style.opacity = "0"; core.style.transform = "scale(.2)";
+    circle.style.opacity = "0";
+    /* 衝撃波 */
+    shock.style.transition = "none"; shock.style.opacity = ".9"; shock.style.transform = "scale(1)";
+    requestAnimationFrame(()=>{ shock.style.transition = "opacity .7s, transform .7s cubic-bezier(.1,.8,.3,1)"; shock.style.opacity = "0"; shock.style.transform = "scale(22)"; });
+    /* パーティクル爆発（canvas） */
+    spawnGachaParticles(cv.width/2, cv.height*0.45, R.c, best>=4?180:best>=3?120:60);
+    startGachaCanvas(ctx, cv);
+    /* サウンド */
+    if(best>=4){ sfxLevelUp(); setTimeout(()=>sfxVictory(),350); }
+    else if(best>=3){ sfxLevelUp(); }
+    else { sfxCoin(); }
+    /* レアカード 登場 */
+    const cardT = setTimeout(()=>showGachaCard(n, results, best), 360);
+    gachaTimers.push(cardT);
+    /* 自動で 結果一覧へ */
+    const fin = setTimeout(()=>finishGacha(), best>=3 ? 2600 : 1900);
     gachaTimers.push(fin);
-  }, best>=4 ? 1400 : best>=3 ? 1100 : 700);
-  gachaTimers.push(reveal);
+  }, dur);
+  gachaTimers.push(burst);
 }
-function gachaSparks(count){
-  const fx = document.getElementById("gachaFx");
-  const em = ["✨","⭐","💫","🌟"];
+/* 上昇するチャージ音 */
+function gachaChargeSound(dur, best){
+  try{
+    const a=audio(), o=a.createOscillator(), g=a.createGain(), t=a.currentTime;
+    o.type="sawtooth";
+    o.frequency.setValueAtTime(120, t);
+    o.frequency.exponentialRampToValueAtTime(best>=4?1400:best>=3?900:600, t+dur/1000);
+    g.gain.setValueAtTime(.04, t); g.gain.linearRampToValueAtTime(.09, t+dur/1000);
+    o.connect(g); g.connect(a.destination); o.start(t); o.stop(t+dur/1000);
+  }catch(e){}
+}
+function spawnGachaParticles(cx, cy, colorHex, count){
+  const c = new THREE.Color(colorHex);
   for(let i=0;i<count;i++){
-    const s = document.createElement("div");
-    s.className = "gfx-spark"; s.textContent = em[i%em.length];
-    s.style.left = "50%"; s.style.top = "45%";
-    const ang = (i/count)*Math.PI*2, dist = 120+(seedHash("g"+i+performance.now())%160);
-    s.style.setProperty("--dx", Math.cos(ang)*dist+"px");
-    s.style.setProperty("--dy", Math.sin(ang)*dist+"px");
-    fx.appendChild(s);
-    setTimeout(()=>s.remove(), 950);
+    const ang = Math.random()*Math.PI*2;
+    const spd = 3 + Math.random()*11;
+    gachaParts.push({
+      x:cx, y:cy, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd - 2,
+      life:1, size:2+Math.random()*4,
+      col:`rgb(${Math.round((c.r*0.5+0.5)*255)},${Math.round((c.g*0.5+0.5)*255)},${Math.round((c.b*0.5+0.5)*255)})`,
+      tw:Math.random()*6.28
+    });
   }
 }
-let gachaSkipData = null;
+function startGachaCanvas(ctx, cv){
+  if(gachaRAF) cancelAnimationFrame(gachaRAF);
+  function frame(){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    let alive=0;
+    gachaParts.forEach(p=>{
+      if(p.life<=0) return; alive++;
+      p.x+=p.vx; p.y+=p.vy; p.vy+=.18; p.vx*=.985; p.vy*=.985; p.life-=.014; p.tw+=.4;
+      const a=Math.max(0,p.life)*(0.6+0.4*Math.sin(p.tw));
+      ctx.globalAlpha=a; ctx.fillStyle=p.col;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.size*(0.5+p.life*0.7),0,6.28); ctx.fill();
+      /* 光のにじみ */
+      ctx.globalAlpha=a*0.35; ctx.beginPath(); ctx.arc(p.x,p.y,p.size*2.2,0,6.28); ctx.fill();
+    });
+    ctx.globalAlpha=1;
+    if(alive>0) gachaRAF=requestAnimationFrame(frame);
+  }
+  gachaRAF=requestAnimationFrame(frame);
+}
+function showGachaCard(n, results, best){
+  const R = RARITY[best];
+  const fx = document.getElementById("gachaFx");
+  const card = document.getElementById("gfxCard");
+  /* 一番レアな景品を 大きく表示 */
+  const bestItem = results.find(g=>g.r===best);
+  const others = n>1 ? `<div class="gc-more">ほか ${n-1}こ かくとく！（とじると いちらん）</div>` : "";
+  card.innerHTML = `<div class="gc-shine"></div><div class="gc-rank">${R.s} ${R.n}</div><div class="gc-name">${bestItem.name}</div>${others}`;
+  card.classList.remove("show"); void card.offsetWidth; card.classList.add("show");
+}
 function gachaSkip(){ finishGacha(); }
 function finishGacha(){
   gachaTimers.forEach(t=>{ clearTimeout(t); clearInterval(t); });
   gachaTimers = [];
+  if(gachaRAF){ cancelAnimationFrame(gachaRAF); gachaRAF=null; }
+  gachaParts = [];
   const fx = document.getElementById("gachaFx");
-  fx.classList.remove("show","burst");
+  /* 表示をリセット */
+  ["gfxRays","gfxCircle","gfxCore","gfxShock","gfxFlash","gfxCard"].forEach(id=>{
+    const e=document.getElementById(id); if(e){ e.style.transition="none"; e.style.opacity="0"; e.style.transform=""; }
+  });
+  document.getElementById("gfxCard").classList.remove("show");
+  fx.classList.remove("show");
   if(!gachaSkipData) return;
   const { n, results } = gachaSkipData;
   gachaSkipData = null;
