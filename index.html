@@ -3004,15 +3004,16 @@ function killMonster(beforeLv){
 /* バトルから にげる：今の魔物を消して次を出す（報酬なし） */
 function escapeBattle(){
   if(!state.monster || isResting() || shopOpen) return;
-  const wasBoss = state.monster.boss;
-  msg(`けむりに まぎれて ${state.monster.n}から にげだした！`, true);
+  const fled = state.monster.n;
+  msg(`けむりに まぎれて ${fled}から にげだした！`, true);
   state.buff = false; state.buffMult = null;
-  spawnMonster(false);
-  msg(`${state.monster.boss?"👑 ":""}${state.monster.n}が あらわれた！`, true);
+  state.monster = null;   /* 強制連戦せず、選択肢を出す */
   bgmRestart();
   sfxMenu();
   save(); render();
-  bossEntrance();
+  /* 討伐後と同じ「つづける／商人／やど」の選択肢を表示 */
+  document.getElementById("vBody").innerHTML = `${fled}から ぶじに にげきった！<br><br>どうする？`;
+  document.getElementById("overlay").classList.add("show");
 }
 function adventureOn(){
   sfxMenu();
