@@ -2895,6 +2895,16 @@ async function loadCostumes(){
   costumeList().forEach(c=>{ costumeMap[c.id]=c; });
   if(!currentCostumeId || !costumeMap[currentCostumeId]) currentCostumeId = COSTUMES.default || (costumeList()[0]&&costumeList()[0].id) || null;
   costumesReady = costumeList().length>0;
+  /* 攻撃アニメ（スプライトシート）を持つ衣装は メタ＋画像を 先読み */
+  await Promise.all(costumeList().filter(c=>c.attack).map(async c=>{
+    try{
+      const r = await fetch("assets/characters/"+c.attack.meta, {cache:"no-cache"});
+      c.attackMeta = await r.json();
+      const img = new Image();
+      img.src = "assets/characters/" + (c.attack.sheet || c.attackMeta.sheet);
+      c.attackImg = img;
+    }catch(e){ c.attackMeta = null; }
+  }));
 }
 /* 共通描画：container に 立ち絵を 1枚 表示（足元基準で 中央寄せ・アスペクト維持） */
 function renderHeroPortrait(container, costumeId){
@@ -2932,6 +2942,47 @@ function costumeSelectorHTML(){
   return `<div class="costume-sel">`+
     costumeList().map(c=>`<div class="cbtn${c.id===currentCostumeId?' act':''}" data-cid="${c.id}" onclick="setCostume('${c.id}')">${c.name||c.id}</div>`).join("")+
     `</div>`;
+}
+/* ===== 主人公の攻撃アニメ（スプライトシート再生 / 無い衣装は突進フォールバック） ===== */
+let attackRAF = null;
+function playAttack(onHit){
+  const card = document.getElementById("cpPortrait");
+  const c = costumeMap[currentCostumeId];
+  let fired = false;
+  const fire = ()=>{ if(!fired){ fired=true; try{ onHit && onHit(); }catch(e){} } };
+  /* アニメが無い衣装（冒険者など）は 立ち絵を 敵へ突進させるフォールバック */
+  if(!card || !c || !c.attackMeta || !c.attackImg || !c.attackImg.complete || !c.attackImg.naturalWidth){
+    lungePortrait(card); setTimeout(fire, 220); return;
+  }
+  if(attackRAF){ cancelAnimationFrame(attackRAF); attackRAF=null; }
+  card.querySelectorAll("canvas.cp-anim").forEach(n=>n.remove());
+  const img = card.querySelector("img.hero-portrait"); if(img) img.style.visibility="hidden";
+  const m = c.attackMeta, sheet = c.attackImg;
+  const cw = card.clientWidth||120, ch = card.clientHeight||170;
+  const cv = document.createElement("canvas"); cv.className="cp-anim";
+  cv.width=cw; cv.height=ch; cv.style.cssText="position:absolute;inset:0;width:100%;height:100%;z-index:2";
+  card.appendChild(cv);
+  const ctx = cv.getContext("2d");
+  const fps=m.fps||30, total=m.count, cols=m.cols, fw=m.frameW, fh=m.frameH;
+  const dur = total/fps*1000, hitFrame = Math.floor(total*0.58);
+  const scale = Math.max(cw/fw, ch/fh), dw=fw*scale, dh=fh*scale, dx=(cw-dw)/2, dy=0; /* 足元基準（上寄せcover） */
+  const t0 = performance.now();
+  function frame(now){
+    const el = now - t0;
+    let fi = Math.floor(el/1000*fps); if(fi>=total) fi=total-1;
+    ctx.clearRect(0,0,cw,ch);
+    ctx.drawImage(sheet, (fi%cols)*fw, Math.floor(fi/cols)*fh, fw, fh, dx, dy, dw, dh);
+    if(fi>=hitFrame) fire();
+    if(el < dur){ attackRAF=requestAnimationFrame(frame); }
+    else { attackRAF=null; cv.remove(); if(img) img.style.visibility=""; fire(); }
+  }
+  attackRAF = requestAnimationFrame(frame);
+}
+function lungePortrait(card){
+  if(!card) return;
+  const t = card.querySelector("img.hero-portrait") || card;
+  t.style.transition="transform .12s ease-out"; t.style.transform="translateY(-12px) scale(1.1)";
+  setTimeout(()=>{ t.style.transition="transform .18s ease-in"; t.style.transform=""; }, 130);
 }
 
 function drawSprites(){
@@ -3161,6 +3212,7 @@ function toggle(task){
       /* ワンクッション：まず「きみのこうげき！」→ 一拍おいてヒット演出 */
       msg("▶ きみの こうげき！", true);
       sfxMenu();
+      playAttack();   /* 主人公の攻撃アニメ（軍装＝本物のスプライト／他＝突進）*/
       setTimeout(()=>{
         if(!state.monster) return;
         if(buffed) msg("バイキルトの ちからが はじけた！", true);
