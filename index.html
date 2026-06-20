@@ -259,14 +259,14 @@
   /* 2Dパーティ（後ろ姿・隊列） */
   .mode2d .party3d{display:block;position:absolute;left:0;right:0;bottom:2px;height:48%;z-index:3}
   .mode2d .party3d .hero{position:absolute;bottom:6px;text-align:center}
-  .mode2d .party3d .hero canvas{display:block;margin:0 auto;image-rendering:pixelated;animation:bob 2.6s ease-in-out infinite}
+  .mode2d .party3d .hero canvas{display:block;margin:0 auto;image-rendering:auto;animation:bob 2.6s ease-in-out infinite}
   .mode2d .party3d .h-shadow{background:rgba(0,0,30,.3);border-radius:50%;margin:-3px auto 0}
   .mode2d .hero.p-lead{left:50%;transform:translateX(-50%);z-index:5}
   .mode2d .hero.p-lead .h-shadow{width:50px;height:11px}
   .mode2d .hero.p-l{left:12%;bottom:3px;z-index:4}
   .mode2d .hero.p-r{right:12%;left:auto;bottom:3px;z-index:4}
   .mode2d .hero.p-l .h-shadow,.mode2d .hero.p-r .h-shadow{width:38px;height:9px}
-  .mode2d .hero.p-back{left:50%;transform:translateX(-50%);bottom:60px;z-index:2;opacity:.95}
+  .mode2d .hero.p-back{left:37%;transform:translateX(-50%);bottom:58px;z-index:2;opacity:.97}
   .mode2d .hero.p-back .h-shadow{width:28px;height:7px}
   .mode2d .party3d .hero:nth-child(2) canvas{animation-delay:.3s}
   .mode2d .party3d .hero:nth-child(3) canvas{animation-delay:.6s}
@@ -1684,10 +1684,15 @@ function drawSprite(shape, pal, scale){
 }
 
 /* 色を明暗させる（#hex → rgb文字列） */
-function shadeHex(hex, f){
-  hex = (hex||"#888888").replace("#","");
-  if(hex.length===3) hex = hex.split("").map(c=>c+c).join("");
-  let r=parseInt(hex.slice(0,2),16), g=parseInt(hex.slice(2,4),16), b=parseInt(hex.slice(4,6),16);
+function shadeHex(col, f){
+  let r,g,b;
+  const m = /rgba?\(([^)]+)\)/.exec(col||"");
+  if(m){ const p=m[1].split(",").map(s=>parseFloat(s)); r=p[0]; g=p[1]; b=p[2]; }
+  else {
+    let hex=(col||"#888888").replace("#","");
+    if(hex.length===3) hex = hex.split("").map(ch=>ch+ch).join("");
+    r=parseInt(hex.slice(0,2),16); g=parseInt(hex.slice(2,4),16); b=parseInt(hex.slice(4,6),16);
+  }
   const cl=v=>Math.max(0,Math.min(255,Math.round(v*f)));
   return `rgb(${cl(r)},${cl(g)},${cl(b)})`;
 }
@@ -1808,8 +1813,8 @@ function heroBackOpts(i, lead){
   const base = [
     {body:"#8791a3",hair:"#4a3322",helm:true,helmCol:"#c2cee0"},
     {body:"#3f5aa0",hair:"#e8a23c",cape:"#cf3b3b"},
-    {body:"#ece4d0",hair:"#caa44a",hood:true,hoodCol:"#e8dcc0",trim:"#e8c890"},
-    {body:"#4a3f8a",hair:"#5f4ab0",hood:true,hoodCol:"#5142a0"}
+    {body:"#ece4d0",hair:"#caa44a",hood:true,hoodCol:"#eadfc4",trim:"#e8c890"},
+    {body:"#4a3f8a",hair:"#caa44a",hat:true,hatCol:"#4a3f8a"}
   ][i] || {body:"#8791a3",hair:"#4a3322"};
   const o = Object.assign({}, base);
   o.weapon = i===2 ? {type:"staff",col:"#ffe08a"} : i===3 ? {type:"staff",col:"#7adfff"} : {type:"sword",col:"#c8d4e0"};
@@ -1823,6 +1828,138 @@ function heroBackOpts(i, lead){
     o.shield = true; o.shieldCol = shadeHex(ac,1.14);
   }
   return o;
+}
+
+/* なめらかイラスト調のチビ勇者（前向き・グラデ陰影・かわいい顔つき／装備反映） */
+function makeHeroChibi(opts, px){
+  const U=px/125, W=104, H=125, OUT="#241a30";
+  const cv=document.createElement("canvas"); cv.width=Math.round(W*U); cv.height=Math.round(H*U);
+  const c=cv.getContext("2d"); c.scale(U,U); c.lineJoin="round"; c.lineCap="round";
+  const body=opts.body||"#8791a3";
+  const bodHi=shadeHex(body,1.3), bodLo=shadeHex(body,.6), bodMid=shadeHex(body,.82);
+  const skin="#ffdcb6", skinSh="#eeb78e";
+  const hair=opts.hair||"#5a3a22", hairHi=shadeHex(hair,1.3);
+  const wt=(opts.weapon&&opts.weapon.type)||"none", wc=(opts.weapon&&opts.weapon.col)||"#c8d4e0";
+  const lin=(x0,y0,x1,y1,st)=>{const g=c.createLinearGradient(x0,y0,x1,y1);st.forEach(s=>g.addColorStop(s[0],s[1]));return g;};
+  const rad=(x,y,r,st)=>{const g=c.createRadialGradient(x-r*0.3,y-r*0.3,r*0.1,x,y,r);st.forEach(s=>g.addColorStop(s[0],s[1]));return g;};
+  const rr=(x,y,w,h,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();};
+  const sk=(col,w)=>{c.lineWidth=(w==null?3:w);c.strokeStyle=col||OUT;c.stroke();};
+  const cx=52;
+
+  /* 地面の影 */
+  c.fillStyle="rgba(0,0,40,.2)"; c.beginPath(); c.ellipse(cx,121,27,5,0,0,6.28); c.fill();
+
+  /* マント（背面） */
+  if(opts.cape){
+    const cp=opts.cape;
+    c.beginPath(); c.moveTo(cx-15,58); c.quadraticCurveTo(cx-30,92,cx-20,112);
+    c.quadraticCurveTo(cx,104,cx+20,112); c.quadraticCurveTo(cx+30,92,cx+15,58); c.closePath();
+    c.fillStyle=lin(cx,58,cx,112,[[0,shadeHex(cp,1.15)],[1,shadeHex(cp,.7)]]); c.fill(); sk(OUT,3);
+  }
+
+  /* かかげた腕の剣／杖（体の後ろから） */
+  const drawWeaponArm=()=>{
+    if(wt==="sword"||wt==="dagger"){
+      const tip = wt==="dagger" ? 30 : 8;
+      /* 刀身 */
+      c.beginPath(); c.moveTo(80,48); c.lineTo(86,48); c.lineTo(90,tip+4); c.lineTo(83,tip); c.lineTo(78,tip+4); c.closePath();
+      c.fillStyle=lin(78,tip,90,52,[[0,shadeHex(wc,1.5)],[.5,wc],[1,shadeHex(wc,.7)]]); c.fill(); sk(OUT,2.6);
+      c.beginPath(); c.moveTo(83,46); c.lineTo(84.5,tip+3); c.strokeStyle=shadeHex(wc,1.6); c.lineWidth=1.4; c.stroke();
+      /* つば・柄 */
+      rr(74,47,16,5,2.5); c.fillStyle=lin(74,47,74,52,[[0,"#f0cf5a"],[1,"#b07d22"]]); c.fill(); sk(OUT,2.6);
+      rr(79,51,6,9,3); c.fillStyle="#6a4326"; c.fill(); sk(OUT,2.4);
+    } else if(wt==="staff"){
+      rr(80,30,4.5,52,2.2); c.fillStyle=lin(80,30,84,82,[[0,"#9a7038"],[1,"#5e4022"]]); c.fill(); sk(OUT,2.6);
+      c.beginPath(); c.arc(82,28,9,0,6.28); c.fillStyle=rad(82,28,9,[[0,shadeHex(wc,1.6)],[.6,wc],[1,shadeHex(wc,.6)]]); c.fill(); sk(OUT,3);
+      c.beginPath(); c.arc(79,25,2.6,0,6.28); c.fillStyle="rgba(255,255,255,.85)"; c.fill();
+    }
+  };
+  drawWeaponArm();
+
+  /* 盾（体の前・左） */
+  const drawShield=()=>{
+    if(!opts.shield) return;
+    const sc=opts.shieldCol||"#c8d0dc", sX=24, sY=84;
+    c.beginPath(); c.ellipse(sX,sY,16,18,0,0,6.28);
+    c.fillStyle=lin(sX-14,sY-16,sX+14,sY+16,[[0,shadeHex(sc,1.3)],[.5,sc],[1,shadeHex(sc,.62)]]); c.fill(); sk(OUT,3.4);
+    c.beginPath(); c.ellipse(sX,sY,11,13,0,0,6.28); sk(shadeHex(sc,.7),2.4);
+    /* 紋章の十字 */
+    c.strokeStyle=shadeHex(sc,.66); c.lineWidth=3; c.beginPath(); c.moveTo(sX,sY-11); c.lineTo(sX,sY+11); c.moveTo(sX-9,sY); c.lineTo(sX+9,sY); c.stroke();
+    /* ボス */
+    c.beginPath(); c.arc(sX,sY,4,0,6.28); c.fillStyle=rad(sX,sY,4,[[0,"#fff"],[1,shadeHex(sc,1.2)]]); c.fill(); sk(OUT,2);
+  };
+
+  /* 脚＋ブーツ */
+  [cx-13,cx+1].forEach(lx=>{
+    rr(lx,90,12,24,5); c.fillStyle=lin(lx,90,lx,114,[[0,bodMid],[1,bodLo]]); c.fill(); sk(OUT,3);
+    rr(lx-1.5,106,15,12,5); c.fillStyle=lin(0,106,0,118,[[0,"#6a4d34"],[1,"#3a2a1c"]]); c.fill(); sk(OUT,3);
+  });
+
+  /* 胴（鎧） */
+  c.beginPath();
+  c.moveTo(cx-19,64); c.quadraticCurveTo(cx-22,60,cx-13,57);
+  c.quadraticCurveTo(cx,54,cx+13,57); c.quadraticCurveTo(cx+22,60,cx+19,64);
+  c.lineTo(cx+15,96); c.quadraticCurveTo(cx,103,cx-15,96); c.closePath();
+  c.fillStyle=lin(cx,55,cx,98,[[0,bodHi],[.5,body],[1,bodLo]]); c.fill(); sk(OUT,3.4);
+  /* 胸の飾り＆ベルト */
+  c.beginPath(); c.moveTo(cx,60); c.lineTo(cx,90); c.strokeStyle=shadeHex(body,.7); c.lineWidth=2; c.stroke();
+  rr(cx-16,86,32,8,4); c.fillStyle=lin(cx,86,cx,94,[[0,"#6a4d2e"],[1,"#46301c"]]); c.fill(); sk(OUT,2.8);
+  c.beginPath(); c.arc(cx,90,3.2,0,6.28); c.fillStyle="#f0cf5a"; c.fill(); sk(OUT,2);
+
+  /* 肩当て */
+  [cx-17,cx+17].forEach(sxx=>{ c.beginPath(); c.arc(sxx,61,7.5,0,6.28);
+    c.fillStyle=rad(sxx,61,8,[[0,bodHi],[1,shadeHex(body,.7)]]); c.fill(); sk(OUT,3); });
+
+  drawShield();
+
+  /* 首 */
+  rr(cx-6,46,12,8,3); c.fillStyle=skinSh; c.fill();
+
+  /* あたま */
+  const hx=cx, hy=34, hr=23;
+  c.beginPath(); c.arc(hx,hy,hr,0,6.28); c.fillStyle=rad(hx,hy,hr,[[0,"#fff0dd"],[.7,skin],[1,skinSh]]); c.fill(); sk(OUT,3.4);
+  /* 髪（前髪） */
+  if(!opts.hat){
+    c.beginPath(); c.moveTo(hx-hr,hy-2); c.quadraticCurveTo(hx-hr+2,hy-hr-2,hx,hy-hr-1);
+    c.quadraticCurveTo(hx+hr-2,hy-hr-2,hx+hr,hy-2);
+    c.quadraticCurveTo(hx+14,hy-12,hx+6,hy-9); c.quadraticCurveTo(hx,hy-15,hx-6,hy-9);
+    c.quadraticCurveTo(hx-14,hy-12,hx-hr,hy-2); c.closePath();
+    c.fillStyle=lin(hx,hy-hr,hx,hy,[[0,hairHi],[1,hair]]); c.fill(); sk(OUT,3);
+  }
+  /* 顔 */
+  c.fillStyle=OUT;
+  c.beginPath(); c.ellipse(hx-8,hy+3,3,4.2,0,0,6.28); c.fill();
+  c.beginPath(); c.ellipse(hx+8,hy+3,3,4.2,0,0,6.28); c.fill();
+  c.fillStyle="#fff";
+  c.beginPath(); c.arc(hx-9,hy+1,1.2,0,6.28); c.fill();
+  c.beginPath(); c.arc(hx+7,hy+1,1.2,0,6.28); c.fill();
+  c.fillStyle="rgba(255,150,150,.5)";
+  c.beginPath(); c.ellipse(hx-12,hy+9,3.5,2.4,0,0,6.28); c.fill();
+  c.beginPath(); c.ellipse(hx+12,hy+9,3.5,2.4,0,0,6.28); c.fill();
+  c.strokeStyle=OUT; c.lineWidth=2; c.beginPath(); c.arc(hx,hy+8,3.4,0.15*Math.PI,0.85*Math.PI); c.stroke();
+
+  /* かぶりもの */
+  if(opts.helm){
+    const hc=opts.helmCol||"#c2cee0";
+    c.beginPath(); c.arc(hx,hy-1,hr+1.5,Math.PI*1.04,Math.PI*1.96); c.lineTo(hx+hr-2,hy-2); c.lineTo(hx-hr+2,hy-2); c.closePath();
+    c.fillStyle=lin(hx,hy-hr,hx,hy,[[0,shadeHex(hc,1.28)],[1,shadeHex(hc,.78)]]); c.fill(); sk(OUT,3.4);
+    rr(hx-hr-1,hy-4,hr*2+2,5,2.5); c.fillStyle=lin(hx,hy-4,hx,hy+1,[[0,shadeHex(hc,1.1)],[1,shadeHex(hc,.7)]]); c.fill(); sk(OUT,3);
+    /* 前立て */
+    c.beginPath(); c.moveTo(hx-3,hy-hr-1); c.lineTo(hx+3,hy-hr-1); c.lineTo(hx+2,hy-hr-12); c.quadraticCurveTo(hx,hy-hr-15,hx-2,hy-hr-12); c.closePath();
+    c.fillStyle="#d23b32"; c.fill(); sk(OUT,2.6);
+  } else if(opts.hood){
+    const hd=opts.hoodCol||body;
+    c.beginPath(); c.arc(hx,hy,hr+3,Math.PI*0.86,Math.PI*2.14); c.quadraticCurveTo(hx,hy-6,hx,hy-6); c.closePath();
+    c.fillStyle=lin(hx,hy-hr,hx,hy+hr,[[0,shadeHex(hd,1.2)],[1,shadeHex(hd,.72)]]); c.fill(); sk(OUT,3.2);
+  } else if(opts.hat){
+    const hc=opts.hatCol||body;
+    rr(hx-20,hy-hr+1,40,6,3); c.fillStyle=lin(hx,hy-hr,hx,hy-hr+6,[[0,shadeHex(hc,1.1)],[1,shadeHex(hc,.7)]]); c.fill(); sk(OUT,3);
+    c.beginPath(); c.moveTo(hx-15,hy-hr+2); c.quadraticCurveTo(hx-6,hy-hr-26,hx+10,hy-hr-30);
+    c.quadraticCurveTo(hx+2,hy-hr-12,hx+15,hy-hr+2); c.closePath();
+    c.fillStyle=lin(hx,hy-hr-28,hx,hy-hr,[[0,shadeHex(hc,1.25)],[1,shadeHex(hc,.7)]]); c.fill(); sk(OUT,3.2);
+    c.beginPath(); c.arc(hx+10,hy-hr-30,3,0,6.28); c.fillStyle="#f0cf5a"; c.fill(); sk(OUT,2);
+  }
+  return cv;
 }
 
 /* ================= 本物の3D戦闘シーン（three.js / ボクセル） ================= */
@@ -2681,8 +2818,8 @@ function drawSprites(){
     HEROES.forEach((h,i)=>{
       const d=document.createElement("div"); d.className="hero "+(cls[i]||"p-back");
       const lead = i===0;
-      const sc = lead?4.6 : (cls[i]==="p-back"?2.8:3.4);
-      d.appendChild(makeHeroBack(heroBackOpts(i, lead), sc));
+      const ph = lead?148 : (cls[i]==="p-back"?96:116);
+      d.appendChild(makeHeroChibi(heroBackOpts(i, lead), ph));
       const sh=document.createElement("div"); sh.className="h-shadow";
       d.appendChild(sh);
       party.appendChild(d);
