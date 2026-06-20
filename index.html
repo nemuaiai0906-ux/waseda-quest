@@ -258,21 +258,26 @@
   .mode2d .m-shadow{display:block;width:84px;height:13px;background:rgba(0,0,30,.26);border-radius:50%;margin:-6px auto 0;filter:blur(2px)}
 
   /* ===== FF風 キャラパネル（立ち絵＋HP/MP） ===== */
-  .charpanel{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 14px 10px;
+  .charpanel{display:flex;flex-direction:row;gap:10px;align-items:stretch;padding:10px 12px;
     background:linear-gradient(#13234e,#0a1430);border-color:#3f5fa0;
     box-shadow:0 0 0 2px #000, inset 0 0 0 2px #000, inset 0 0 0 3px #5b7fc8}
-  .charpanel .cp-portrait{width:170px;height:216px;flex:0 0 auto}
-  .charpanel .cp-info{width:100%;min-width:0}
-  .cp-name{display:flex;justify-content:space-between;align-items:baseline;font-size:14px;color:#eaf0ff;margin-bottom:8px;text-shadow:1px 1px 0 #000}
+  .charpanel .cp-portrait{flex:0 0 25%;width:25%;min-height:170px;align-self:stretch;
+    border-radius:8px;background:linear-gradient(#0c1838,#060c1e);box-shadow:inset 0 0 0 2px #2a3f70;overflow:hidden}
+  .charpanel .cp-portrait img.hero-portrait{object-fit:cover;object-position:center top}
+  .charpanel .cp-right{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:6px}
+  .cp-name{display:flex;justify-content:space-between;align-items:baseline;font-size:14px;color:#eaf0ff;text-shadow:1px 1px 0 #000}
   .cp-name .cp-lv{color:#ffd24a;font-size:13px}
-  .cp-bar{display:flex;align-items:center;gap:7px;margin:5px 0}
+  .cp-bar{display:flex;align-items:center;gap:7px;margin:2px 0}
   .cp-tag{font-size:11px;width:22px;flex:0 0 auto;color:#bcd0f0;font-weight:bold}
   .cp-gauge{flex:1;height:12px;border:2px solid #000;border-radius:4px;background:#241024;overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.6)}
   .cp-gauge.hp>div{height:100%;background:linear-gradient(#8df0a4,#2fa85a);transition:width .4s}
   .cp-gauge.mp>div{height:100%;background:linear-gradient(#8fd0ff,#2e7fd0);transition:width .4s}
   .cp-gauge>div.warn{background:linear-gradient(#ffe27a,#e0a82e)}
   .cp-gauge>div.danger{background:linear-gradient(#ff8a6a,#d83838)}
-  .cp-num{font-size:12px;color:#fff;min-width:62px;text-align:right;text-shadow:1px 1px 0 #000}
+  .cp-num{font-size:12px;color:#fff;min-width:58px;text-align:right;text-shadow:1px 1px 0 #000}
+  .cp-cmds{display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;margin-top:6px}
+  .cp-cmds .cmd{font-size:14px;padding:5px 2px 5px 18px;position:relative;cursor:pointer;user-select:none;white-space:nowrap}
+  .cp-cmds .cmd:hover::before,.cp-cmds .cmd:active::before{content:"▶";position:absolute;left:2px}
 
   /* 2Dパーティ（FF風：フィールドには立たせない。立ち絵は下のキャラパネルへ） */
   .mode2d .party3d{display:none!important}
@@ -293,8 +298,8 @@
 
   /* ===== 主人公の立ち絵（透過PNG・足元基準で中央寄せ） ===== */
   .portrait-frame{position:relative}
-  .portrait-frame img.hero-portrait{position:absolute;left:50%;bottom:0;transform:translateX(-50%);
-    height:100%;width:auto;max-width:none;display:block;pointer-events:none;
+  .portrait-frame img.hero-portrait{display:block;width:100%;height:100%;
+    object-fit:contain;object-position:center bottom;pointer-events:none;
     filter:drop-shadow(0 3px 5px rgba(0,0,0,.4))}
   .pf-battle{width:120px;height:172px}        /* 戦闘の主人公 */
   .pf-card{width:200px;height:240px;margin:0 auto}   /* 装備・キャラ・ガチャのプレビュー */
@@ -553,27 +558,25 @@
     <!-- メッセージ窓 -->
     <div class="dqwin msgwin" id="msgwin"></div>
 
-    <!-- FF風 キャラパネル（立ち絵＋HP/MP） -->
+    <!-- FF風 バトルパネル（立ち絵1/4 ＋ 右3/4にHP/MP・コマンド） -->
     <div class="dqwin charpanel" id="charPanel">
       <div class="cp-portrait portrait-frame" id="cpPortrait" data-portrait="current"></div>
-      <div class="cp-info">
+      <div class="cp-right">
         <div class="cp-name"><span id="cpName">しゅじんこう</span><span class="cp-lv" id="cpLv">Lv1</span></div>
         <div class="cp-bar"><span class="cp-tag">HP</span><div class="cp-gauge hp"><div id="cpHpFill" style="width:100%"></div></div><span class="cp-num" id="cpHpNum">-</span></div>
         <div class="cp-bar"><span class="cp-tag">MP</span><div class="cp-gauge mp"><div id="cpMpFill" style="width:100%"></div></div><span class="cp-num" id="cpMpNum">-</span></div>
+        <div class="cp-cmds">
+          <div class="cmd" onclick="cmdFight()">たたかう</div>
+          <div class="cmd" onclick="openModal('spellModal')">じゅもん</div>
+          <div class="cmd" onclick="openModal('itemModal')">どうぐ</div>
+          <div class="cmd" onclick="openLoginCalendar()">ログボ</div>
+          <div class="cmd" onclick="openModal('bookModal')">ぼうけんのしょ</div>
+        </div>
       </div>
     </div>
 
-    <!-- コマンド窓 + 敵窓 -->
-    <div class="cmdrow">
-      <div class="dqwin cmdwin" style="display:grid;grid-template-columns:1fr 1fr;column-gap:4px">
-        <div class="cmd" onclick="cmdFight()">たたかう</div>
-        <div class="cmd" onclick="openModal('spellModal')">じゅもん</div>
-        <div class="cmd" onclick="openModal('itemModal')">どうぐ</div>
-        <div class="cmd" onclick="openLoginCalendar()">ログボ</div>
-        <div class="cmd" onclick="openModal('bookModal')">ぼうけんのしょ</div>
-      </div>
-      <div class="dqwin enemywin"><span id="enemyName">？？？</span><span id="enemyCount">－ 1ひき</span></div>
-    </div>
+    <!-- 敵情報 -->
+    <div class="dqwin enemywin" id="enemyWin"><span id="enemyName">？？？</span><span id="enemyCount">－ 1ひき</span></div>
 
     <!-- 商人の家 商品リスト（店内表示中だけ出る） -->
     <div class="dqwin" id="shopPanel" style="display:none">
