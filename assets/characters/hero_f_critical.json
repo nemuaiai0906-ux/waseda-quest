@@ -1,0 +1,12 @@
+{
+  "frameWidth": 307,
+  "frameHeight": 460,
+  "frameCount": 16,
+  "columns": 8,
+  "rows": 2,
+  "fps": 10,
+  "loop": true,
+  "animation": "critical",
+  "charFrac": 0.943,
+  "footFrac": 0.972
+}
