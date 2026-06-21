@@ -2996,10 +2996,11 @@ function playAttack(onHit){
     hero.querySelectorAll("canvas.cp-anim, canvas.fh-idle, img.hero-portrait").forEach(n=>n.remove());
     const m=c.attackMeta, sheet=c.attackImg;
     const cw=hero.clientWidth||120, ch=hero.clientHeight||160;
-    const cv=document.createElement("canvas"); cv.className="cp-anim"; cv.width=cw; cv.height=ch;
+    const dpr=Math.min(window.devicePixelRatio||1, 3);   /* Retinaで高精細に描く */
+    const cv=document.createElement("canvas"); cv.className="cp-anim"; cv.width=Math.round(cw*dpr); cv.height=Math.round(ch*dpr);
     cv.style.cssText="position:absolute;inset:0;width:100%;height:100%;z-index:2";
     hero.appendChild(cv);
-    const ctx=cv.getContext("2d");
+    const ctx=cv.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.imageSmoothingQuality="high";
     const fps=m.fps||30, total=m.count, cols=m.cols, fw=m.frameW, fh=m.frameH;
     const dur=total/fps*1000, hitFrame=Math.floor(total*0.55);
     /* 待機とサイズを揃えるため上部を少しクロップ（高い振り上げの先端はわずかに切れる）*/
@@ -3028,10 +3029,12 @@ function renderFieldHero(force){
   fh.innerHTML="";
   if(c && c.attackImg && c.attackImg.complete && c.attackImg.naturalWidth && c.attackMeta){
     const m=c.attackMeta;
-    const cv=document.createElement("canvas"); cv.className="fh-idle"; cv.width=cw; cv.height=ch;
+    const dpr=Math.min(window.devicePixelRatio||1, 3);   /* Retinaで高精細に描く */
+    const cv=document.createElement("canvas"); cv.className="fh-idle"; cv.width=Math.round(cw*dpr); cv.height=Math.round(ch*dpr);
     cv.style.cssText="position:absolute;inset:0;width:100%;height:100%;z-index:1";
     fh.appendChild(cv);
-    const ctx=cv.getContext("2d"), fw=m.frameW, fhh=m.frameH;
+    const ctx=cv.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.imageSmoothingQuality="high";
+    const fw=m.frameW, fhh=m.frameH;
     /* 待機(1コマ目)は上部の「振り上げ用の余白」をクロップして大きく表示・足元=下端 */
     const sy=fhh*0.30, sh=fhh-sy;
     const scale=ch/sh, dw=fw*scale, dh=sh*scale, dx=(cw-dw)/2, dy=ch-dh;
