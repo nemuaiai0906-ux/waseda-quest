@@ -1350,9 +1350,12 @@ function spawnMonster(forceBoss){
   /* 出現ごとにシードを進める（死亡後の再出現でも同じ魔物にならない） */
   state.spawns = (state.spawns||0) + 1;
   /* 稀（10%）にボスが乱入する */
-  const boss = !!forceBoss || (mix(TODAY+"rare"+state.spawns)%100 < 10);
+  let boss = !!forceBoss || (mix(TODAY+"rare"+state.spawns)%100 < 10);
   const pool = boss ? BOSSES : MONSTERS;
-  const m = pool[mix(TODAY+"m"+state.spawns) % pool.length];
+  let m = pool[mix(TODAY+"m"+state.spawns) % pool.length];
+  /* 【一旦】モンスターは「ヘドロスライム」のみ表示（テスト用・この3行を消せば元通り）*/
+  const onlyHedoro = MONSTERS.find(x=>x.n==="ヘドロスライム");
+  if(onlyHedoro){ m = onlyHedoro; boss = false; }
   /* ボスはHP4倍の死闘。そのぶん報酬も特大 */
   const hpMax = Math.round((70 + lv*10) * mult * (boss ? 4 : 1));
   state.monster = { n:m.n, s:m.s, p:m.p, el:m.el||"none", st:m.st||null, hp:hpMax, hpMax:hpMax, boss:boss, fresh:true };
