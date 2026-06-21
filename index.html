@@ -230,35 +230,20 @@
   .mode3d .c3{width:110px;height:28px;top:14px;left:78%;animation:drift 34s linear infinite}
   @keyframes drift{from{transform:translateX(0)}to{transform:translateX(-620px)}}
 
-  /* 2D背景（クラシックな草原フィールド） */
-  .mode2d .bg-sky{display:block;position:absolute;inset:0;background:linear-gradient(#2f6cb0 0%,#5b9bdc 30%,#a9d6f2 48%)}
-  .mode2d .sun{display:block;position:absolute;top:12px;right:18px;width:50px;height:50px;border-radius:50%;
-    background:radial-gradient(circle,#fff7d8 0 46%,#ffe9a0 60%,transparent 74%)}
-  .mode2d .mtn{display:block;position:absolute;left:0;right:0;height:18%}
-  .mode2d .mtn2{bottom:46%;background:linear-gradient(#7fb0c8,#a6cfe0);
-    clip-path:polygon(0 100%,8% 58%,20% 86%,32% 50%,46% 88%,60% 58%,72% 90%,84% 56%,94% 82%,100% 62%,100% 100%)}
-  .mode2d .mtn1{bottom:47%;background:linear-gradient(#4f7a52,#6f9c64);
-    clip-path:polygon(0 100%,10% 44%,22% 74%,34% 30%,48% 78%,60% 46%,74% 84%,86% 36%,96% 70%,100% 56%,100% 100%)}
-  .mode2d .bg-ground{display:block;position:absolute;bottom:0;left:0;right:0;height:48%;
-    background:
-      repeating-linear-gradient(0deg,#57a64c 0 14px,#4c9743 14px 28px),
-      linear-gradient(#62b256,#3d7536)}
-  .mode2d .bg-ground::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:#84d06e}
-  .mode2d .fog{display:none}
-  .mode2d .cloud{display:block;position:absolute;background:#fff;border-radius:99px;opacity:.9}
-  .mode2d .cloud::before{content:"";position:absolute;width:52%;height:150%;background:#fff;border-radius:50%;top:-72%;left:16%}
-  .mode2d .cloud::after{content:"";position:absolute;width:38%;height:115%;background:#fff;border-radius:50%;top:-48%;right:12%}
-  .mode2d .c1{width:80px;height:20px;top:16px;left:8%;animation:drift 34s linear infinite}
-  .mode2d .c2{width:54px;height:15px;top:40px;left:58%;animation:drift 44s linear infinite}
-  .mode2d .c3{width:96px;height:24px;top:9px;left:80%;animation:drift 38s linear infinite}
+  /* 2D背景：イラスト戦闘背景（フィールド全体をcoverで覆う） */
+  .bg-illust{display:none}
+  .mode2d .bg-illust{display:block;position:absolute;inset:0;z-index:0;
+    background:url(assets/battle_bg_field.png) center 38%/cover no-repeat}
+  /* コードで描いていた空・草原・雲は2Dでは非表示（イラストに置換）*/
+  .mode2d .bg-sky,.mode2d .sun,.mode2d .mtn,.mode2d .bg-ground,.mode2d .fog,.mode2d .cloud{display:none}
 
-  /* 2D：FFBE風 横構図（主人公=左／敵=右） */
-  .mode2d .stage{align-items:center;justify-content:flex-end;padding:0 7% 4% 0}
+  /* 2D：FFBE風 横構図（主人公=左／敵=右／手前の地面に立たせる） */
+  .mode2d .stage{align-items:flex-end;justify-content:flex-end;padding:0 5% 19% 0}
   .mode2d .party3d{display:none}
   .mode2d .m-shadow{display:block;width:84px;height:13px;background:rgba(0,0,30,.26);border-radius:50%;margin:-6px auto 0;filter:blur(2px)}
   /* フィールド上の主人公（左・足元を地面ラインに） */
   .field-hero{display:none}
-  .mode2d .field-hero{display:block;position:absolute;left:3%;bottom:8%;width:38%;max-width:230px;height:74%;z-index:3;
+  .mode2d .field-hero{display:block;position:absolute;left:4%;bottom:17%;width:34%;max-width:210px;height:44%;z-index:3;
     transition:transform .16s ease-out;will-change:transform}
   .mode2d .field-hero img.hero-portrait,.mode2d .field-hero canvas.fh-idle{object-fit:contain;object-position:center bottom}
   .mode2d .field-hero canvas.cp-anim,.mode2d .field-hero canvas.fh-idle{position:absolute;inset:0;width:100%;height:100%}
@@ -538,6 +523,7 @@
 
     <!-- バトル画面 -->
     <div class="battle" id="battleView">
+      <div class="bg-illust"></div>
       <div class="bg-sky"></div>
       <div class="sun"></div>
       <div class="mtn mtn2"></div>
@@ -3036,7 +3022,7 @@ function drawSprites(){
   const is3d = state.settings.mode==="3d";
   if(currentMonster){
     const pal = Object.assign({k:"#10131f"}, currentMonster.p);
-    const spr = drawSprite(currentMonster.s, pal, is3d?7:9);
+    const spr = drawSprite(currentMonster.s, pal, is3d?7:11);
     wrap.insertBefore(spr, wrap.firstChild);
   }
   const party = document.getElementById("party3d");
