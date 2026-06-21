@@ -3022,9 +3022,9 @@ function costumeSelectorHTML(){
    charFrac=キャラ高さ/フレーム高さ, footFrac=足元Y/フレーム高さ（計測値） */
 const CHAR_TARGET = 0.90;   /* 画面上のキャラ身長 = フィールド主人公枠の90% */
 const CHAR_METRICS = {
-  idle:   { charFrac:0.919, footFrac:0.979 },   /* hero_f_military_battler.png */
-  run:    { charFrac:0.90,  footFrac:0.93  },   /* hero_f_run_sheet.png（走りの立ち身長相当）*/
-  attack: { charFrac:0.60,  footFrac:0.985 }    /* hero_f_attack_sheet.png（1コマ目=立ち）*/
+  idle:   { charFrac:0.919, footFrac:0.979 },   /* hero_f_military_battler.png（立ち）*/
+  run:    { charFrac:1.219, footFrac:0.93  },   /* hero_f_run_sheet.png（頭幅から立ち身長換算）*/
+  attack: { charFrac:0.612, footFrac:0.985 }    /* hero_f_attack_sheet.png（1コマ目=立ち）*/
 };
 /* ===== 主人公のこうげき演出：走って近づく → 斬る → 走って戻る ===== */
 let attackRAF = null;
