@@ -2919,6 +2919,13 @@ async function loadCostumes(){
   costumeList().forEach(c=>{ costumeMap[c.id]=c; });
   if(!currentCostumeId || !costumeMap[currentCostumeId]) currentCostumeId = COSTUMES.default || (costumeList()[0]&&costumeList()[0].id) || null;
   costumesReady = costumeList().length>0;
+  /* フィールド用の高解像度バトラー立ち絵（透過）を 先読み */
+  await Promise.all(costumeList().filter(c=>c.battler).map(c=>new Promise(res=>{
+    const img = new Image();
+    img.onload = ()=>{ c.battlerImg = img; res(); };
+    img.onerror = ()=>res();
+    img.src = "assets/characters/" + c.battler;
+  })));
   /* 攻撃アニメ（スプライトシート）を持つ衣装は メタ＋画像を 先読み */
   await Promise.all(costumeList().filter(c=>c.attack).map(async c=>{
     try{
@@ -2993,7 +3000,7 @@ function playAttack(onHit){
     if(!hasSheet){ fire(); setTimeout(retreat, 150); return; }   /* フォールバック：踏み込み→斬撃→戻る */
     if(attackRAF){ cancelAnimationFrame(attackRAF); attackRAF=null; }
     /* 待機（立ち絵img / 1コマ目canvas）を完全に消して 二重表示を防ぐ。表示は攻撃スプライトのみ */
-    hero.querySelectorAll("canvas.cp-anim, canvas.fh-idle, img.hero-portrait").forEach(n=>n.remove());
+    hero.querySelectorAll("canvas.cp-anim, canvas.fh-idle, img.fh-battler, img.hero-portrait").forEach(n=>n.remove());
     const m=c.attackMeta, sheet=c.attackImg;
     const cw=hero.clientWidth||120, ch=hero.clientHeight||160;
     const dpr=Math.min(window.devicePixelRatio||1, 3);   /* Retinaで高精細に描く */
@@ -3027,7 +3034,13 @@ function renderFieldHero(force){
   if(!force && fh.dataset.cid===currentCostumeId && fh.childElementCount>0) return;
   const c=costumeMap[currentCostumeId];
   fh.innerHTML="";
-  if(c && c.attackImg && c.attackImg.complete && c.attackImg.naturalWidth && c.attackMeta){
+  if(c && c.battlerImg && c.battlerImg.complete && c.battlerImg.naturalWidth){
+    /* 高解像度の専用立ち絵（imgならブラウザが高画質でスケール）足元=下端 */
+    const im=document.createElement("img"); im.className="fh-battler"; im.alt="";
+    im.src=c.battlerImg.src;
+    im.style.cssText="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center bottom;z-index:1;filter:drop-shadow(0 3px 4px rgba(0,0,30,.4))";
+    fh.appendChild(im);
+  }else if(c && c.attackImg && c.attackImg.complete && c.attackImg.naturalWidth && c.attackMeta){
     const m=c.attackMeta;
     const dpr=Math.min(window.devicePixelRatio||1, 3);   /* Retinaで高精細に描く */
     const cv=document.createElement("canvas"); cv.className="fh-idle"; cv.width=Math.round(cw*dpr); cv.height=Math.round(ch*dpr);

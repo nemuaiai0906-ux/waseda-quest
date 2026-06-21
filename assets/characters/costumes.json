@@ -5,6 +5,7 @@
   "costumes": [
     { "id": "base",     "name": "冒険者", "file": "hero_f_base.png",     "portrait": "hero_f_base.png" },
     { "id": "military", "name": "軍装",   "file": "hero_f_military.png", "portrait": "hero_f_military.png",
+      "battler": "hero_f_military_battler.png",
       "attack": { "sheet": "hero_f_attack_sheet.png", "meta": "hero_f_attack.json" } }
   ]
 }
