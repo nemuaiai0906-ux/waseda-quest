@@ -2991,6 +2991,15 @@ function costumeSelectorHTML(){
     costumeList().map(c=>`<div class="cbtn${c.id===currentCostumeId?' act':''}" data-cid="${c.id}" onclick="setCostume('${c.id}')">${c.name||c.id}</div>`).join("")+
     `</div>`;
 }
+/* ===== 主人公のフィールド表示サイズ統一 =====
+   各ソース画像でキャラの占有率が違うので、画面上のキャラ身長を一定に保つ。
+   charFrac=キャラ高さ/フレーム高さ, footFrac=足元Y/フレーム高さ（計測値） */
+const CHAR_TARGET = 0.90;   /* 画面上のキャラ身長 = フィールド主人公枠の90% */
+const CHAR_METRICS = {
+  idle:   { charFrac:0.919, footFrac:0.979 },   /* hero_f_military_battler.png */
+  run:    { charFrac:0.90,  footFrac:0.93  },   /* hero_f_run_sheet.png（走りの立ち身長相当）*/
+  attack: { charFrac:0.60,  footFrac:0.985 }    /* hero_f_attack_sheet.png（1コマ目=立ち）*/
+};
 /* ===== 主人公のこうげき演出：走って近づく → 斬る → 走って戻る ===== */
 let attackRAF = null;
 function playAttack(onHit){
@@ -3015,7 +3024,7 @@ function playAttack(onHit){
 
   if(attackRAF){ cancelAnimationFrame(attackRAF); attackRAF=null; }
   /* 待機（立ち絵img / 1コマ目canvas / バトラーimg）を消して 二重表示を防ぐ */
-  hero.querySelectorAll("canvas.cp-anim, canvas.fh-idle, img.fh-battler, img.hero-portrait").forEach(n=>n.remove());
+  hero.querySelectorAll("canvas.cp-anim, canvas.fh-idle, .fh-battler, img.hero-portrait").forEach(n=>n.remove());
   hero.style.transition = "none";   /* 移動は毎フレーム手動でアニメと同期 */
   const cw=hero.clientWidth||120, ch=hero.clientHeight||160;
   const dpr=Math.min(window.devicePixelRatio||1, 3);
@@ -3023,14 +3032,17 @@ function playAttack(onHit){
   cv.style.cssText="position:absolute;inset:0;width:100%;height:100%;z-index:2";
   hero.appendChild(cv);
   const ctx=cv.getContext("2d"); ctx.scale(dpr,dpr); ctx.imageSmoothingQuality="high";
-  /* シート1コマを 足元基準・高さ基準で描く（mirror=左右反転）*/
-  const draw=(img, cols, fw, fh, idx, topCrop, mirror)=>{
-    const sx=(idx%cols)*fw, sy=Math.floor(idx/cols)*fh + fh*topCrop, sh=fh*(1-topCrop);
-    const scale=ch/sh, dw=fw*scale, dh=sh*scale, ox=(cw-dw)/2, oy=ch-dh;
+  /* シート1コマを 画面上のキャラ身長が一定になるよう描く（足元=下端・mirror=左右反転）
+     cf=キャラ占有率（charH/frameH）, ff=足元位置（footY/frameH）*/
+  const draw=(img, cols, fw, fh, idx, cf, ff, mirror)=>{
+    const scale = CHAR_TARGET*ch / (cf*fh);
+    const dw=fw*scale, dh=fh*scale;
+    const sx=(idx%cols)*fw, sy=Math.floor(idx/cols)*fh;
+    const ox=(cw-dw)/2, oy=ch - ff*fh*scale;
     ctx.clearRect(0,0,cw,ch);
     ctx.save();
     if(mirror){ ctx.translate(cw,0); ctx.scale(-1,1); }
-    ctx.drawImage(img, sx, sy, fw, sh, ox, oy, dw, dh);
+    ctx.drawImage(img, sx, sy, fw, fh, ox, oy, dw, dh);
     ctx.restore();
   };
   const rM=c.runMeta||{}, rImg=c.runImg;
@@ -3038,7 +3050,7 @@ function playAttack(onHit){
   const aM=c.attackMeta||{}, aImg=c.attackImg;
   const aCols=aM.cols||8, aFw=aM.frameW||0, aFh=aM.frameH||0, aCnt=aM.count||0, aFps=aM.fps||30;
   const aDur = hasAtk ? (aCnt/aFps*1000) : 0, aHit = hasAtk ? Math.floor(aCnt*0.55) : 0;
-  const RUN_TOP=0.06, ATK_TOP=0.15, moveIn=460, moveOut=440;
+  const RUN=CHAR_METRICS.run, ATK=CHAR_METRICS.attack, moveIn=460, moveOut=440;
 
   let phase = hasRun ? "in" : "atk";
   let t0 = performance.now();
@@ -3046,19 +3058,19 @@ function playAttack(onHit){
     const el = now - t0;
     if(phase==="in"){                       /* 走って近づく（右向き）*/
       const p=Math.min(1, el/moveIn); setX(dx*p);
-      draw(rImg, rCols, rFw, rFh, Math.floor(el/1000*rFps)%rCnt, RUN_TOP, false);
+      draw(rImg, rCols, rFw, rFh, Math.floor(el/1000*rFps)%rCnt, RUN.charFrac, RUN.footFrac, false);
       if(p>=1){ if(!hasAtk) fire(); phase = hasAtk?"atk":"out"; t0=now; }
       attackRAF=requestAnimationFrame(loop);
     } else if(phase==="atk"){               /* 斬る */
       setX(dx);
       let fi=Math.floor(el/1000*aFps); if(fi>=aCnt) fi=aCnt-1;
-      draw(aImg, aCols, aFw, aFh, fi, ATK_TOP, false);
+      draw(aImg, aCols, aFw, aFh, fi, ATK.charFrac, ATK.footFrac, false);
       if(fi>=aHit) fire();
       if(el<aDur){ attackRAF=requestAnimationFrame(loop); }
       else { phase = hasRun?"out":"done"; t0=now; if(phase==="done") finishA(); else attackRAF=requestAnimationFrame(loop); }
     } else if(phase==="out"){               /* 走って戻る（左向き＝反転）*/
       const p=Math.min(1, el/moveOut); setX(dx*(1-p));
-      draw(rImg, rCols, rFw, rFh, Math.floor(el/1000*rFps)%rCnt, RUN_TOP, true);
+      draw(rImg, rCols, rFw, rFh, Math.floor(el/1000*rFps)%rCnt, RUN.charFrac, RUN.footFrac, true);
       if(p>=1) finishA(); else attackRAF=requestAnimationFrame(loop);
     }
   }
@@ -3079,11 +3091,15 @@ function renderFieldHero(force){
   const c=costumeMap[currentCostumeId];
   fh.innerHTML="";
   if(c && c.battlerImg && c.battlerImg.complete && c.battlerImg.naturalWidth){
-    /* 高解像度の専用立ち絵（imgならブラウザが高画質でスケール）足元=下端 */
-    const im=document.createElement("img"); im.className="fh-battler"; im.alt="";
-    im.src=c.battlerImg.src;
-    im.style.cssText="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center bottom;z-index:1;filter:drop-shadow(0 3px 4px rgba(0,0,30,.4))";
-    fh.appendChild(im);
+    /* 高解像度の専用立ち絵を 走り/攻撃と同じ計算（キャラ身長一定・足元=下端）でcanvas描画 */
+    const img=c.battlerImg, fw=img.naturalWidth, fhh=img.naturalHeight, m=CHAR_METRICS.idle;
+    const dpr=Math.min(window.devicePixelRatio||1, 3);
+    const cv=document.createElement("canvas"); cv.className="fh-battler"; cv.width=Math.round(cw*dpr); cv.height=Math.round(ch*dpr);
+    cv.style.cssText="position:absolute;inset:0;width:100%;height:100%;z-index:1;filter:drop-shadow(0 3px 4px rgba(0,0,30,.4))";
+    fh.appendChild(cv);
+    const ctx=cv.getContext("2d"); ctx.scale(dpr,dpr); ctx.imageSmoothingQuality="high";
+    const scale=CHAR_TARGET*ch/(m.charFrac*fhh), dw=fw*scale, dh=fhh*scale, ox=(cw-dw)/2, oy=ch-m.footFrac*fhh*scale;
+    ctx.drawImage(img, 0,0, fw,fhh, ox,oy, dw,dh);
   }else if(c && c.attackImg && c.attackImg.complete && c.attackImg.naturalWidth && c.attackMeta){
     const m=c.attackMeta;
     const dpr=Math.min(window.devicePixelRatio||1, 3);   /* Retinaで高精細に描く */
