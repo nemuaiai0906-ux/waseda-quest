@@ -238,12 +238,12 @@
   .mode2d .bg-sky,.mode2d .sun,.mode2d .mtn,.mode2d .bg-ground,.mode2d .fog,.mode2d .cloud{display:none}
 
   /* 2D：FFBE風 横構図（主人公=左／敵=右／手前の地面に立たせる） */
-  .mode2d .stage{align-items:flex-end;justify-content:flex-end;padding:0 5% 19% 0}
+  .mode2d .stage{align-items:flex-end;justify-content:flex-end;padding:0 4% 15% 0}
   .mode2d .party3d{display:none}
   .mode2d .m-shadow{display:block;width:84px;height:13px;background:rgba(0,0,30,.26);border-radius:50%;margin:-6px auto 0;filter:blur(2px)}
   /* フィールド上の主人公（左・足元を地面ラインに） */
   .field-hero{display:none}
-  .mode2d .field-hero{display:block;position:absolute;left:4%;bottom:17%;width:34%;max-width:210px;height:44%;z-index:3;
+  .mode2d .field-hero{display:block;position:absolute;left:3%;bottom:15%;width:40%;max-width:250px;height:52%;z-index:3;
     transition:transform .16s ease-out;will-change:transform}
   .mode2d .field-hero img.hero-portrait,.mode2d .field-hero canvas.fh-idle{object-fit:contain;object-position:center bottom}
   .mode2d .field-hero canvas.cp-anim,.mode2d .field-hero canvas.fh-idle{position:absolute;inset:0;width:100%;height:100%}
@@ -3002,12 +3002,14 @@ function playAttack(onHit){
     const ctx=cv.getContext("2d");
     const fps=m.fps||30, total=m.count, cols=m.cols, fw=m.frameW, fh=m.frameH;
     const dur=total/fps*1000, hitFrame=Math.floor(total*0.55);
-    const scale=Math.min(cw/fw, ch/fh), dw=fw*scale, dh=fh*scale, ddx=(cw-dw)/2, ddy=ch-dh; /* 足元基準（下寄せ・全身） */
+    /* 待機とサイズを揃えるため上部を少しクロップ（高い振り上げの先端はわずかに切れる）*/
+    const syA=fh*0.15, shA=fh-syA;
+    const scale=ch/shA, dw=fw*scale, dh=shA*scale, ddx=(cw-dw)/2, ddy=ch-dh; /* 高さ基準・足元=下端 */
     const t0=performance.now();
     function frame(now){
       const el=now-t0; let fi=Math.floor(el/1000*fps); if(fi>=total) fi=total-1;
       ctx.clearRect(0,0,cw,ch);
-      ctx.drawImage(sheet,(fi%cols)*fw,Math.floor(fi/cols)*fh,fw,fh,ddx,ddy,dw,dh);
+      ctx.drawImage(sheet,(fi%cols)*fw, Math.floor(fi/cols)*fh + syA, fw, shA, ddx, ddy, dw, dh);
       if(fi>=hitFrame) fire();
       if(el<dur){ attackRAF=requestAnimationFrame(frame); }
       else{ attackRAF=null; cv.remove(); hero.dataset.cid=""; renderFieldHero(true); retreat(); }
@@ -3030,8 +3032,10 @@ function renderFieldHero(force){
     cv.style.cssText="position:absolute;inset:0;width:100%;height:100%;z-index:1";
     fh.appendChild(cv);
     const ctx=cv.getContext("2d"), fw=m.frameW, fhh=m.frameH;
-    const scale=Math.min(cw/fw, ch/fhh), dw=fw*scale, dh=fhh*scale, dx=(cw-dw)/2, dy=ch-dh;
-    ctx.drawImage(c.attackImg, 0, 0, fw, fhh, dx, dy, dw, dh);
+    /* 待機(1コマ目)は上部の「振り上げ用の余白」をクロップして大きく表示・足元=下端 */
+    const sy=fhh*0.30, sh=fhh-sy;
+    const scale=ch/sh, dw=fw*scale, dh=sh*scale, dx=(cw-dw)/2, dy=ch-dh;
+    ctx.drawImage(c.attackImg, 0, sy, fw, sh, dx, dy, dw, dh);
   }else{
     renderHeroPortrait(fh, currentCostumeId);
   }
@@ -3049,7 +3053,7 @@ function drawSprites(){
     if(art){
       /* イラスト敵（右の手前・足元基準・主人公とバランスするサイズ）*/
       const battle = document.getElementById("battleView");
-      const h = Math.round((battle.clientHeight||300) * 0.56);
+      const h = Math.round((battle.clientHeight||300) * 0.5);
       const dw = Math.round(h * art.img.naturalWidth / art.img.naturalHeight);
       const im = document.createElement("img");
       im.className = "enemy-illust"; im.alt = currentMonster.n;
