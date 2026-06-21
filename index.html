@@ -2952,6 +2952,19 @@ async function loadCostumes(){
       });
     }catch(e){ c.runMeta = null; }
   }));
+  /* 低HP待機アニメ（ループ）を持つ衣装も 先読み */
+  await Promise.all(costumeList().filter(c=>c.lowhp).map(async c=>{
+    try{
+      const r = await fetch("assets/characters/"+c.lowhp.meta, {cache:"no-cache"});
+      c.lowhpMeta = await r.json();
+      await new Promise(res=>{
+        const img = new Image();
+        img.onload = ()=>{ c.lowhpImg = img; res(); };
+        img.onerror = ()=>res();
+        img.src = "assets/characters/" + (c.lowhp.sheet || c.lowhpMeta.sheet);
+      });
+    }catch(e){ c.lowhpMeta = null; }
+  }));
 }
 /* 共通描画：container に 立ち絵を 1枚 表示（足元基準で 中央寄せ・アスペクト維持） */
 function renderHeroPortrait(container, costumeId){
@@ -3023,8 +3036,9 @@ function playAttack(onHit){
   }
 
   if(attackRAF){ cancelAnimationFrame(attackRAF); attackRAF=null; }
-  /* 待機（立ち絵img / 1コマ目canvas / バトラーimg）を消して 二重表示を防ぐ */
-  hero.querySelectorAll("canvas.cp-anim, canvas.fh-idle, .fh-battler, img.hero-portrait").forEach(n=>n.remove());
+  stopIdleAnim();
+  /* 待機（立ち絵 / 各待機canvas）を消して 二重表示を防ぐ */
+  hero.querySelectorAll("canvas.cp-anim, canvas.fh-idle, canvas.fh-low, .fh-battler, img.hero-portrait").forEach(n=>n.remove());
   hero.style.transition = "none";   /* 移動は毎フレーム手動でアニメと同期 */
   const cw=hero.clientWidth||120, ch=hero.clientHeight||160;
   const dpr=Math.min(window.devicePixelRatio||1, 3);
@@ -3081,19 +3095,47 @@ function playAttack(onHit){
   }
   attackRAF=requestAnimationFrame(loop);
 }
-/* フィールド主人公の待機表示：攻撃シートがある衣装は1コマ目（透過の立ち絵）、無ければ立ち絵PNG */
+/* フィールド主人公の待機表示。HPが黄バー(50%以下)なら 低HP待機アニメをループ再生 */
+let idleRAF = null;
+function stopIdleAnim(){ if(idleRAF){ cancelAnimationFrame(idleRAF); idleRAF=null; } }
 function renderFieldHero(force){
   const fh=document.getElementById("fieldHero");
   if(!fh || !costumesReady || attackRAF) return;
   const cw=fh.clientWidth, ch=fh.clientHeight;
   if(!cw || !ch) return;   /* 非表示中は描かない */
-  if(!force && fh.dataset.cid===currentCostumeId && fh.childElementCount>0) return;
   const c=costumeMap[currentCostumeId];
+  /* HP割合（黄バー＝50%以下）*/
+  const li=levelInfo(state.xp), mhp=maxHp(li.lv);
+  const hpRatio = mhp>0 ? state.hp/mhp : 1;
+  const low = hpRatio<=0.5 && c && c.lowhpMeta && c.lowhpImg && c.lowhpImg.complete && c.lowhpImg.naturalWidth;
+  const mode = low ? "low" : "idle";
+  if(!force && fh.dataset.cid===currentCostumeId && fh.dataset.mode===mode && fh.childElementCount>0) return;
+  stopIdleAnim();
   fh.innerHTML="";
-  if(c && c.battlerImg && c.battlerImg.complete && c.battlerImg.naturalWidth){
+  fh.dataset.cid=currentCostumeId; fh.dataset.mode=mode;
+  const dpr=Math.min(window.devicePixelRatio||1, 3);
+
+  if(low){
+    /* 低HP待機：疲れた仕草をループ（キャラ身長一定・足元=下端）*/
+    const m=c.lowhpMeta, img=c.lowhpImg;
+    const cols=m.columns, fw=m.frameWidth, fhh=m.frameHeight, cnt=m.frameCount, fps=m.fps||14;
+    const cf=m.charFrac||0.92, ff=m.footFrac||0.98;
+    const cv=document.createElement("canvas"); cv.className="fh-low"; cv.width=Math.round(cw*dpr); cv.height=Math.round(ch*dpr);
+    cv.style.cssText="position:absolute;inset:0;width:100%;height:100%;z-index:1;filter:drop-shadow(0 3px 4px rgba(0,0,30,.4))";
+    fh.appendChild(cv);
+    const ctx=cv.getContext("2d"); ctx.scale(dpr,dpr); ctx.imageSmoothingQuality="high";
+    const scale=CHAR_TARGET*ch/(cf*fhh), dw=fw*scale, dh=fhh*scale, ox=(cw-dw)/2, oy=ch-ff*fhh*scale;
+    const t0=performance.now();
+    function loop(now){
+      const fi=Math.floor((now-t0)/1000*fps)%cnt;
+      ctx.clearRect(0,0,cw,ch);
+      ctx.drawImage(img, (fi%cols)*fw, Math.floor(fi/cols)*fhh, fw, fhh, ox, oy, dw, dh);
+      idleRAF=requestAnimationFrame(loop);
+    }
+    idleRAF=requestAnimationFrame(loop);
+  }else if(c && c.battlerImg && c.battlerImg.complete && c.battlerImg.naturalWidth){
     /* 高解像度の専用立ち絵を 走り/攻撃と同じ計算（キャラ身長一定・足元=下端）でcanvas描画 */
     const img=c.battlerImg, fw=img.naturalWidth, fhh=img.naturalHeight, m=CHAR_METRICS.idle;
-    const dpr=Math.min(window.devicePixelRatio||1, 3);
     const cv=document.createElement("canvas"); cv.className="fh-battler"; cv.width=Math.round(cw*dpr); cv.height=Math.round(ch*dpr);
     cv.style.cssText="position:absolute;inset:0;width:100%;height:100%;z-index:1;filter:drop-shadow(0 3px 4px rgba(0,0,30,.4))";
     fh.appendChild(cv);
@@ -3101,21 +3143,17 @@ function renderFieldHero(force){
     const scale=CHAR_TARGET*ch/(m.charFrac*fhh), dw=fw*scale, dh=fhh*scale, ox=(cw-dw)/2, oy=ch-m.footFrac*fhh*scale;
     ctx.drawImage(img, 0,0, fw,fhh, ox,oy, dw,dh);
   }else if(c && c.attackImg && c.attackImg.complete && c.attackImg.naturalWidth && c.attackMeta){
-    const m=c.attackMeta;
-    const dpr=Math.min(window.devicePixelRatio||1, 3);   /* Retinaで高精細に描く */
+    const m=c.attackMeta, ai=CHAR_METRICS.attack;
     const cv=document.createElement("canvas"); cv.className="fh-idle"; cv.width=Math.round(cw*dpr); cv.height=Math.round(ch*dpr);
     cv.style.cssText="position:absolute;inset:0;width:100%;height:100%;z-index:1";
     fh.appendChild(cv);
-    const ctx=cv.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.imageSmoothingQuality="high";
+    const ctx=cv.getContext("2d"); ctx.scale(dpr,dpr); ctx.imageSmoothingQuality="high";
     const fw=m.frameW, fhh=m.frameH;
-    /* 待機(1コマ目)は上部の「振り上げ用の余白」をクロップして大きく表示・足元=下端 */
-    const sy=fhh*0.30, sh=fhh-sy;
-    const scale=ch/sh, dw=fw*scale, dh=sh*scale, dx=(cw-dw)/2, dy=ch-dh;
-    ctx.drawImage(c.attackImg, 0, sy, fw, sh, dx, dy, dw, dh);
+    const scale=CHAR_TARGET*ch/(ai.charFrac*fhh), dw=fw*scale, dh=fhh*scale, dx=(cw-dw)/2, dy=ch-ai.footFrac*fhh*scale;
+    ctx.drawImage(c.attackImg, 0, 0, fw, fhh, dx, dy, dw, dh);
   }else{
     renderHeroPortrait(fh, currentCostumeId);
   }
-  fh.dataset.cid=currentCostumeId;
 }
 
 function drawSprites(){

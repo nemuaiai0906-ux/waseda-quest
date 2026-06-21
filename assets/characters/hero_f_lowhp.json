@@ -1,0 +1,13 @@
+{
+  "sheet": "hero_f_lowhp_sheet.png",
+  "frameWidth": 147,
+  "frameHeight": 300,
+  "frameCount": 61,
+  "columns": 8,
+  "rows": 8,
+  "fps": 14,
+  "loop": true,
+  "animation": "lowhp",
+  "charFrac": 0.944,
+  "footFrac": 0.989
+}
