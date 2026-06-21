@@ -1,0 +1,10 @@
+{
+  "frameWidth": 620,
+  "frameHeight": 460,
+  "frameCount": 13,
+  "columns": 7,
+  "rows": 2,
+  "fps": 16,
+  "loop": true,
+  "animation": "run"
+}

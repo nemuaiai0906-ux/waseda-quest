@@ -2939,6 +2939,19 @@ async function loadCostumes(){
       });
     }catch(e){ c.attackMeta = null; }
   }));
+  /* 走りアニメ（スプライトシート・ループ）を持つ衣装も 先読み */
+  await Promise.all(costumeList().filter(c=>c.run).map(async c=>{
+    try{
+      const r = await fetch("assets/characters/"+c.run.meta, {cache:"no-cache"});
+      c.runMeta = await r.json();
+      await new Promise(res=>{
+        const img = new Image();
+        img.onload = ()=>{ c.runImg = img; res(); };
+        img.onerror = ()=>res();
+        img.src = "assets/characters/" + (c.run.sheet || c.runMeta.sheet);
+      });
+    }catch(e){ c.runMeta = null; }
+  }));
 }
 /* 共通描画：container に 立ち絵を 1枚 表示（足元基準で 中央寄せ・アスペクト維持） */
 function renderHeroPortrait(container, costumeId){
@@ -2978,52 +2991,83 @@ function costumeSelectorHTML(){
     costumeList().map(c=>`<div class="cbtn${c.id===currentCostumeId?' act':''}" data-cid="${c.id}" onclick="setCostume('${c.id}')">${c.name||c.id}</div>`).join("")+
     `</div>`;
 }
-/* ===== 主人公のこうげき演出：左の定位置 → 右の敵へ踏み込み → 斬る → 戻る ===== */
+/* ===== 主人公のこうげき演出：走って近づく → 斬る → 走って戻る ===== */
 let attackRAF = null;
 function playAttack(onHit){
   const hero = document.getElementById("fieldHero");
   const c = costumeMap[currentCostumeId];
   let fired = false;
   const fire = ()=>{ if(!fired){ fired=true; try{ onHit && onHit(); }catch(e){} } };
-  /* 3Dモードやフィールド主人公が無い時は 演出だけスキップ（既存のヒット演出に任せる） */
   if(!hero || state.settings.mode==="3d" || getComputedStyle(hero).display==="none"){ setTimeout(fire, 180); return; }
   const battle = document.getElementById("battleView");
-  const dx = Math.round((battle.clientWidth||320) * 0.46);   /* 敵の手前まで踏み込む距離 */
-  const img = hero.querySelector("img.hero-portrait");
-  const hasSheet = c && c.attackMeta && c.attackImg && c.attackImg.complete && c.attackImg.naturalWidth;
-  const retreat = ()=>{ hero.style.transition="transform .22s ease-in"; hero.style.transform="translateX(0)"; };
-  /* ① 踏み込み */
-  hero.style.transition = "transform .16s ease-out";
-  hero.style.transform = `translateX(${dx}px) scale(1.06)`;
-  /* ② 踏み込み完了後に 斬撃 */
-  setTimeout(()=>{
-    if(!hasSheet){ fire(); setTimeout(retreat, 150); return; }   /* フォールバック：踏み込み→斬撃→戻る */
-    if(attackRAF){ cancelAnimationFrame(attackRAF); attackRAF=null; }
-    /* 待機（立ち絵img / 1コマ目canvas）を完全に消して 二重表示を防ぐ。表示は攻撃スプライトのみ */
-    hero.querySelectorAll("canvas.cp-anim, canvas.fh-idle, img.fh-battler, img.hero-portrait").forEach(n=>n.remove());
-    const m=c.attackMeta, sheet=c.attackImg;
-    const cw=hero.clientWidth||120, ch=hero.clientHeight||160;
-    const dpr=Math.min(window.devicePixelRatio||1, 3);   /* Retinaで高精細に描く */
-    const cv=document.createElement("canvas"); cv.className="cp-anim"; cv.width=Math.round(cw*dpr); cv.height=Math.round(ch*dpr);
-    cv.style.cssText="position:absolute;inset:0;width:100%;height:100%;z-index:2";
-    hero.appendChild(cv);
-    const ctx=cv.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.imageSmoothingQuality="high";
-    const fps=m.fps||30, total=m.count, cols=m.cols, fw=m.frameW, fh=m.frameH;
-    const dur=total/fps*1000, hitFrame=Math.floor(total*0.55);
-    /* 待機とサイズを揃えるため上部を少しクロップ（高い振り上げの先端はわずかに切れる）*/
-    const syA=fh*0.15, shA=fh-syA;
-    const scale=ch/shA, dw=fw*scale, dh=shA*scale, ddx=(cw-dw)/2, ddy=ch-dh; /* 高さ基準・足元=下端 */
-    const t0=performance.now();
-    function frame(now){
-      const el=now-t0; let fi=Math.floor(el/1000*fps); if(fi>=total) fi=total-1;
-      ctx.clearRect(0,0,cw,ch);
-      ctx.drawImage(sheet,(fi%cols)*fw, Math.floor(fi/cols)*fh + syA, fw, shA, ddx, ddy, dw, dh);
-      if(fi>=hitFrame) fire();
-      if(el<dur){ attackRAF=requestAnimationFrame(frame); }
-      else{ attackRAF=null; cv.remove(); hero.dataset.cid=""; renderFieldHero(true); retreat(); }
+  const dx = Math.round((battle.clientWidth||320) * 0.46);   /* 敵の手前までの距離 */
+  const setX = (x)=>{ hero.style.transform = `translateX(${x}px) scale(1.05)`; };
+  const hasRun = c && c.runMeta && c.runImg && c.runImg.complete && c.runImg.naturalWidth;
+  const hasAtk = c && c.attackMeta && c.attackImg && c.attackImg.complete && c.attackImg.naturalWidth;
+
+  /* シートが無い衣装（冒険者）は 立ち絵のまま 踏み込み→斬撃→戻る フォールバック */
+  if(!hasAtk && !hasRun){
+    hero.style.transition="transform .18s ease-out"; setX(dx);
+    setTimeout(fire, 850);
+    setTimeout(()=>{ hero.style.transition="transform .24s ease-in"; hero.style.transform="translateX(0)"; }, 1100);
+    return;
+  }
+
+  if(attackRAF){ cancelAnimationFrame(attackRAF); attackRAF=null; }
+  /* 待機（立ち絵img / 1コマ目canvas / バトラーimg）を消して 二重表示を防ぐ */
+  hero.querySelectorAll("canvas.cp-anim, canvas.fh-idle, img.fh-battler, img.hero-portrait").forEach(n=>n.remove());
+  hero.style.transition = "none";   /* 移動は毎フレーム手動でアニメと同期 */
+  const cw=hero.clientWidth||120, ch=hero.clientHeight||160;
+  const dpr=Math.min(window.devicePixelRatio||1, 3);
+  const cv=document.createElement("canvas"); cv.className="cp-anim"; cv.width=Math.round(cw*dpr); cv.height=Math.round(ch*dpr);
+  cv.style.cssText="position:absolute;inset:0;width:100%;height:100%;z-index:2";
+  hero.appendChild(cv);
+  const ctx=cv.getContext("2d"); ctx.scale(dpr,dpr); ctx.imageSmoothingQuality="high";
+  /* シート1コマを 足元基準・高さ基準で描く（mirror=左右反転）*/
+  const draw=(img, cols, fw, fh, idx, topCrop, mirror)=>{
+    const sx=(idx%cols)*fw, sy=Math.floor(idx/cols)*fh + fh*topCrop, sh=fh*(1-topCrop);
+    const scale=ch/sh, dw=fw*scale, dh=sh*scale, ox=(cw-dw)/2, oy=ch-dh;
+    ctx.clearRect(0,0,cw,ch);
+    ctx.save();
+    if(mirror){ ctx.translate(cw,0); ctx.scale(-1,1); }
+    ctx.drawImage(img, sx, sy, fw, sh, ox, oy, dw, dh);
+    ctx.restore();
+  };
+  const rM=c.runMeta||{}, rImg=c.runImg;
+  const rCols=rM.columns||7, rFw=rM.frameWidth||620, rFh=rM.frameHeight||460, rCnt=rM.frameCount||13, rFps=rM.fps||16;
+  const aM=c.attackMeta||{}, aImg=c.attackImg;
+  const aCols=aM.cols||8, aFw=aM.frameW||0, aFh=aM.frameH||0, aCnt=aM.count||0, aFps=aM.fps||30;
+  const aDur = hasAtk ? (aCnt/aFps*1000) : 0, aHit = hasAtk ? Math.floor(aCnt*0.55) : 0;
+  const RUN_TOP=0.06, ATK_TOP=0.15, moveIn=460, moveOut=440;
+
+  let phase = hasRun ? "in" : "atk";
+  let t0 = performance.now();
+  function loop(now){
+    const el = now - t0;
+    if(phase==="in"){                       /* 走って近づく（右向き）*/
+      const p=Math.min(1, el/moveIn); setX(dx*p);
+      draw(rImg, rCols, rFw, rFh, Math.floor(el/1000*rFps)%rCnt, RUN_TOP, false);
+      if(p>=1){ if(!hasAtk) fire(); phase = hasAtk?"atk":"out"; t0=now; }
+      attackRAF=requestAnimationFrame(loop);
+    } else if(phase==="atk"){               /* 斬る */
+      setX(dx);
+      let fi=Math.floor(el/1000*aFps); if(fi>=aCnt) fi=aCnt-1;
+      draw(aImg, aCols, aFw, aFh, fi, ATK_TOP, false);
+      if(fi>=aHit) fire();
+      if(el<aDur){ attackRAF=requestAnimationFrame(loop); }
+      else { phase = hasRun?"out":"done"; t0=now; if(phase==="done") finishA(); else attackRAF=requestAnimationFrame(loop); }
+    } else if(phase==="out"){               /* 走って戻る（左向き＝反転）*/
+      const p=Math.min(1, el/moveOut); setX(dx*(1-p));
+      draw(rImg, rCols, rFw, rFh, Math.floor(el/1000*rFps)%rCnt, RUN_TOP, true);
+      if(p>=1) finishA(); else attackRAF=requestAnimationFrame(loop);
     }
-    attackRAF=requestAnimationFrame(frame);
-  }, 175);
+  }
+  function finishA(){
+    attackRAF=null; cv.remove();
+    hero.style.transition=""; hero.style.transform="translateX(0)";
+    hero.dataset.cid=""; renderFieldHero(true); fire();
+  }
+  attackRAF=requestAnimationFrame(loop);
 }
 /* フィールド主人公の待機表示：攻撃シートがある衣装は1コマ目（透過の立ち絵）、無ければ立ち絵PNG */
 function renderFieldHero(force){
@@ -3346,7 +3390,7 @@ function toggle(task){
           statusTurn();
           maybeCounter(final);
         }
-      }, 700);
+      }, 1050);   /* 走って近づく→斬る の“当たり”に ヒット演出を合わせる */
     }else{
       msg("そのこうげきは すでに きまっている！", true);
     }
