@@ -1,0 +1,5 @@
+{
+  "enemies": [
+    { "id": "hedoro_slime", "name": "ヘドロスライム", "image": "enemy_hedoro_slime.png" }
+  ]
+}

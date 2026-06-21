@@ -327,13 +327,16 @@
   .mode3d .stage{align-items:flex-end;padding-bottom:92px}
   .sprite-wrap{position:relative;text-align:center}
   .sprite-wrap canvas{display:block;margin:0 auto;image-rendering:pixelated}
+  .sprite-wrap img.enemy-illust{display:block;margin:0 auto;width:auto;image-rendering:auto;
+    filter:drop-shadow(0 5px 6px rgba(0,0,30,.4))}
+  .mode2d .sprite-wrap img.enemy-illust{animation:bob 3s ease-in-out infinite}
   .mode3d .sprite-wrap canvas{animation:bob 2.4s ease-in-out infinite}
   @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
   .m-shadow{display:none}
   .mode3d .m-shadow{display:block;width:110px;height:18px;background:rgba(0,0,30,.35);border-radius:50%;margin:-8px auto 0;filter:blur(2px)}
-  .sprite-wrap.hitflash canvas{animation:flick .35s steps(2) 2}
+  .sprite-wrap.hitflash canvas,.sprite-wrap.hitflash img.enemy-illust{animation:flick .35s steps(2) 2}
   @keyframes flick{0%{opacity:1;filter:brightness(3)}50%{opacity:.2}100%{opacity:1;filter:none}}
-  .sprite-wrap.dead canvas{animation:vanish 1s forwards}
+  .sprite-wrap.dead canvas,.sprite-wrap.dead img.enemy-illust{animation:vanish 1s forwards}
   @keyframes vanish{0%{opacity:1}100%{opacity:0;transform:translateY(8px) scaleY(.6)}}
 
   /* 3D パーティ（後ろ姿・手前ほど大きく） */
@@ -2880,6 +2883,23 @@ let currentMonster = null;
    ・状態は currentCostumeId に集約（localStorageで永続）
    ・共通描画は renderHeroPortrait() 1個だけ（全画面で使い回す）
    =================================================================== */
+/* 敵イラスト：名前→画像のマッピング（enemies.jsonにあればドット絵の代わりに表示） */
+let ENEMY_MAP = {};
+async function loadEnemies(){
+  try{
+    const r = await fetch("assets/enemies.json", {cache:"no-cache"});
+    const j = await r.json();
+    const list = (j && j.enemies) ? j.enemies : [];
+    await Promise.all(list.map(e=>new Promise(res=>{
+      const img = new Image();
+      img.onload = ()=>{ e.img = img; ENEMY_MAP[e.name] = e; res(); };
+      img.onerror = ()=>res();
+      img.src = "assets/" + e.image;
+    })));
+  }catch(e){ /* 読めなくても ドット絵に フォールバック */ }
+}
+function enemyArt(name){ const e = ENEMY_MAP[name]; return (e && e.img && e.img.complete && e.img.naturalWidth) ? e : null; }
+
 const COSTUME_KEY = "wqCostume";
 let COSTUMES = { character:"hero_f", gender:"female", default:"base", costumes:[] };
 let costumeMap = {};
@@ -3018,12 +3038,27 @@ function renderFieldHero(force){
 function drawSprites(){
   if(state.settings.mode==="3d" && GL){ glRefreshMonster(); return; }
   const wrap = document.getElementById("spriteWrap");
-  wrap.querySelectorAll("canvas").forEach(c=>c.remove());
+  wrap.querySelectorAll("canvas,img.enemy-illust").forEach(c=>c.remove());
   const is3d = state.settings.mode==="3d";
+  const shadow = wrap.querySelector(".m-shadow");
   if(currentMonster){
-    const pal = Object.assign({k:"#10131f"}, currentMonster.p);
-    const spr = drawSprite(currentMonster.s, pal, is3d?7:11);
-    wrap.insertBefore(spr, wrap.firstChild);
+    const art = !is3d ? enemyArt(currentMonster.n) : null;
+    if(art){
+      /* イラスト敵（右の手前・足元基準・主人公とバランスするサイズ）*/
+      const battle = document.getElementById("battleView");
+      const h = Math.round((battle.clientHeight||300) * 0.56);
+      const dw = Math.round(h * art.img.naturalWidth / art.img.naturalHeight);
+      const im = document.createElement("img");
+      im.className = "enemy-illust"; im.alt = currentMonster.n;
+      im.src = art.img.src; im.style.height = h + "px"; im.style.width = "auto";
+      wrap.insertBefore(im, wrap.firstChild);
+      if(shadow){ shadow.style.width = Math.round(dw*0.46) + "px"; shadow.style.height = Math.round(h*0.05) + "px"; shadow.style.margin = "-4px auto 0"; }
+    }else{
+      const pal = Object.assign({k:"#10131f"}, currentMonster.p);
+      const spr = drawSprite(currentMonster.s, pal, is3d?7:11);
+      wrap.insertBefore(spr, wrap.firstChild);
+      if(shadow){ shadow.style.width=""; shadow.style.height=""; shadow.style.margin=""; }
+    }
   }
   const party = document.getElementById("party3d");
   party.innerHTML = "";
@@ -5516,6 +5551,8 @@ render();
 drawTitleArt();
 /* 着せ替え立ち絵を よみこんで 全画面に反映 */
 loadCostumes().then(()=>{ if(costumesReady){ refreshAllPortraits(); renderFieldHero(true); if(document.getElementById("page-avatar").classList.contains("show")) renderAvatar(); } });
+/* 敵イラストを読み込んで 戦闘に反映 */
+loadEnemies().then(()=>{ drawSprites(); });
 document.getElementById("bgmBtn").textContent = state.settings.bgm ? "♪ ON" : "♪ OFF";
 if(state.monster) msg(`${state.monster.boss?"👑 ボス！ ":""}${state.monster.n}が あらわれた！`, true);
 else if(isResting()) msg("🏨 きょうは やどで きゅうそくちゅう。タスクは じっくり ふくしゅうタイムだ。", true);
