@@ -252,10 +252,19 @@
   .mode2d .c2{width:54px;height:15px;top:40px;left:58%;animation:drift 44s linear infinite}
   .mode2d .c3{width:96px;height:24px;top:9px;left:80%;animation:drift 38s linear infinite}
 
-  /* 2D：魔物を中央に（FF風：味方はフィールドに立たせず 下のキャラパネルへ） */
-  .mode2d .stage{align-items:center;padding-top:0}
+  /* 2D：FFBE風 横構図（主人公=左／敵=右） */
+  .mode2d .stage{align-items:center;justify-content:flex-end;padding:0 7% 4% 0}
   .mode2d .party3d{display:none}
   .mode2d .m-shadow{display:block;width:84px;height:13px;background:rgba(0,0,30,.26);border-radius:50%;margin:-6px auto 0;filter:blur(2px)}
+  /* フィールド上の主人公（左・足元を地面ラインに） */
+  .field-hero{display:none}
+  .mode2d .field-hero{display:block;position:absolute;left:5%;bottom:9%;width:25%;max-width:140px;height:58%;z-index:3;
+    transition:transform .16s ease-out;will-change:transform}
+  .mode2d .field-hero img.hero-portrait{object-fit:contain;object-position:center bottom;filter:drop-shadow(0 4px 4px rgba(0,0,30,.45))}
+  .mode2d .field-hero canvas.cp-anim{position:absolute;inset:0;width:100%;height:100%;z-index:2}
+  .mode2d .field-hero::after{content:"";position:absolute;left:50%;bottom:-4px;transform:translateX(-50%);
+    width:62%;height:9px;background:rgba(0,0,30,.28);border-radius:50%;filter:blur(2px);z-index:1}
+  .mode3d .field-hero,.glmode .field-hero,.shopmode.battle .field-hero{display:none!important}
 
   /* ===== FF風 キャラパネル（立ち絵＋HP/MP） ===== */
   .charpanel{display:flex;flex-direction:row;gap:10px;align-items:stretch;padding:10px 12px;
@@ -541,6 +550,8 @@
         <button id="bgmBtn" onclick="toggleBgm()">♪ OFF</button>
       </div>
       <div class="stage"><div class="sprite-wrap" id="spriteWrap"><div class="m-shadow"></div></div></div>
+      <!-- 主人公（フィールド上のバトラー・左／敵=右） -->
+      <div class="field-hero portrait-frame" id="fieldHero"></div>
       <div class="party3d" id="party3d"></div>
       <!-- ぶきや店内（2D） -->
       <div id="shop2d">
@@ -2900,9 +2911,12 @@ async function loadCostumes(){
     try{
       const r = await fetch("assets/characters/"+c.attack.meta, {cache:"no-cache"});
       c.attackMeta = await r.json();
-      const img = new Image();
-      img.src = "assets/characters/" + (c.attack.sheet || c.attackMeta.sheet);
-      c.attackImg = img;
+      await new Promise(res=>{
+        const img = new Image();
+        img.onload = ()=>{ c.attackImg = img; res(); };
+        img.onerror = ()=>res();
+        img.src = "assets/characters/" + (c.attack.sheet || c.attackMeta.sheet);
+      });
     }catch(e){ c.attackMeta = null; }
   }));
 }
@@ -2935,6 +2949,7 @@ function setCostume(id){
   localStorage.setItem(COSTUME_KEY, id);
   document.querySelectorAll(".costume-sel .cbtn").forEach(b=>b.classList.toggle("act", b.getAttribute("data-cid")===id));
   refreshAllPortraits();
+  renderFieldHero(true);
 }
 /* 衣装きりかえボタン（全画面で使い回す） */
 function costumeSelectorHTML(){
@@ -2943,46 +2958,71 @@ function costumeSelectorHTML(){
     costumeList().map(c=>`<div class="cbtn${c.id===currentCostumeId?' act':''}" data-cid="${c.id}" onclick="setCostume('${c.id}')">${c.name||c.id}</div>`).join("")+
     `</div>`;
 }
-/* ===== 主人公の攻撃アニメ（スプライトシート再生 / 無い衣装は突進フォールバック） ===== */
+/* ===== 主人公のこうげき演出：左の定位置 → 右の敵へ踏み込み → 斬る → 戻る ===== */
 let attackRAF = null;
 function playAttack(onHit){
-  const card = document.getElementById("cpPortrait");
+  const hero = document.getElementById("fieldHero");
   const c = costumeMap[currentCostumeId];
   let fired = false;
   const fire = ()=>{ if(!fired){ fired=true; try{ onHit && onHit(); }catch(e){} } };
-  /* アニメが無い衣装（冒険者など）は 立ち絵を 敵へ突進させるフォールバック */
-  if(!card || !c || !c.attackMeta || !c.attackImg || !c.attackImg.complete || !c.attackImg.naturalWidth){
-    lungePortrait(card); setTimeout(fire, 220); return;
-  }
-  if(attackRAF){ cancelAnimationFrame(attackRAF); attackRAF=null; }
-  card.querySelectorAll("canvas.cp-anim").forEach(n=>n.remove());
-  const img = card.querySelector("img.hero-portrait"); if(img) img.style.visibility="hidden";
-  const m = c.attackMeta, sheet = c.attackImg;
-  const cw = card.clientWidth||120, ch = card.clientHeight||170;
-  const cv = document.createElement("canvas"); cv.className="cp-anim";
-  cv.width=cw; cv.height=ch; cv.style.cssText="position:absolute;inset:0;width:100%;height:100%;z-index:2";
-  card.appendChild(cv);
-  const ctx = cv.getContext("2d");
-  const fps=m.fps||30, total=m.count, cols=m.cols, fw=m.frameW, fh=m.frameH;
-  const dur = total/fps*1000, hitFrame = Math.floor(total*0.58);
-  const scale = Math.max(cw/fw, ch/fh), dw=fw*scale, dh=fh*scale, dx=(cw-dw)/2, dy=0; /* 足元基準（上寄せcover） */
-  const t0 = performance.now();
-  function frame(now){
-    const el = now - t0;
-    let fi = Math.floor(el/1000*fps); if(fi>=total) fi=total-1;
-    ctx.clearRect(0,0,cw,ch);
-    ctx.drawImage(sheet, (fi%cols)*fw, Math.floor(fi/cols)*fh, fw, fh, dx, dy, dw, dh);
-    if(fi>=hitFrame) fire();
-    if(el < dur){ attackRAF=requestAnimationFrame(frame); }
-    else { attackRAF=null; cv.remove(); if(img) img.style.visibility=""; fire(); }
-  }
-  attackRAF = requestAnimationFrame(frame);
+  /* 3Dモードやフィールド主人公が無い時は 演出だけスキップ（既存のヒット演出に任せる） */
+  if(!hero || state.settings.mode==="3d" || getComputedStyle(hero).display==="none"){ setTimeout(fire, 180); return; }
+  const battle = document.getElementById("battleView");
+  const dx = Math.round((battle.clientWidth||320) * 0.46);   /* 敵の手前まで踏み込む距離 */
+  const img = hero.querySelector("img.hero-portrait");
+  const hasSheet = c && c.attackMeta && c.attackImg && c.attackImg.complete && c.attackImg.naturalWidth;
+  const retreat = ()=>{ hero.style.transition="transform .22s ease-in"; hero.style.transform="translateX(0)"; };
+  /* ① 踏み込み */
+  hero.style.transition = "transform .16s ease-out";
+  hero.style.transform = `translateX(${dx}px) scale(1.06)`;
+  /* ② 踏み込み完了後に 斬撃 */
+  setTimeout(()=>{
+    if(!hasSheet){ fire(); setTimeout(retreat, 150); return; }   /* フォールバック：踏み込み→斬撃→戻る */
+    if(attackRAF){ cancelAnimationFrame(attackRAF); attackRAF=null; }
+    hero.querySelectorAll("canvas.cp-anim").forEach(n=>n.remove());
+    if(img) img.style.visibility="hidden";
+    const m=c.attackMeta, sheet=c.attackImg;
+    const cw=hero.clientWidth||120, ch=hero.clientHeight||160;
+    const cv=document.createElement("canvas"); cv.className="cp-anim"; cv.width=cw; cv.height=ch;
+    cv.style.cssText="position:absolute;inset:0;width:100%;height:100%;z-index:2";
+    hero.appendChild(cv);
+    const ctx=cv.getContext("2d");
+    const fps=m.fps||30, total=m.count, cols=m.cols, fw=m.frameW, fh=m.frameH;
+    const dur=total/fps*1000, hitFrame=Math.floor(total*0.55);
+    const scale=Math.min(cw/fw, ch/fh), dw=fw*scale, dh=fh*scale, ddx=(cw-dw)/2, ddy=ch-dh; /* 足元基準（下寄せ・全身） */
+    const t0=performance.now();
+    function frame(now){
+      const el=now-t0; let fi=Math.floor(el/1000*fps); if(fi>=total) fi=total-1;
+      ctx.clearRect(0,0,cw,ch);
+      ctx.drawImage(sheet,(fi%cols)*fw,Math.floor(fi/cols)*fh,fw,fh,ddx,ddy,dw,dh);
+      if(fi>=hitFrame) fire();
+      if(el<dur){ attackRAF=requestAnimationFrame(frame); }
+      else{ attackRAF=null; cv.remove(); hero.dataset.cid=""; renderFieldHero(true); retreat(); }
+    }
+    attackRAF=requestAnimationFrame(frame);
+  }, 175);
 }
-function lungePortrait(card){
-  if(!card) return;
-  const t = card.querySelector("img.hero-portrait") || card;
-  t.style.transition="transform .12s ease-out"; t.style.transform="translateY(-12px) scale(1.1)";
-  setTimeout(()=>{ t.style.transition="transform .18s ease-in"; t.style.transform=""; }, 130);
+/* フィールド主人公の待機表示：攻撃シートがある衣装は1コマ目（透過の立ち絵）、無ければ立ち絵PNG */
+function renderFieldHero(force){
+  const fh=document.getElementById("fieldHero");
+  if(!fh || !costumesReady || attackRAF) return;
+  const cw=fh.clientWidth, ch=fh.clientHeight;
+  if(!cw || !ch) return;   /* 非表示中は描かない */
+  if(!force && fh.dataset.cid===currentCostumeId && fh.childElementCount>0) return;
+  const c=costumeMap[currentCostumeId];
+  fh.innerHTML="";
+  if(c && c.attackImg && c.attackImg.complete && c.attackImg.naturalWidth && c.attackMeta){
+    const m=c.attackMeta;
+    const cv=document.createElement("canvas"); cv.className="fh-idle"; cv.width=cw; cv.height=ch;
+    cv.style.cssText="position:absolute;inset:0;width:100%;height:100%;z-index:1";
+    fh.appendChild(cv);
+    const ctx=cv.getContext("2d"), fw=m.frameW, fhh=m.frameH;
+    const scale=Math.min(cw/fw, ch/fhh), dw=fw*scale, dh=fhh*scale, dx=(cw-dw)/2, dy=ch-dh;
+    ctx.drawImage(c.attackImg, 0, 0, fw, fhh, dx, dy, dw, dh);
+  }else{
+    renderHeroPortrait(fh, currentCostumeId);
+  }
+  fh.dataset.cid=currentCostumeId;
 }
 
 function drawSprites(){
@@ -3083,6 +3123,7 @@ function render(){
     document.getElementById("cpLv").textContent="Lv"+li.lv;
     const cpP=document.getElementById("cpPortrait");
     if(cpP && costumesReady && !cpP.querySelector("img")) renderHeroPortrait(cpP);
+    renderFieldHero();
   }
   document.getElementById("atkNum").textContent = atkNow();
   document.getElementById("weaponName").textContent = (bossWeaponUsable()?"👑":"") + curWeapon().n;
@@ -5484,7 +5525,7 @@ applyMode();
 render();
 drawTitleArt();
 /* 着せ替え立ち絵を よみこんで 全画面に反映 */
-loadCostumes().then(()=>{ if(costumesReady){ refreshAllPortraits(); if(document.getElementById("page-avatar").classList.contains("show")) renderAvatar(); } });
+loadCostumes().then(()=>{ if(costumesReady){ refreshAllPortraits(); renderFieldHero(true); if(document.getElementById("page-avatar").classList.contains("show")) renderAvatar(); } });
 document.getElementById("bgmBtn").textContent = state.settings.bgm ? "♪ ON" : "♪ OFF";
 if(state.monster) msg(`${state.monster.boss?"👑 ボス！ ":""}${state.monster.n}が あらわれた！`, true);
 else if(isResting()) msg("🏨 きょうは やどで きゅうそくちゅう。タスクは じっくり ふくしゅうタイムだ。", true);
