@@ -195,11 +195,12 @@
   }
   .battle.shake{animation:bshake .3s}
   @keyframes bshake{0%,100%{transform:translate(0)}25%{transform:translate(-6px,2px)}50%{transform:translate(5px,-2px)}75%{transform:translate(-3px,1px)}}
-  .battle.whiteflash::after{content:"";position:absolute;inset:0;background:#fff;animation:wf .25s forwards;z-index:9}
+  /* 全画面フラッシュは キャラの背面(z1)で光らせる＝キャラ自体は点滅させない（点滅は被弾キャラのみ）*/
+  .battle.whiteflash::after{content:"";position:absolute;inset:0;background:#fff;animation:wf .25s forwards;z-index:1;pointer-events:none}
   @keyframes wf{0%{opacity:.9}100%{opacity:0}}
-  .battle.redflash::before{content:"";position:absolute;inset:0;background:#e22;animation:rf .4s forwards;z-index:9;pointer-events:none}
+  .battle.redflash::before{content:"";position:absolute;inset:0;background:#e22;animation:rf .4s forwards;z-index:1;pointer-events:none}
   @keyframes rf{0%{opacity:.55}100%{opacity:0}}
-  .battle.fireflash::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 70%,#ffb73c,#f80 55%,#d22 90%);animation:rf .5s forwards;z-index:9;pointer-events:none}
+  .battle.fireflash::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 70%,#ffb73c,#f80 55%,#d22 90%);animation:rf .5s forwards;z-index:1;pointer-events:none}
   .sprite-wrap.lunge canvas{animation:lungeA .45s ease-out}
   @keyframes lungeA{0%{transform:none}35%{transform:translateY(22px) scale(1.14)}100%{transform:none}}
 
@@ -249,6 +250,8 @@
   .mode2d .field-hero canvas.cp-anim,.mode2d .field-hero canvas.fh-idle{position:absolute;inset:0;width:100%;height:100%}
   .mode2d .field-hero canvas.fh-idle{z-index:1}
   .mode2d .field-hero canvas.cp-anim{z-index:2}
+  /* 味方が被弾したときだけ 点滅（敵のhitflashと同じflickを流用）*/
+  .mode2d .field-hero.hurt canvas,.mode2d .field-hero.hurt img{animation:flick .35s steps(2) 2}
   /* 足元の影：横長の楕円・半透明・ぼかし。キャラサイズに比例し、踏み込み中も足元に追従 */
   .mode2d .field-hero::after{content:"";position:absolute;left:50%;bottom:1%;transform:translateX(-50%);
     width:62%;height:8%;min-height:9px;max-height:20px;z-index:0;pointer-events:none;
@@ -3131,6 +3134,14 @@ function playAttack(onHit){
 /* フィールド主人公の待機表示。HPが黄バー(50%以下)なら 低HP待機アニメをループ再生 */
 let idleRAF = null;
 function stopIdleAnim(){ if(idleRAF){ cancelAnimationFrame(idleRAF); idleRAF=null; } }
+/* 味方（フィールド主人公）が被弾したときだけ点滅させる（2Dのみ）*/
+function flashFieldHero(){
+  if(state.settings.mode==="3d") return;
+  const fh=document.getElementById("fieldHero");
+  if(!fh || getComputedStyle(fh).display==="none") return;
+  fh.classList.remove("hurt"); void fh.offsetWidth; fh.classList.add("hurt");
+  setTimeout(()=>fh.classList.remove("hurt"), 720);
+}
 function renderFieldHero(force){
   const fh=document.getElementById("fieldHero");
   if(!fh || !costumesReady || attackRAF) return;
@@ -3582,6 +3593,7 @@ function playerDamage(dmg, text){
     return;
   }
   save(); render();
+  flashFieldHero();   /* 味方が被弾したときだけ 味方を点滅 */
 }
 /* 死亡ジングル：物悲しい下降フレーズ */
 function sfxDeath(){
@@ -3635,7 +3647,7 @@ function elemFlash(el){
   const colors = {fire:"#f80", ice:"#7ad4ff", thunder:"#ffe24a", holy:"#fff2c0", dark:"#7a3aff", none:"#ccc"};
   const bv = document.getElementById("battleView");
   const d = document.createElement("div");
-  d.style.cssText = `position:absolute;inset:0;z-index:9;pointer-events:none;background:${colors[el]||"#ccc"};opacity:.5;transition:opacity .45s`;
+  d.style.cssText = `position:absolute;inset:0;z-index:1;pointer-events:none;background:${colors[el]||"#ccc"};opacity:.5;transition:opacity .45s`;
   bv.appendChild(d);
   requestAnimationFrame(()=>d.style.opacity="0");
   setTimeout(()=>d.remove(), 500);
@@ -3914,7 +3926,7 @@ const SPELL_FX = {
 function colorFlash(color){
   const bv = document.getElementById("battleView");
   const d = document.createElement("div");
-  d.style.cssText = `position:absolute;inset:0;z-index:7;pointer-events:none;background:${color};opacity:.4;transition:opacity .4s`;
+  d.style.cssText = `position:absolute;inset:0;z-index:1;pointer-events:none;background:${color};opacity:.4;transition:opacity .4s`;
   bv.appendChild(d);
   requestAnimationFrame(()=>{ d.style.opacity="0"; });
   setTimeout(()=>d.remove(), 430);
