@@ -4,9 +4,9 @@
   "frameCount": 16,
   "columns": 8,
   "rows": 2,
-  "fps": 12,
+  "fps": 18,
   "loop": true,
   "animation": "idle",
-  "charFrac": 0.948,
+  "charFrac": 0.967,
   "footFrac": 0.974
 }
