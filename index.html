@@ -1133,15 +1133,22 @@ const BOSS_ITEMS = [
   {key:"megabomb", n:"ギガバクダン",     d:"まものに 250の だいダメージ",             boss:true},
   {key:"gold_egg", n:"きんのたまご",     d:"つかうと 1500G てにはいる",               boss:true}
 ];
-const ALL_ITEMS = ITEMS_SHOP.concat(BOSS_ITEMS);
-/* 永続強化アイテム（買ったら即つかう・在庫を持たない） */
+/* 永続強化アイテム（店で買う→どうぐに保管→「どうぐ」から自分でつかう）*/
 const BOOST_SHOP = [
-  {key:"powerseed", n:"ちからのたね",   d:"こうげき力が ＋2（えいきゅう）",  cost:400, stat:"sPow"},
-  {key:"guardseed", n:"まもりのたね",   d:"ぼうぎょ力が ＋2（えいきゅう）",  cost:400, stat:"sDef"},
-  {key:"lifeseed",  n:"いのちのきのみ", d:"さいだいHPが ＋15（えいきゅう）", cost:500, stat:"sHp"},
-  {key:"magicseed", n:"まほうのきのみ", d:"さいだいMPが ＋8（えいきゅう）",  cost:500, stat:"sMp"},
-  {key:"expbook",   n:"けいけんのしょ", d:"けいけんち ＋200",                cost:600, stat:"exp"}
+  {key:"powerseed", n:"ちからのたね",   d:"つかうと こうげき力 ＋2（えいきゅう）",  cost:400, stat:"sPow", add:2,  seed:true},
+  {key:"guardseed", n:"まもりのたね",   d:"つかうと ぼうぎょ力 ＋2（えいきゅう）",  cost:400, stat:"sDef", add:2,  seed:true},
+  {key:"lifeseed",  n:"いのちのきのみ", d:"つかうと さいだいHP ＋15（えいきゅう）", cost:500, stat:"sHp", add:15, seed:true},
+  {key:"magicseed", n:"まほうのきのみ", d:"つかうと さいだいMP ＋8（えいきゅう）",  cost:500, stat:"sMp", add:8,  seed:true},
+  {key:"expbook",   n:"けいけんのしょ", d:"つかうと けいけんち ＋200",            cost:600, stat:"exp", add:200,seed:true}
 ];
+/* ガチャ/ログボ限定の でんせつ種（店では買えない・どうぐに保管して使う）*/
+const LEGEND_SEEDS = [
+  {key:"lpowerseed", n:"でんせつの ちからのたね", d:"つかうと こうげき力 ＋5（えいきゅう）",  stat:"sPow", add:5,  seed:true},
+  {key:"lguardseed", n:"でんせつの まもりのたね", d:"つかうと ぼうぎょ力 ＋5（えいきゅう）",  stat:"sDef", add:5,  seed:true},
+  {key:"llifeseed",  n:"でんせつの いのちのみ",   d:"つかうと さいだいHP ＋40（えいきゅう）", stat:"sHp", add:40, seed:true},
+  {key:"lmagicseed", n:"でんせつの まほうのみ",   d:"つかうと さいだいMP ＋20（えいきゅう）", stat:"sMp", add:20, seed:true}
+];
+const ALL_ITEMS = ITEMS_SHOP.concat(BOSS_ITEMS).concat(BOOST_SHOP).concat(LEGEND_SEEDS);
 const SPELLS = [
   {n:"ヒール",       mp:6,  cost:0,    type:"heal",     min:25, max:35, d:"HPを 25〜35 かいふくする"},
   {n:"バイキルト",   mp:10, cost:0,    type:"buff",     d:"つぎのこうげきの ダメージ2ばい"},
@@ -1370,17 +1377,17 @@ let loginReward = null;  /* 受け取り待ちの報酬プラン（applyで確�
 function loginCyclePos(day){ return ((day-1)%7)+1; }              /* 1〜7 */
 function loginWeekIdx(day){ return Math.floor((day-1)/7); }       /* 0,1,2... */
 const SEED_CYCLE = [
-  {n:"ちからのたね",   stat:"sPow", add:2,  txt:"こうげき力 ＋2"},
-  {n:"まもりのたね",   stat:"sDef", add:2,  txt:"ぼうぎょ力 ＋2"},
-  {n:"いのちのきのみ", stat:"sHp",  add:15, txt:"さいだいHP ＋15"},
-  {n:"まほうのきのみ", stat:"sMp",  add:8,  txt:"さいだいMP ＋8"}
+  {key:"powerseed", n:"ちからのたね",   stat:"sPow", add:2,  txt:"こうげき力 ＋2"},
+  {key:"guardseed", n:"まもりのたね",   stat:"sDef", add:2,  txt:"ぼうぎょ力 ＋2"},
+  {key:"lifeseed",  n:"いのちのきのみ", stat:"sHp",  add:15, txt:"さいだいHP ＋15"},
+  {key:"magicseed", n:"まほうのきのみ", stat:"sMp",  add:8,  txt:"さいだいMP ＋8"}
 ];
 /* 全呪文コンプ後の7日目に毎週もらえる でんせつのたね（永続大強化） */
 const BIG_SEED = [
-  {n:"でんせつの ちからのたね", stat:"sPow", add:5,  txt:"こうげき力 ＋5"},
-  {n:"でんせつの まもりのたね", stat:"sDef", add:5,  txt:"ぼうぎょ力 ＋5"},
-  {n:"でんせつの いのちのみ",   stat:"sHp",  add:40, txt:"さいだいHP ＋40"},
-  {n:"でんせつの まほうのみ",   stat:"sMp",  add:20, txt:"さいだいMP ＋20"}
+  {key:"lpowerseed", n:"でんせつの ちからのたね", stat:"sPow", add:5,  txt:"こうげき力 ＋5"},
+  {key:"lguardseed", n:"でんせつの まもりのたね", stat:"sDef", add:5,  txt:"ぼうぎょ力 ＋5"},
+  {key:"llifeseed",  n:"でんせつの いのちのみ",   stat:"sHp",  add:40, txt:"さいだいHP ＋40"},
+  {key:"lmagicseed", n:"でんせつの まほうのみ",   stat:"sMp",  add:20, txt:"さいだいMP ＋20"}
 ];
 /* 報酬パーツ（prev＝カレンダー短文 / make()＝確定処理つきの本体） */
 const RW = {
@@ -1394,7 +1401,7 @@ const RW = {
   anti:n =>({icon:"🧪", prev:`どくけしそう×${n}`,     text:`どくけしそう ×${n}`,     do:()=>{state.items.antidote+=n;}}),
   gold:n =>({icon:"💰", prev:`ボーナス+${n}G`,         text:`ボーナス +${n}G`,        do:()=>{state.gold+=n;}}),
   exp:()  =>({icon:"📖",big:true, prev:`けいけんち+200`, text:`けいけんち +200！`, do:()=>{const b=levelInfo(state.xp).lv;state.xp+=200;const a=levelInfo(state.xp).lv;if(a>b)levelUpFlow(b,a);}}),
-  seed:idx=>{ const s=SEED_CYCLE[idx]; return {icon:"🌱",big:true, prev:s.n, text:`${s.n}（${s.txt}）`, do:()=>{state[s.stat]+=s.add; if(s.stat==="sHp")state.hp+=s.add; if(s.stat==="sMp")state.mp+=s.add;}}; }
+  seed:idx=>{ const s=SEED_CYCLE[idx]; return {icon:"🌱",big:true, prev:s.n, text:`${s.n}（${s.txt}）を てにいれた！「どうぐ」から つかえる`, do:()=>{ state.items[s.key]=(state.items[s.key]||0)+1; }}; }
 };
 /* 週ごとに まるごと違う 6テーマ（7日目はどの週も でんせつ呪文）。1〜6日目を定義 */
 const WEEK_THEMES = [
@@ -1435,7 +1442,7 @@ function buildLoginItems(day){
     }else{
       /* 全呪文コンプ後：でんせつのたね（永続+大強化）が毎週もらえる */
       const bs = BIG_SEED[loginWeekIdx(day) % BIG_SEED.length];
-      items.push({icon:"🌟", big:true, text:`${bs.n}（${bs.txt}）`, do:()=>{ state[bs.stat]+=bs.add; if(bs.stat==="sHp")state.hp+=bs.add; if(bs.stat==="sMp")state.mp+=bs.add; }});
+      items.push({icon:"🌟", big:true, text:`${bs.n}（${bs.txt}）を てにいれた！「どうぐ」から つかえる`, do:()=>{ state.items[bs.key]=(state.items[bs.key]||0)+1; }});
       items.push({icon:"💰", big:true, text:"ボーナス +3000G", do:()=>{ state.gold += 3000; }});
     }
     items.push({icon:"👑", big:true, text:"1しゅうかん たっせい！ ボーナス +2000G", do:()=>{ state.gold += 2000; }});
@@ -4131,11 +4138,11 @@ const GACHA_POOL = [
   /* ★★★ 激レア（10%）*/
   {r:3, name:"👗 軍装コスチューム",    costume:"military", do:()=>{ if(costumeMap["military"]) setCostume("military"); }},
   {r:3, name:"せかいじゅのは ×1",      do:()=>{ state.items.elixir+=1; }},
-  {r:3, name:"ちからのたね（こうげき+2）", do:()=>{ state.sPow+=2; }},
-  {r:3, name:"まもりのたね（ぼうぎょ+2）", do:()=>{ state.sDef+=2; }},
+  {r:3, name:"ちからのたね（こうげき+2）", do:()=>{ state.items.powerseed=(state.items.powerseed||0)+1; }},
+  {r:3, name:"まもりのたね（ぼうぎょ+2）", do:()=>{ state.items.guardseed=(state.items.guardseed||0)+1; }},
   {r:3, name:"ゴールド +900G",         do:()=>{ state.gold+=900; }},
   /* 🌈 超激レア（2%）*/
-  {r:4, name:"でんせつのいのち（最大HP+40）", do:()=>{ const lv=levelInfo(state.xp).lv; state.sHp+=40; state.hp+=40; }},
+  {r:4, name:"でんせつのいのち（最大HP+40）", do:()=>{ state.items.llifeseed=(state.items.llifeseed||0)+1; }},
   {r:4, name:"フェニックスのは ×1",    do:()=>{ state.items.phoenix=(state.items.phoenix||0)+1; }},
   {r:4, name:"ゴールド +3000G！",      do:()=>{ state.gold+=3000; }}
 ];
@@ -4962,6 +4969,21 @@ function useItem(key){
   const battleOnly = ["bomb","lava","megabomb","smoke"];
   if(battleOnly.includes(key) && !inBattle){ msg("いまは まものが いない！", true); return; }
   state.items[key]--;
+  /* たね・きのみ・本（永続強化）：どうぐから自分で使う */
+  const seedDef = ALL_ITEMS.find(x=>x.key===key && x.seed);
+  if(seedDef){
+    if(seedDef.stat==="exp"){
+      const b=levelInfo(state.xp).lv; state.xp+=seedDef.add; const a=levelInfo(state.xp).lv;
+      msg(`${seedDef.n}を よんだ！ けいけんち ＋${seedDef.add}！`, true); sfxLevelUp();
+      closeModal("itemModal"); save(); render(); if(a>b) levelUpFlow(b,a); return;
+    }
+    state[seedDef.stat] = (state[seedDef.stat]||0) + seedDef.add;
+    if(seedDef.stat==="sHp") state.hp += seedDef.add;
+    if(seedDef.stat==="sMp") state.mp += seedDef.add;
+    const lbl={sPow:"こうげき力",sDef:"ぼうぎょ力",sHp:"さいだいHP",sMp:"さいだいMP"}[seedDef.stat]||"";
+    msg(`${seedDef.n}を つかった！ ${lbl}が ＋${seedDef.add}！（えいきゅう）`, true); sfxLevelUp(); buffAnim("def");
+    closeModal("itemModal"); save(); render(); return;
+  }
   /* ダメージ系アイテム（バクダンいし60 / ようがんだま100炎 / ギガバクダン250） */
   const dmgItem = { bomb:{n:"バクダンいし",dmg:60,el:null}, lava:{n:"ようがんだま",dmg:100,el:"fire"}, megabomb:{n:"ギガバクダン",dmg:250,el:null} }[key];
   if(dmgItem){
@@ -5250,17 +5272,14 @@ function buyItem(key){
   sfxCoin();
   renderShop(); save(); render();
 }
-/* 永続強化（たね・きのみ・本）：買った瞬間に効果が出る */
+/* 永続強化（たね・きのみ・本）：買うと どうぐに保管。「どうぐ」から自分でつかう */
 function buyBoost(key){
   const it = BOOST_SHOP.find(x=>x.key===key);
   if(state.gold < it.cost){ msg("ゴールドが たりない！", true); return; }
   state.gold -= it.cost;
-  if(it.stat==="sPow"){ state.sPow += 2; msg("ちからのたねを つかった！ こうげき力が ＋2 あがった！", true); }
-  else if(it.stat==="sDef"){ state.sDef += 2; msg("まもりのたねを つかった！ ぼうぎょ力が ＋2 あがった！", true); }
-  else if(it.stat==="sHp"){ const lv=levelInfo(state.xp).lv; state.sHp += 15; state.hp += 15; msg("いのちのきのみ！ さいだいHPが ＋15 あがった！", true); }
-  else if(it.stat==="sMp"){ state.sMp += 8; state.mp += 8; msg("まほうのきのみ！ さいだいMPが ＋8 あがった！", true); }
-  else if(it.stat==="exp"){ const b=levelInfo(state.xp).lv; state.xp += 200; const a=levelInfo(state.xp).lv; msg("けいけんのしょを よんだ！ けいけんち ＋200！", true); if(a>b) levelUpFlow(b,a); }
-  sfxLevelUp();
+  state.items[key] = (state.items[key]||0) + 1;
+  msg(`${it.n}を かった！ どうぐに しまった（しょじ ×${state.items[key]}）。「どうぐ」から つかおう。`, true);
+  sfxCoin();
   renderShop(); save(); render();
 }
 /* 売却（買値より安く引き取り：装備60% / 道具50%） */
