@@ -1,0 +1,10 @@
+{
+  "frameWidth": 578,
+  "frameHeight": 600,
+  "frameCount": 21,
+  "columns": 8,
+  "rows": 3,
+  "fps": 12,
+  "loop": true,
+  "animation": "idle"
+}

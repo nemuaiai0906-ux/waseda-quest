@@ -331,6 +331,8 @@
   .mode3d .stage{align-items:flex-end;padding-bottom:92px}
   .sprite-wrap{position:relative;text-align:center}
   .sprite-wrap canvas{display:block;margin:0 auto;image-rendering:pixelated}
+  /* イラスト敵の待機アニメcanvas（ドット化させず高画質・影つき） */
+  .sprite-wrap canvas.enemy-anim{image-rendering:auto;filter:drop-shadow(0 5px 6px rgba(0,0,30,.4))}
   .sprite-wrap img.enemy-illust{display:block;margin:0 auto;width:auto;image-rendering:auto;
     filter:drop-shadow(0 5px 6px rgba(0,0,30,.4))}
   .mode2d .sprite-wrap img.enemy-illust{animation:bob 3s ease-in-out infinite}
@@ -2892,6 +2894,7 @@ function msg(text, sys){
 
 /* ================= 描画 ================= */
 let currentMonster = null;
+let enemyRAF = null;   /* イラスト敵の待機アニメ用 */
 /* ===================================================================
    主人公の着せ替え立ち絵システム（透過PNG）
    ・状態は currentCostumeId に集約（localStorageで永続）
@@ -2910,6 +2913,19 @@ async function loadEnemies(){
       img.onerror = ()=>res();
       img.src = "assets/" + e.image;
     })));
+    /* 待機アニメ（ループ）を持つ敵は メタ＋シートも 先読み */
+    await Promise.all(list.filter(e=>e.idle).map(async e=>{
+      try{
+        const r2 = await fetch("assets/"+e.idle.meta, {cache:"no-cache"});
+        e.idleMeta = await r2.json();
+        await new Promise(res=>{
+          const img = new Image();
+          img.onload = ()=>{ e.idleImg = img; res(); };
+          img.onerror = ()=>res();
+          img.src = "assets/" + (e.idle.sheet || e.idleMeta.sheet);
+        });
+      }catch(err){ e.idleMeta = null; }
+    }));
   }catch(e){ /* 読めなくても ドット絵に フォールバック */ }
 }
 function enemyArt(name){ const e = ENEMY_MAP[name]; return (e && e.img && e.img.complete && e.img.naturalWidth) ? e : null; }
@@ -3211,13 +3227,35 @@ function renderFieldHero(force){
 function drawSprites(){
   if(state.settings.mode==="3d" && GL){ glRefreshMonster(); return; }
   const wrap = document.getElementById("spriteWrap");
+  if(enemyRAF){ cancelAnimationFrame(enemyRAF); enemyRAF=null; }
   wrap.querySelectorAll("canvas,img.enemy-illust").forEach(c=>c.remove());
   const is3d = state.settings.mode==="3d";
   const shadow = wrap.querySelector(".m-shadow");
   if(currentMonster){
     const art = !is3d ? enemyArt(currentMonster.n) : null;
-    if(art){
-      /* イラスト敵（右の手前・足元基準・主人公とバランスするサイズ）*/
+    const hasIdle = art && art.idleMeta && art.idleImg && art.idleImg.complete && art.idleImg.naturalWidth;
+    if(hasIdle){
+      /* イラスト敵の待機アニメ（その場でドロドロ揺れる・静止画と同じ位置/サイズ）*/
+      const battle = document.getElementById("battleView");
+      const h = Math.round((battle.clientHeight||300) * 0.5 * 1.08);   /* 静止画のスライムとサイズを合わせる係数 */
+      const m = art.idleMeta, cols=m.columns, fw=m.frameWidth, fhh=m.frameHeight, cnt=m.frameCount, fps=m.fps||12;
+      const dw = Math.round(h * fw / fhh);
+      const dpr = Math.min(window.devicePixelRatio||1, 3);
+      const cv = document.createElement("canvas"); cv.className = "enemy-anim";
+      cv.width = Math.round(dw*dpr); cv.height = Math.round(h*dpr);
+      cv.style.cssText = `display:block;margin:0 auto -${Math.round(h*0.03)}px;width:${dw}px;height:${h}px`;
+      wrap.insertBefore(cv, wrap.firstChild);
+      const ctx = cv.getContext("2d"); ctx.scale(dpr,dpr); ctx.imageSmoothingQuality="high";
+      const t0 = performance.now();
+      (function eloop(now){
+        const fi = Math.floor((now-t0)/1000*fps) % cnt;
+        ctx.clearRect(0,0,dw,h);
+        ctx.drawImage(art.idleImg, (fi%cols)*fw, Math.floor(fi/cols)*fhh, fw, fhh, 0, 0, dw, h);
+        enemyRAF = requestAnimationFrame(eloop);
+      })(performance.now());
+      if(shadow){ shadow.style.width = Math.round(dw*0.46) + "px"; shadow.style.height = Math.round(h*0.045) + "px"; shadow.style.margin = "-6px auto 0"; }
+    }else if(art){
+      /* イラスト敵（静止画・右の手前・足元基準）*/
       const battle = document.getElementById("battleView");
       const h = Math.round((battle.clientHeight||300) * 0.5);
       const dw = Math.round(h * art.img.naturalWidth / art.img.naturalHeight);

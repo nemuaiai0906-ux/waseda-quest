@@ -1,5 +1,6 @@
 {
   "enemies": [
-    { "id": "hedoro_slime", "name": "ヘドロスライム", "image": "enemy_hedoro_slime.png" }
+    { "id": "hedoro_slime", "name": "ヘドロスライム", "image": "enemy_hedoro_slime.png",
+      "idle": { "sheet": "enemy_hedoro_slime_idle_sheet.png", "meta": "enemy_hedoro_slime_idle.json" } }
   ]
 }
