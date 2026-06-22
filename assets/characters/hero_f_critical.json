@@ -4,7 +4,7 @@
   "frameCount": 16,
   "columns": 8,
   "rows": 2,
-  "fps": 10,
+  "fps": 16,
   "loop": true,
   "animation": "critical",
   "charFrac": 1.451,

@@ -4,7 +4,7 @@
   "frameCount": 21,
   "columns": 8,
   "rows": 3,
-  "fps": 12,
+  "fps": 20,
   "loop": true,
   "animation": "idle"
 }
