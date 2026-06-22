@@ -3159,6 +3159,14 @@ function flashFieldHero(){
   fh.classList.remove("hurt"); void fh.offsetWidth; fh.classList.add("hurt");
   setTimeout(()=>fh.classList.remove("hurt"), 520);
 }
+/* 敵が実際にダメージを受けたときだけ点滅させる（2Dイラスト敵）。
+   アニメ後に hitflash を外すので、再描画で新しい敵キャンバスが点滅し続けない */
+function flashEnemy(){
+  const sw=document.getElementById("spriteWrap");
+  if(!sw) return;
+  sw.classList.remove("hitflash"); void sw.offsetWidth; sw.classList.add("hitflash");
+  setTimeout(()=>sw.classList.remove("hitflash"), 720);
+}
 function renderFieldHero(force){
   const fh=document.getElementById("fieldHero");
   if(!fh || !costumesReady || attackRAF) return;
@@ -4000,7 +4008,7 @@ function attackAnim(dmg, fx){
     burstParticles(cfg.em, 10, false, 24);
     bv.classList.add("shake");
     if(gl3d) glAttackFx(cfg.color);
-    else { const sw=document.getElementById("spriteWrap"); sw.classList.remove("hitflash"); void sw.offsetWidth; sw.classList.add("hitflash"); }
+    else flashEnemy();
   }else{
     /* 物理攻撃：白フラッシュ＋斬撃 */
     bv.classList.add("whiteflash");
@@ -4009,7 +4017,7 @@ function attackAnim(dmg, fx){
     }else{
       bv.classList.add("shake");
       const sw = document.getElementById("spriteWrap");
-      sw.classList.remove("hitflash"); void sw.offsetWidth; sw.classList.add("hitflash");
+      flashEnemy();
       const sl = document.createElement("div"); sl.className = "slash";
       sw.appendChild(sl); setTimeout(()=>sl.remove(), 450);
     }
