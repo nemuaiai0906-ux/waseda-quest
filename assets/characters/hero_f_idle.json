@@ -4,7 +4,7 @@
   "frameCount": 16,
   "columns": 8,
   "rows": 2,
-  "fps": 28,
+  "fps": 22,
   "loop": true,
   "animation": "idle",
   "charFrac": 0.967,
