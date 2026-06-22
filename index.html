@@ -250,8 +250,9 @@
   .mode2d .field-hero canvas.cp-anim,.mode2d .field-hero canvas.fh-idle{position:absolute;inset:0;width:100%;height:100%}
   .mode2d .field-hero canvas.fh-idle{z-index:1}
   .mode2d .field-hero canvas.cp-anim{z-index:2}
-  /* 味方が被弾したときだけ 点滅（敵のhitflashと同じflickを流用）*/
-  .mode2d .field-hero.hurt canvas,.mode2d .field-hero.hurt img{animation:flick .35s steps(2) 2}
+  /* 味方が被弾したときだけ 点滅：すばやく数回 明滅して確実に元へ戻る（光りっぱなしにならない）*/
+  @keyframes hurtBlink{0%,100%{opacity:1}12%{opacity:.18}26%{opacity:1}40%{opacity:.18}54%{opacity:1}68%{opacity:.18}82%{opacity:1}}
+  .mode2d .field-hero.hurt canvas,.mode2d .field-hero.hurt img{animation:hurtBlink .5s linear 1}
   /* 足元の影：横長の楕円・半透明・ぼかし。キャラサイズに比例し、踏み込み中も足元に追従 */
   .mode2d .field-hero::after{content:"";position:absolute;left:50%;bottom:1%;transform:translateX(-50%);
     width:62%;height:8%;min-height:9px;max-height:20px;z-index:0;pointer-events:none;
@@ -3140,7 +3141,7 @@ function flashFieldHero(){
   const fh=document.getElementById("fieldHero");
   if(!fh || getComputedStyle(fh).display==="none") return;
   fh.classList.remove("hurt"); void fh.offsetWidth; fh.classList.add("hurt");
-  setTimeout(()=>fh.classList.remove("hurt"), 720);
+  setTimeout(()=>fh.classList.remove("hurt"), 520);
 }
 function renderFieldHero(force){
   const fh=document.getElementById("fieldHero");
