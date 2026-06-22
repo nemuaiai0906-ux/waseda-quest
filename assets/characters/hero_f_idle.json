@@ -1,0 +1,12 @@
+{
+  "frameWidth": 193,
+  "frameHeight": 460,
+  "frameCount": 16,
+  "columns": 8,
+  "rows": 2,
+  "fps": 12,
+  "loop": true,
+  "animation": "idle",
+  "charFrac": 0.948,
+  "footFrac": 0.974
+}
