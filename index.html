@@ -239,7 +239,9 @@
   .mode2d .bg-sky,.mode2d .sun,.mode2d .mtn,.mode2d .bg-ground,.mode2d .fog,.mode2d .cloud{display:none}
 
   /* 2D：FFBE風 横構図（主人公=左／敵=右／手前の地面に立たせる） */
-  .mode2d .stage{align-items:flex-end;justify-content:flex-end;padding:0 4% 11% 0}
+  .mode2d .stage{align-items:flex-end;justify-content:flex-end;padding:0}
+  /* 敵も味方と同じ「高さ基準のbottom」で接地（paddingは幅基準でアス比により浮くため絶対配置に）*/
+  .mode2d .sprite-wrap{position:absolute;right:5%;bottom:12.5%;left:auto}
   .mode2d .party3d{display:none}
   .mode2d .m-shadow{display:block;width:84px;height:13px;background:rgba(0,0,30,.26);border-radius:50%;margin:-6px auto 0;filter:blur(2px)}
   /* フィールド上の主人公（左・足元を地面ラインに） */
