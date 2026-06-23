@@ -3116,7 +3116,10 @@ function playAttack(onHit){
   const rCols=rM.columns||7, rFw=rM.frameWidth||620, rFh=rM.frameHeight||460, rCnt=rM.frameCount||13, rFps=rM.fps||16;
   const aM=c.attackMeta||{}, aImg=c.attackImg;
   const aCols=aM.cols||8, aFw=aM.frameW||0, aFh=aM.frameH||0, aCnt=aM.count||0, aFps=aM.fps||30;
-  const aDur = hasAtk ? (aCnt/aFps*1000) : 0, aHit = hasAtk ? Math.floor(aCnt*0.55) : 0;
+  /* 攻撃シートは前半=正面構え／終盤=正面戻り。横向き（敵を向いて斬る）コマだけ再生する */
+  const aStart = (aM.start!=null)?aM.start:0, aEnd = (aM.end!=null)?aM.end:(aCnt-1);
+  const aSpan = Math.max(1, aEnd-aStart+1);
+  const aDur = hasAtk ? (aSpan/aFps*1000) : 0, aHit = hasAtk ? Math.floor(aSpan*0.55) : 0;
   const RUN=CHAR_METRICS.run, ATK=CHAR_METRICS.attack, moveIn=460, moveOut=440;
 
   let phase = hasRun ? "in" : "atk";
@@ -3130,9 +3133,9 @@ function playAttack(onHit){
       attackRAF=requestAnimationFrame(loop);
     } else if(phase==="atk"){               /* 斬る */
       setX(dx);
-      let fi=Math.floor(el/1000*aFps); if(fi>=aCnt) fi=aCnt-1;
-      draw(aImg, aCols, aFw, aFh, fi, ATK.charFrac, ATK.footFrac, true);  /* 敵（右）の方を向いて斬る＝反転 */
-      if(fi>=aHit) fire();
+      let k=Math.floor(el/1000*aFps); if(k>=aSpan) k=aSpan-1;
+      draw(aImg, aCols, aFw, aFh, aStart+k, ATK.charFrac, ATK.footFrac, true);  /* 敵（右）の方を向いて斬る＝反転 */
+      if(k>=aHit) fire();
       if(el<aDur){ attackRAF=requestAnimationFrame(loop); }
       else { phase = hasRun?"out":"done"; t0=now; if(phase==="done") finishA(); else attackRAF=requestAnimationFrame(loop); }
     } else if(phase==="out"){               /* 走って戻る（左向き＝反転）*/
