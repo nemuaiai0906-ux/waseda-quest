@@ -3500,8 +3500,8 @@ function toggle(task){
       /* ワンクッション：まず「きみのこうげき！」→ 一拍おいてヒット演出 */
       msg("▶ きみの こうげき！", true);
       sfxMenu();
-      playAttack();   /* 主人公の攻撃アニメ（軍装＝本物のスプライト／他＝突進）*/
-      setTimeout(()=>{
+      /* ダメージ＆ヒット演出は playAttack の onHit（剣が敵に当たるコマ）で発火＝斬撃と完全同期 */
+      playAttack(()=>{
         if(!state.monster) return;
         if(buffed) msg("バイキルトの ちからが はじけた！", true);
         /* 😴 ねむり：めをさますまで こうげきが あたらない（勉強XPは入っている。重症ほど めざめにくい） */
@@ -3545,7 +3545,7 @@ function toggle(task){
           statusTurn();
           maybeCounter(final);
         }
-      }, 1050);   /* 走って近づく→斬る の“当たり”に ヒット演出を合わせる */
+      });
     }else{
       msg("そのこうげきは すでに きまっている！", true);
     }
