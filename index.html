@@ -1388,6 +1388,26 @@ function spawnMonster(forceBoss){
   /* まもの図鑑に遭遇を記録 */
   if(!state.dex[m.n]) state.dex[m.n] = { s:0, k:0 };
   state.dex[m.n].s++;
+  /* 群れ：ボス以外は 30%で2体・10%で3体（1体ずつ倒す。報酬も体数ぶん） */
+  state.packExtra = [];
+  if(!boss){
+    const pr = mix(TODAY+"pack"+state.spawns)%100;
+    const extra = pr<10 ? 2 : (pr<40 ? 1 : 0);
+    for(let i=0;i<extra;i++){
+      state.packExtra.push({ n:m.n, s:m.s, p:m.p, el:m.el||"none", st:m.st||null, hp:hpMax, hpMax:hpMax, boss:false, fresh:true });
+      state.dex[m.n].s++;
+    }
+  }
+}
+/* 群れの別の敵をタップ→ターゲット切り替え */
+function targetSwap(i){
+  if(!state.packExtra || !state.packExtra[i] || !state.monster) return;
+  const t = state.monster;
+  state.monster = state.packExtra[i];
+  state.packExtra[i] = t;
+  sfxMenu();
+  msg(`▶ ターゲットを きりかえた！`, true);
+  save(); render(); drawSprites();
 }
 
 /* ===== 連続ログインボーナス（7日サイクル）=====
@@ -3284,6 +3304,7 @@ function renderFieldHero(force){
 }
 
 function drawSprites(){
+  document.querySelectorAll(".sprite-extra").forEach(e=>e.remove());
   if(state.settings.mode==="3d" && GL){ glRefreshMonster(); return; }
   const wrap = document.getElementById("spriteWrap");
   if(enemyRAF){ cancelAnimationFrame(enemyRAF); enemyRAF=null; }
@@ -3300,16 +3321,32 @@ function drawSprites(){
       const m = art.idleMeta, cols=m.columns, fw=m.frameWidth, fhh=m.frameHeight, cnt=m.frameCount, fps=m.fps||12;
       const dw = Math.round(h * fw / fhh);
       const dpr = Math.min(window.devicePixelRatio||1, 3);
-      const cv = document.createElement("canvas"); cv.className = "enemy-anim";
-      cv.width = Math.round(dw*dpr); cv.height = Math.round(h*dpr);
-      cv.style.cssText = `display:block;margin:0 auto -${Math.round(h*0.03)}px;width:${dw}px;height:${h}px`;
-      wrap.insertBefore(cv, wrap.firstChild);
-      const ctx = cv.getContext("2d"); ctx.scale(dpr,dpr); ctx.imageSmoothingQuality="high";
+      const mkCv = (hh)=>{ const dw2=Math.round(hh*fw/fhh); const cv2=document.createElement("canvas"); cv2.className="enemy-anim";
+        cv2.width=Math.round(dw2*dpr); cv2.height=Math.round(hh*dpr);
+        cv2.style.cssText=`display:block;margin:0 auto -${Math.round(hh*0.03)}px;width:${dw2}px;height:${hh}px`;
+        const c2=cv2.getContext("2d"); c2.scale(dpr,dpr); c2.imageSmoothingQuality="high";
+        return {cv:cv2, ctx:c2, dw:dw2, h:hh}; };
+      const layers = [];
+      const main = mkCv(h);
+      wrap.insertBefore(main.cv, wrap.firstChild);
+      layers.push({...main, off:0});
+      /* 群れの残り：奥に小さく（タップでターゲット切り替え） */
+      const EX_POS = [{right:"27%", bottom:"15.5%", s:0.72, z:1}, {right:"6%", bottom:"20.5%", s:0.55, z:0}];
+      (state.packExtra||[]).slice(0,2).forEach((ex,i)=>{
+        const pos=EX_POS[i]; const exl=mkCv(Math.round(h*pos.s));
+        const d=document.createElement("div"); d.className="sprite-extra";
+        d.style.cssText=`position:absolute;right:${pos.right};bottom:${pos.bottom};z-index:${pos.z};cursor:pointer;opacity:.93`;
+        d.appendChild(exl.cv);
+        d.onclick=()=>targetSwap(i);
+        wrap.parentElement.appendChild(d);
+        layers.push({...exl, off:(i+1)*5});
+      });
       const t0 = performance.now();
       (function eloop(now){
-        const fi = Math.floor((now-t0)/1000*fps) % cnt;
-        ctx.clearRect(0,0,dw,h);
-        ctx.drawImage(art.idleImg, (fi%cols)*fw, Math.floor(fi/cols)*fhh, fw, fhh, 0, 0, dw, h);
+        const fi = Math.floor((now-t0)/1000*fps);
+        layers.forEach(L=>{ const f=(fi+L.off)%cnt;
+          L.ctx.clearRect(0,0,L.dw,L.h);
+          L.ctx.drawImage(art.idleImg, (f%cols)*fw, Math.floor(f/cols)*fhh, fw, fhh, 0, 0, L.dw, L.h); });
         enemyRAF = requestAnimationFrame(eloop);
       })(performance.now());
       if(shadow){ shadow.style.width = Math.round(dw*0.46) + "px"; shadow.style.height = Math.round(h*0.045) + "px"; shadow.style.margin = "-6px auto 0"; }
@@ -3448,7 +3485,7 @@ function render(){
     const hpShow = Math.max(0, m.hp);
     document.getElementById("ehpFill").style.width = (hpShow/m.hpMax*100)+"%";
     document.getElementById("ehpLab").textContent = `${EL_ICON[m.el]||""}${m.n} HP ${hpShow}/${m.hpMax}`;
-    document.getElementById("enemyCount").textContent = "－ 1ひき";
+    document.getElementById("enemyCount").textContent = "－ " + (1 + (state.packExtra ? state.packExtra.length : 0)) + "ひき";
     document.getElementById("spriteWrap").classList.toggle("dead", m.hp<=0);
   }else{
     ehpEl.style.visibility = "hidden";
@@ -3906,6 +3943,29 @@ function bossDrop(){
 
 /* 魔物をたおした！ → ほうしゅう & つぎの魔物 */
 function killMonster(beforeLv){
+  /* 群れ戦：まだ残りがいれば ミニ討伐 → つぎのターゲットが前に出る（勝利画面は最後の1体で） */
+  if(state.packExtra && state.packExtra.length){
+    const mm = state.monster;
+    const lvP = levelInfo(state.xp).lv;
+    const goldP = 15 + lvP*3, bonusP = 30;
+    state.gold += goldP; state.kills += 1; state.xp += bonusP;
+    const drecP = dayRec(TODAY); drecP.kills=(drecP.kills||0)+1; drecP.gold=(drecP.gold||0)+goldP;
+    if(!state.dex[mm.n]) state.dex[mm.n] = { s:1, k:0 };
+    state.dex[mm.n].k++;
+    sfxCoin(); dropFx2D([]);
+    msg(`${mm.n}を たおした！ けいけんち+${bonusP}　+${goldP}G`, true);
+    state.monster = state.packExtra.shift();
+    state.monster.fresh = true;
+    msg(`つぎの ${state.monster.n}が まえに でてきた！（のこり ${1+state.packExtra.length}ひき）`, true);
+    const afterP = levelInfo(state.xp).lv;
+    if(afterP > beforeLv){
+      state.hp = maxHp(afterP); state.mp = maxMp(afterP);
+      sfxLevelUp();
+      msg(`きみは レベル${afterP}に あがった！ HP・MPが ぜんかいふくした！`, true);
+    }
+    save(); render(); drawSprites();
+    return;
+  }
   const lv = levelInfo(state.xp).lv;
   const m = state.monster;
   /* ボスは死闘のぶん報酬特大：ゴールド6倍・経験値250 */
