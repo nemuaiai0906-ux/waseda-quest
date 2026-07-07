@@ -1809,16 +1809,59 @@ const SHAPES = {
   ]
 };
 const KEEPER_PAL = {k:"#10131f",h:"#c0392b",s:"#f0c8a0",e:"#16121c",b:"#6f4a2a",c:"#3a6fb0",w:"#e8e0c8"};
+/* ドット絵を高精細に描く：下絵グリッドを Scale2x を2回（4倍解像度）かけて輪郭をなめらかに整え、
+   さらに自動の陰影（上=明るく/下=暗く・縁ハイライト/接地シャドウ）で立体感を出す */
+function _rgbOf(col){
+  let hex=(col||"#888888").replace("#","");
+  if(hex.length===3) hex=hex.split("").map(c=>c+c).join("");
+  return [parseInt(hex.slice(0,2),16), parseInt(hex.slice(2,4),16), parseInt(hex.slice(4,6),16)];
+}
+function _scale2x(g){
+  const H=g.length, W=g[0].length;
+  const o=Array.from({length:H*2},()=>Array(W*2).fill(null));
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    const P=g[y][x];
+    const A=y>0?g[y-1][x]:null, B=x<W-1?g[y][x+1]:null, C=x>0?g[y][x-1]:null, D=y<H-1?g[y+1][x]:null;
+    let e0=P,e1=P,e2=P,e3=P;
+    if(C===A && C!==D && A!==B){e0=A;}
+    if(A===B && A!==C && B!==D){e1=B;}
+    if(D===C && D!==B && C!==A){e2=C;}
+    if(B===D && B!==A && D!==C){e3=D;}
+    o[y*2][x*2]=e0; o[y*2][x*2+1]=e1; o[y*2+1][x*2]=e2; o[y*2+1][x*2+1]=e3;
+  }
+  return o;
+}
 function drawSprite(shape, pal, scale){
   const rows = SHAPES[shape];
   const w = rows[0].length, h = rows.length;
-  const c = document.createElement("canvas");
-  c.width = w*scale; c.height = h*scale;
-  const ctx = c.getContext("2d");
-  rows.forEach((row,y)=>{ [...row].forEach((ch,x)=>{
-    const col = pal[ch];
-    if(col){ ctx.fillStyle = col; ctx.fillRect(x*scale, y*scale, scale, scale); }
-  }); });
+  let grid = rows.map(r=>[...r].map(ch=>pal[ch]?ch:null));
+  grid = _scale2x(_scale2x(grid));                    /* 4倍の細かさ */
+  const H2=grid.length, W2=grid[0].length;
+  const colCache={};
+  const px=document.createElement("canvas"); px.width=W2; px.height=H2;
+  const pctx=px.getContext("2d");
+  const id=pctx.createImageData(W2,H2);
+  for(let y=0;y<H2;y++)for(let x=0;x<W2;x++){
+    const ch=grid[y][x]; if(!ch) continue;
+    const base = colCache[ch] || (colCache[ch]=_rgbOf(pal[ch]));
+    let f = 1.10 - 0.26*(y/H2);                       /* 全体：上が明るく下が暗い */
+    const up=y>0?grid[y-1][x]:null, dn=y<H2-1?grid[y+1][x]:null;
+    const lf=x>0?grid[y][x-1]:null, rt=x<W2-1?grid[y][x+1]:null;
+    if(!up) f*=1.22; else if(y>1 && !grid[y-2][x]) f*=1.10;   /* 上縁：強→弱ハイライト */
+    if(!dn) f*=0.74; else if(y<H2-2 && !grid[y+2][x]) f*=0.88; /* 下縁：接地シャドウ */
+    if(!lf) f*=1.08;                                   /* 左縁：リムライト */
+    if(!rt) f*=0.92;                                   /* 右縁：陰 */
+    const i=(y*W2+x)*4;
+    id.data[i]  =Math.max(0,Math.min(255,Math.round(base[0]*f)));
+    id.data[i+1]=Math.max(0,Math.min(255,Math.round(base[1]*f)));
+    id.data[i+2]=Math.max(0,Math.min(255,Math.round(base[2]*f)));
+    id.data[i+3]=255;
+  }
+  pctx.putImageData(id,0,0);
+  const c=document.createElement("canvas");
+  c.width=w*scale; c.height=h*scale;
+  const ctx=c.getContext("2d"); ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(px, 0,0,W2,H2, 0,0,c.width,c.height);
   return c;
 }
 
