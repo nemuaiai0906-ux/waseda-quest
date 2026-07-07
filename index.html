@@ -970,6 +970,12 @@ const MONSTERS = [
   {n:"ジゴクドラゴン",     s:"dragon", el:"dark", p:{a:"#4a3050",b:"#2a1a30",e:"#ff4a4a"}},
   {n:"やみゴーレム",       s:"golem",  el:"dark", p:{a:"#48405a",b:"#2e283a",e:"#b06aff"}},
   {n:"よふかしバンパイア", s:"ghost",  el:"dark", p:{a:"#5a5fae",b:"#3a3f80"}},
+  /* 騎士・鎧系（かっこいい枠） */
+  {n:"さまよう よろい",   s:"armor", el:"none",    p:{a:"#9aa6b8",b:"#5a6478",e:"#7adfff",c:"#c03a3a"}},
+  {n:"ほのおの きし",     s:"armor", el:"fire",    p:{a:"#b05038",b:"#6a2a1a",e:"#ffd24a",c:"#ff8a3c"}},
+  {n:"こおりの きし",     s:"armor", el:"ice",     p:{a:"#8ab8d0",b:"#4a7898",e:"#ffffff",c:"#d8ecf8"}},
+  {n:"らいめいの きし",   s:"armor", el:"thunder", p:{a:"#8a8aa0",b:"#54546c",e:"#ffe24a",c:"#e8cc4a"}},
+  {n:"あんこくの きし",   s:"armor", el:"dark",    p:{a:"#4a4460",b:"#2c2840",e:"#ff4a4a",c:"#8a3ab8"}},
   {n:"あんこくグモ",       s:"blob",   el:"dark", p:{a:"#3a3a5a",b:"#24243a"}},
   /* 状態異常もちの新まもの */
   {n:"どくムカデ",         s:"dragon", el:"dark",    st:"poison", p:{a:"#6a8a3a",b:"#3f5a1f",e:"#b0e030"}},
@@ -1401,7 +1407,9 @@ function spawnMonster(forceBoss){
   state.spawns = (state.spawns||0) + 1;
   /* 稀（10%）にボスが乱入する */
   let boss = !!forceBoss || (mix(TODAY+"rare"+state.spawns)%100 < 10);
-  const pool = boss ? BOSSES : MONSTERS;
+  const pool0 = boss ? BOSSES : MONSTERS;
+  /* スライム型(blob)は出現率を半分に：blob以外を2倍の重みで抽選 */
+  const pool = boss ? pool0 : pool0.flatMap(x=> x.s==="blob" ? [x] : [x,x]);
   let m = pool[mix(TODAY+"m"+state.spawns) % pool.length];
   /* ボスはHP4倍の死闘。そのぶん報酬も特大 */
   const hpMax = Math.round((70 + lv*10) * mult * (boss ? 4 : 1));
@@ -1646,6 +1654,26 @@ function dailyTick(){
    左右対称定義：各行は「左半分＋中央1列」。sym()でミラー展開する */
 function sym(rows){ return rows.map(r => r + [...r.slice(0,-1)].reverse().join("")); }
 const SHAPES = {
+  armor: [
+    ".......kk.......",
+    "......kcck......",
+    "......kcck......",
+    ".....kaaaak.....",
+    "....kaaaaaak....",
+    "....kaaaaaak....",
+    "....kkekkekk....",
+    "....kabkkbak....",
+    ".....kaaaak.....",
+    "..kkkkabbakkkk..",
+    ".kaaakaaaakaaak.",
+    "kaaaakabbakaaaak",
+    "kabbkaabbaakbbak",
+    ".kkk.kabbak.kkk.",
+    ".....kaaaak.....",
+    "....kabkkbak....",
+    "....kabk.kbak...",
+    "....kkkk.kkkk..."
+  ],
   blob: sym([
     "....kkkkk",
     "..kkaaaaa",
