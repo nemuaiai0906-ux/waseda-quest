@@ -971,11 +971,11 @@ const MONSTERS = [
   {n:"やみゴーレム",       s:"golem",  el:"dark", p:{a:"#48405a",b:"#2e283a",e:"#b06aff"}},
   {n:"よふかしバンパイア", s:"ghost",  el:"dark", p:{a:"#5a5fae",b:"#3a3f80"}},
   /* 騎士・鎧系（かっこいい枠） */
-  {n:"さまよう よろい",   s:"armor", el:"none",    p:{a:"#9aa6b8",b:"#5a6478",e:"#7adfff",c:"#c03a3a"}},
-  {n:"ほのおの きし",     s:"armor", el:"fire",    p:{a:"#b05038",b:"#6a2a1a",e:"#ffd24a",c:"#ff8a3c"}},
-  {n:"こおりの きし",     s:"armor", el:"ice",     p:{a:"#8ab8d0",b:"#4a7898",e:"#ffffff",c:"#d8ecf8"}},
-  {n:"らいめいの きし",   s:"armor", el:"thunder", p:{a:"#8a8aa0",b:"#54546c",e:"#ffe24a",c:"#e8cc4a"}},
-  {n:"あんこくの きし",   s:"armor", el:"dark",    p:{a:"#4a4460",b:"#2c2840",e:"#ff4a4a",c:"#8a3ab8"}},
+  {n:"さまよう よろい",   s:"armor", el:"none",    p:{a:"#8a96ac",b:"#4a5468",e:"#7adfff",c:"#c03a3a",l:"#c8d4e4",g:"#c8a03a",s:"#e8f0f8"}},
+  {n:"ほのおの きし",     s:"armor", el:"fire",    p:{a:"#a04830",b:"#5a2415",e:"#ffd24a",c:"#ff8a3c",l:"#d88a60",g:"#d8a83c",s:"#ffe8c8"}},
+  {n:"こおりの きし",     s:"armor", el:"ice",     p:{a:"#7aa8c4",b:"#3a688a",e:"#ffffff",c:"#d8ecf8",l:"#c8e4f0",g:"#a8c8d8",s:"#f0f8ff"}},
+  {n:"らいめいの きし",   s:"armor", el:"thunder", p:{a:"#7a7a92",b:"#46465c",e:"#ffe24a",c:"#e8cc4a",l:"#b8b8cc",g:"#d8b83a",s:"#f0f0d8"}},
+  {n:"あんこくの きし",   s:"armor", el:"dark",    p:{a:"#423c58",b:"#252138",e:"#ff4a4a",c:"#8a3ab8",l:"#6a6288",g:"#8a6a2a",s:"#c8b8d8"}},
   {n:"あんこくグモ",       s:"blob",   el:"dark", p:{a:"#3a3a5a",b:"#24243a"}},
   /* 状態異常もちの新まもの */
   {n:"どくムカデ",         s:"dragon", el:"dark",    st:"poison", p:{a:"#6a8a3a",b:"#3f5a1f",e:"#b0e030"}},
@@ -1655,24 +1655,38 @@ function dailyTick(){
 function sym(rows){ return rows.map(r => r + [...r.slice(0,-1)].reverse().join("")); }
 const SHAPES = {
   armor: [
-    ".......kk.......",
-    "......kcck......",
-    "......kcck......",
-    ".....kaaaak.....",
-    "....kaaaaaak....",
-    "....kaaaaaak....",
-    "....kkekkekk....",
-    "....kabkkbak....",
-    ".....kaaaak.....",
-    "..kkkkabbakkkk..",
-    ".kaaakaaaakaaak.",
-    "kaaaakabbakaaaak",
-    "kabbkaabbaakbbak",
-    ".kkk.kabbak.kkk.",
-    ".....kaaaak.....",
-    "....kabkkbak....",
-    "....kabk.kbak...",
-    "....kkkk.kkkk..."
+    "............kkkccckk................",
+    "...........kcccccccck...............",
+    "...........kccccccccck............kk",
+    "............kkkccccccck..........kss",
+    "...............kalccclak........ksss",
+    "..............kalllclllak......kssss",
+    "..............klllllllllk......ksskk",
+    "..............kalllllllak.....ksssk.",
+    "...........k.kaaalllllaaak.k.ksssk..",
+    ".........kklkkbbeebbbeebbkklkkssk...",
+    "........klllllbbbbbbbbbbbllllsssk...",
+    ".......kalllllggggggggggglllsssk....",
+    ".......klllllllkaaaaaaakllllsslk....",
+    "......kaalllllaalllalllaallgggaak...",
+    ".....kkkglllllalllllllllalggggak....",
+    "....kgggagggbaalllllllllaaggsbak....",
+    "...kgaaaaaaagaaalllllllaaaggbbk.....",
+    "..kgaaaabaaaagaaaaalaaaaaabbbbk.....",
+    "..kgaabbbbbaagaaaaaaaaaaakbbbbk.....",
+    "..kgaabllbbaagaaaaaaaaaaakbbbbk.....",
+    ".kgaabbbbbbbaaggggggggggakkkkk......",
+    "..kgaabbbbbaagkaaaaaaaaak...........",
+    "..kgaabbbbbaagkaaaaaaaaak...........",
+    "..kgaaaabaaaagkaaaaaaaaak...........",
+    "...kgaaaaaaagkkaaakkkaaak...........",
+    "....kgggagggk.kaaak.kaaak...........",
+    ".....kkkgkkk..kaaak.kaaak...........",
+    "........k.....kaaak.kaaak...........",
+    ".............kbbbbbkbbbbbk..........",
+    ".............kbbbbbkbbbbbk..........",
+    ".............kbbbbbkbbbbbk..........",
+    "..............kkkkk.kkkkk..........."
   ],
   blob: sym([
     "....kkkkk",
@@ -3494,11 +3508,11 @@ function drawSprites(){
       if(shadow){ shadow.style.width = Math.round(dw*0.46) + "px"; shadow.style.height = Math.round(h*0.05) + "px"; shadow.style.margin = "-4px auto 0"; }
     }else{
       const pal = Object.assign({k:"#10131f"}, currentMonster.p);
-      const spr = drawSprite(currentMonster.s, pal, is3d?7:11);
+      const shpR=SHAPES[currentMonster.s]; const spr = drawSprite(currentMonster.s, pal, Math.max(3, Math.round((is3d?95:158)/shpR.length)));
       wrap.insertBefore(spr, wrap.firstChild);
       (state.packExtra||[]).slice(0,2).forEach((ex,i)=>{
         const d=document.createElement("div"); d.className="sprite-extra"; d.onclick=()=>targetSwap(i);
-        d.appendChild(drawSprite(ex.s, Object.assign({k:"#10131f"}, ex.p), 6));
+        d.appendChild(drawSprite(ex.s, Object.assign({k:"#10131f"}, ex.p), Math.max(2, Math.round(88/SHAPES[ex.s].length))));
         if(i===0) wrap.parentElement.insertBefore(d, wrap); else wrap.parentElement.appendChild(d);
       });
       if(shadow){ shadow.style.width=""; shadow.style.height=""; shadow.style.margin=""; }
