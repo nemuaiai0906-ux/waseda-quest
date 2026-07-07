@@ -342,10 +342,21 @@
   @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
   .m-shadow{display:none}
   .mode3d .m-shadow{display:block;width:110px;height:18px;background:rgba(0,0,30,.35);border-radius:50%;margin:-8px auto 0;filter:blur(2px)}
-  .sprite-wrap.hitflash canvas,.sprite-wrap.hitflash img.enemy-illust{animation:flick .35s steps(2) 2}
+  .sprite-wrap.hitflash canvas,.sprite-wrap.hitflash img.enemy-illust{animation:flick .35s steps(2) 2, knockE .5s ease-out}
+  @keyframes knockE{0%{translate:0 0}30%{translate:26px -4px}55%{translate:12px 0}100%{translate:0 0}}
+  .sprite-wrap.casting canvas,.sprite-wrap.casting img.enemy-illust{animation:castP .38s ease-in-out infinite alternate}
+  @keyframes castP{from{filter:brightness(1) drop-shadow(0 0 0 rgba(160,80,255,0))}to{filter:brightness(1.35) drop-shadow(0 0 18px rgba(160,80,255,.85))}}
   @keyframes flick{0%{opacity:1;filter:brightness(3)}50%{opacity:.2}100%{opacity:1;filter:none}}
   .sprite-wrap.dead canvas,.sprite-wrap.dead img.enemy-illust{animation:vanish 1s forwards}
   @keyframes vanish{0%{opacity:1}100%{opacity:0;transform:translateY(8px) scaleY(.6)}}
+  /* 2Dイラスト敵は 地面に溶け崩れて消える（transform-origin=足元） */
+  .mode2d .sprite-wrap.dead canvas.enemy-anim,.mode2d .sprite-wrap.dead img.enemy-illust{
+    transform-origin:50% 100%;animation:meltE 1.1s ease-in forwards}
+  @keyframes meltE{
+    0%{transform:scaleY(1) scaleX(1);opacity:1;filter:brightness(1)}
+    30%{transform:scaleY(.82) scaleX(1.06);opacity:1;filter:brightness(1.6)}
+    70%{transform:scaleY(.28) scaleX(1.3);opacity:.75;filter:brightness(.8) blur(1px)}
+    100%{transform:scaleY(.04) scaleX(1.55);opacity:0;filter:brightness(.5) blur(3px)}}
 
   /* 3D パーティ（後ろ姿・手前ほど大きく） */
   .mode3d .party3d{display:flex;position:absolute;bottom:10px;left:0;right:0;justify-content:center;gap:30px;z-index:3}
@@ -3172,6 +3183,41 @@ function flashEnemy(){
   sw.classList.remove("hitflash"); void sw.offsetWidth; sw.classList.add("hitflash");
   setTimeout(()=>sw.classList.remove("hitflash"), 720);
 }
+/* 敵の物理攻撃：主人公めがけて突進→接触の瞬間にonHit（ダメージ）→戻る。
+   味方playAttackと同じ「接触＝ダメージ」方式でズレない */
+let enemyAtkRAF=null;
+function playEnemyAttack(onHit){
+  let fired=false; const fire=()=>{ if(!fired){ fired=true; try{ onHit&&onHit(); }catch(e){} } };
+  const sw=document.getElementById("spriteWrap");
+  if(state.settings.mode==="3d" && GL){ GL.lungeT=.45; setTimeout(fire,200); return; }
+  if(!sw){ fire(); return; }
+  if(enemyAtkRAF){ cancelAnimationFrame(enemyAtkRAF); enemyAtkRAF=null; sw.style.transform=""; }
+  const bv=document.getElementById("battleView");
+  const dx=-Math.round((bv.clientWidth||320)*0.40);   /* 主人公の手前まで踏み込む */
+  const inD=380, hold=100, outD=380;
+  const t0=performance.now();
+  function loop(now){
+    const el=now-t0;
+    if(el<inD){                                   /* 溜め→加速して突進 */
+      const p=el/inD, e=p*p*p;
+      sw.style.transform=`translateX(${Math.round(dx*e)}px) scale(${1+0.06*p})`;
+      enemyAtkRAF=requestAnimationFrame(loop);
+    }else if(el<inD+hold){                        /* 接触：ここでダメージ発火 */
+      sw.style.transform=`translateX(${dx}px) scale(1.06)`;
+      fire();
+      enemyAtkRAF=requestAnimationFrame(loop);
+    }else if(el<inD+hold+outD){                   /* ぼよんと戻る */
+      const p=(el-inD-hold)/outD, e=1-(1-p)*(1-p);
+      sw.style.transform=`translateX(${Math.round(dx*(1-e))}px) scale(${1.06-0.06*e})`;
+      enemyAtkRAF=requestAnimationFrame(loop);
+    }else{
+      sw.style.transform=""; enemyAtkRAF=null;
+    }
+  }
+  enemyAtkRAF=requestAnimationFrame(loop);
+  /* rAFが止まる環境（非表示タブ等）でも ダメージだけは確実に発火 */
+  setTimeout(fire, inD+hold+60);
+}
 function renderFieldHero(force){
   const fh=document.getElementById("fieldHero");
   if(!fh || !costumesReady || attackRAF) return;
@@ -3717,7 +3763,9 @@ function counterAttack(){
     const spName = ENEMY_SPELL[m.el||"none"][m.boss?1:0];
     msg(`${m.n}は ${spName}を となえた！`, true);
     sfxEnemySpell();
+    const swC=document.getElementById("spriteWrap"); if(swC) swC.classList.add("casting");   /* 詠唱グロー */
     setTimeout(()=>{
+      if(swC) swC.classList.remove("casting");
       if(!state.monster) return;
       let dmg = Math.round((9 + lv*2.2) * (m.boss?2.0:1) * (0.85 + Math.random()*0.4) * res);
       /* 敵の魔力暴走（8%）：呪文ダメージ2〜2.5倍 */
@@ -3736,7 +3784,9 @@ function counterAttack(){
     /* じこかいふく */
     msg(`${m.n}は ホイミを となえた！`, true);
     sfxEnemySpell();
+    const swH=document.getElementById("spriteWrap"); if(swH) swH.classList.add("casting");
     setTimeout(()=>{
+      if(swH) swH.classList.remove("casting");
       if(!state.monster) return;
       const heal = Math.round(m.hpMax*0.18);
       m.hp = Math.min(m.hpMax, m.hp + heal);
@@ -3759,10 +3809,13 @@ function counterAttack(){
       sfxPainful();
       msg("💢 つうこんの いちげき！！", true);
     }
-    counterAnim();
-    const wasAstron = state.astron;
-    playerDamage(dmg, `${m.n}の はんげき！ きみに ${dmg}の ダメージ！${def>0?`（よろいが ${def}けいげん）`:""}`);
-    if(!wasAstron && state.hp>0) maybeInflict();
+    playEnemyAttack(()=>{                 /* 突進→接触の瞬間にダメージ＆衝撃 */
+      if(!state.monster) return;
+      counterAnim();
+      const wasAstron = state.astron;
+      playerDamage(dmg, `${m.n}の はんげき！ きみに ${dmg}の ダメージ！${def>0?`（よろいが ${def}けいげん）`:""}`);
+      if(!wasAstron && state.hp>0) maybeInflict();
+    });
   }
 }
 
@@ -3808,26 +3861,24 @@ function bossEntrance(){
         sfxPainful();
         msg("💢 つうこんの いちげき！！", true);
       }
-      counterAnim();
-      const wasAstron = state.astron;
-      playerDamage(dmg, `${m.n}の いかくの いちげき！ きみに ${dmg}の ダメージ！${def>0?`（よろいが ${def}けいげん）`:""}`);
-      if(!wasAstron && state.hp>0) maybeInflict();
+      playEnemyAttack(()=>{
+        if(!state.monster) return;
+        counterAnim();
+        const wasAstron = state.astron;
+        playerDamage(dmg, `${m.n}の いかくの いちげき！ きみに ${dmg}の ダメージ！${def>0?`（よろいが ${def}けいげん）`:""}`);
+        if(!wasAstron && state.hp>0) maybeInflict();
+      });
     }
   }, 1000);
 }
 function counterAnim(){
+  /* 接触の衝撃のみ（突進モーションは playEnemyAttack が担当） */
   sfxEnemyHit();
   const bv = document.getElementById("battleView");
   bv.classList.remove("shake","redflash"); void bv.offsetWidth;
   bv.classList.add("shake","redflash");
   setTimeout(()=>bv.classList.remove("redflash"), 450);
-  if(state.settings.mode==="3d" && GL){
-    GL.lungeT = .45;
-  }else{
-    const sw = document.getElementById("spriteWrap");
-    sw.classList.remove("lunge"); void sw.offsetWidth; sw.classList.add("lunge");
-    setTimeout(()=>sw.classList.remove("lunge"), 500);
-  }
+  if(state.settings.mode==="3d" && GL) GL.lungeT = .45;
 }
 
 /* 👑 ボス限定ドロップ：いまのレベルに見合った装備だけ ドロップする */
