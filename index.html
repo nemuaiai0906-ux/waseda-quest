@@ -233,20 +233,19 @@
 
   /* 2D背景：イラスト戦闘背景（フィールド全体をcoverで覆う） */
   .bg-illust{display:none}
-  .mode2d .bg-illust{display:block;position:absolute;inset:0;z-index:0;
-    background:url(assets/battle_bg_field.png) center 38%/cover no-repeat}
-  /* コードで描いていた空・草原・雲は2Dでは非表示（イラストに置換）*/
+  /* ドラクエ風2D：背景は真っ黒（イラスト背景・空・草原はすべて非表示） */
+  .mode2d .bg-illust{display:none}
   .mode2d .bg-sky,.mode2d .sun,.mode2d .mtn,.mode2d .bg-ground,.mode2d .fog,.mode2d .cloud{display:none}
+  .mode2d .battle,.mode2d #battleView{background:#000}
 
-  /* 2D：FFBE風 横構図（主人公=左／敵=右／手前の地面に立たせる） */
-  .mode2d .stage{align-items:flex-end;justify-content:flex-end;padding:0}
-  /* 敵も味方と同じ「高さ基準のbottom」で接地（paddingは幅基準でアス比により浮くため絶対配置に）*/
-  .mode2d .sprite-wrap{position:absolute;right:5%;bottom:12.5%;left:auto}
+  /* 2D：敵は中央に横並び（群れは左右に並ぶ） */
+  .mode2d .stage{align-items:flex-end;justify-content:center;gap:3%;padding:0 0 13% 0}
   .mode2d .party3d{display:none}
-  .mode2d .m-shadow{display:block;width:84px;height:13px;background:rgba(0,0,30,.26);border-radius:50%;margin:-6px auto 0;filter:blur(2px)}
+  .mode2d .m-shadow{display:none}
   /* フィールド上の主人公（左・足元を地面ラインに） */
   .field-hero{display:none}
-  .mode2d .field-hero{display:block;position:absolute;left:3%;bottom:15%;width:40%;max-width:250px;height:52%;z-index:3;
+  /* ドラクエ風：フィールドに主人公は表示しない（ステータスカードの立ち絵のみ） */
+  .mode2d .field-hero{display:none;position:absolute;left:3%;bottom:15%;width:40%;max-width:250px;height:52%;z-index:3;
     transition:transform .16s ease-out;will-change:transform}
   .mode2d .field-hero img.hero-portrait,.mode2d .field-hero canvas.fh-idle{object-fit:contain;object-position:center bottom}
   .mode2d .field-hero canvas.cp-anim,.mode2d .field-hero canvas.fh-idle{position:absolute;inset:0;width:100%;height:100%}
@@ -332,6 +331,9 @@
   .stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:2}
   .mode3d .stage{align-items:flex-end;padding-bottom:92px}
   .sprite-wrap{position:relative;text-align:center}
+  .sprite-extra{cursor:pointer;opacity:.95;align-self:flex-end}
+  .sprite-extra canvas,.sprite-extra img{display:block;margin:0 auto;image-rendering:pixelated}
+  .sprite-extra canvas.enemy-anim,.sprite-extra img.enemy-illust{image-rendering:auto}
   .sprite-wrap canvas{display:block;margin:0 auto;image-rendering:pixelated}
   /* イラスト敵の待機アニメcanvas（ドット化させず高画質・影つき） */
   .sprite-wrap canvas.enemy-anim{image-rendering:auto;filter:drop-shadow(0 5px 6px rgba(0,0,30,.4))}
@@ -357,12 +359,8 @@
     30%{transform:scaleY(.82) scaleX(1.06);opacity:1;filter:brightness(1.6)}
     70%{transform:scaleY(.28) scaleX(1.3);opacity:.75;filter:brightness(.8) blur(1px)}
     100%{transform:scaleY(.04) scaleX(1.55);opacity:0;filter:brightness(.5) blur(3px)}}
-  /* あいぼう（色違いの相棒。主人公の左奥に小さく） */
-  .mode2d #allyHero{position:absolute;left:25%;bottom:23%;height:33%;z-index:2;
-    filter:hue-rotate(165deg) saturate(.85);pointer-events:none}
-  .mode2d #allyHero img{height:100%;width:auto;animation:bob 3.4s ease-in-out infinite;
-    filter:drop-shadow(0 3px 3px rgba(0,0,30,.35))}
-  .mode3d #allyHero,.glmode #allyHero,.shopmode.battle #allyHero{display:none!important}
+  /* あいぼうはドラクエ風2Dでは非表示（システムごと休止中） */
+  #allyHero{display:none!important}
   /* 必殺ゲージ */
   .cp-gauge.limit div{background:linear-gradient(90deg,#c88a2a,#ffd24a);height:100%;border-radius:inherit;transition:width .4s}
   #limitRow.full .cp-gauge.limit div{background:linear-gradient(90deg,#ffd24a,#fff2b0);animation:limitGlow .7s ease-in-out infinite alternate}
@@ -1404,9 +1402,6 @@ function spawnMonster(forceBoss){
   let boss = !!forceBoss || (mix(TODAY+"rare"+state.spawns)%100 < 10);
   const pool = boss ? BOSSES : MONSTERS;
   let m = pool[mix(TODAY+"m"+state.spawns) % pool.length];
-  /* 【一旦】モンスターは「ヘドロスライム」のみ表示（テスト用・この3行を消せば元通り）*/
-  const onlyHedoro = MONSTERS.find(x=>x.n==="ヘドロスライム");
-  if(onlyHedoro){ m = onlyHedoro; boss = false; }
   /* ボスはHP4倍の死闘。そのぶん報酬も特大 */
   const hpMax = Math.round((70 + lv*10) * mult * (boss ? 4 : 1));
   state.monster = { n:m.n, s:m.s, p:m.p, el:m.el||"none", st:m.st||null, hp:hpMax, hpMax:hpMax, boss:boss, fresh:true };
@@ -3131,7 +3126,7 @@ function playAttack(onHit){
   const c = costumeMap[currentCostumeId];
   let fired = false;
   const fire = ()=>{ if(!fired){ fired=true; try{ onHit && onHit(); }catch(e){} } };
-  if(!hero || state.settings.mode==="3d" || getComputedStyle(hero).display==="none"){ setTimeout(fire, 180); return; }
+  if(!hero || state.settings.mode==="3d" || getComputedStyle(hero).display==="none"){ setTimeout(fire, 420); return; }
   const battle = document.getElementById("battleView");
   const dx = Math.round((battle.clientWidth||320) * 0.46);   /* 敵の手前までの距離 */
   const setX = (x)=>{ hero.style.transform = `translateX(${x}px) scale(1.05)`; };
@@ -3238,7 +3233,7 @@ function playEnemyAttack(onHit){
   if(!sw){ fire(); return; }
   if(enemyAtkRAF){ cancelAnimationFrame(enemyAtkRAF); enemyAtkRAF=null; sw.style.transform=""; }
   const bv=document.getElementById("battleView");
-  const dx=-Math.round((bv.clientWidth||320)*0.40);   /* 主人公の手前まで踏み込む */
+  const dx=-Math.round((bv.clientWidth||320)*0.20);   /* 中央配置なので手前へ小さく踏み込む */
   const inD=380, hold=100, outD=380;
   const t0=performance.now();
   function loop(now){
@@ -3387,15 +3382,14 @@ function drawSprites(){
       const main = mkCv(h);
       wrap.insertBefore(main.cv, wrap.firstChild);
       layers.push({...main, off:0});
-      /* 群れの残り：奥に小さく（タップでターゲット切り替え） */
-      const EX_POS = [{right:"27%", bottom:"15.5%", s:0.72, z:1}, {right:"6%", bottom:"20.5%", s:0.55, z:0}];
+      /* 群れの残り：ドラクエ風に左右へ横並び（タップでターゲット切り替え） */
       (state.packExtra||[]).slice(0,2).forEach((ex,i)=>{
-        const pos=EX_POS[i]; const exl=mkCv(Math.round(h*pos.s));
+        const exl=mkCv(Math.round(h*0.7));
         const d=document.createElement("div"); d.className="sprite-extra";
-        d.style.cssText=`position:absolute;right:${pos.right};bottom:${pos.bottom};z-index:${pos.z};cursor:pointer;opacity:.93`;
-        d.appendChild(exl.cv);
         d.onclick=()=>targetSwap(i);
-        wrap.parentElement.appendChild(d);
+        d.appendChild(exl.cv);
+        if(i===0) wrap.parentElement.insertBefore(d, wrap);
+        else wrap.parentElement.appendChild(d);
         layers.push({...exl, off:(i+1)*5});
       });
       const t0 = performance.now();
@@ -3416,21 +3410,25 @@ function drawSprites(){
       im.className = "enemy-illust"; im.alt = currentMonster.n;
       im.src = art.img.src; im.style.height = h + "px"; im.style.width = "auto";
       wrap.insertBefore(im, wrap.firstChild);
+      (state.packExtra||[]).slice(0,2).forEach((ex,i)=>{
+        const d=document.createElement("div"); d.className="sprite-extra"; d.onclick=()=>targetSwap(i);
+        const im2=document.createElement("img"); im2.className="enemy-illust"; im2.src=art.img.src; im2.style.height=Math.round(h*0.7)+"px"; im2.style.width="auto";
+        d.appendChild(im2);
+        if(i===0) wrap.parentElement.insertBefore(d, wrap); else wrap.parentElement.appendChild(d);
+      });
       if(shadow){ shadow.style.width = Math.round(dw*0.46) + "px"; shadow.style.height = Math.round(h*0.05) + "px"; shadow.style.margin = "-4px auto 0"; }
     }else{
       const pal = Object.assign({k:"#10131f"}, currentMonster.p);
       const spr = drawSprite(currentMonster.s, pal, is3d?7:11);
       wrap.insertBefore(spr, wrap.firstChild);
+      (state.packExtra||[]).slice(0,2).forEach((ex,i)=>{
+        const d=document.createElement("div"); d.className="sprite-extra"; d.onclick=()=>targetSwap(i);
+        d.appendChild(drawSprite(ex.s, Object.assign({k:"#10131f"}, ex.p), 6));
+        if(i===0) wrap.parentElement.insertBefore(d, wrap); else wrap.parentElement.appendChild(d);
+      });
       if(shadow){ shadow.style.width=""; shadow.style.height=""; shadow.style.margin=""; }
     }
   }
-  /* ⚔ あいぼう（色違いの相棒）を左奥に表示（2D・魔物がいるときだけ） */
-  let allyEl = document.getElementById("allyHero");
-  if(!allyEl){ allyEl = document.createElement("div"); allyEl.id = "allyHero"; document.getElementById("battleView").appendChild(allyEl); }
-  if(!allyEl.firstChild && costumesReady && costumeMap.base){
-    const ai = document.createElement("img"); ai.src = "assets/characters/" + costumeMap.base.file; allyEl.appendChild(ai);
-  }
-  allyEl.style.display = (!is3d && currentMonster) ? "" : "none";
   const party = document.getElementById("party3d");
   party.innerHTML = "";
   if(!is3d){
@@ -3708,8 +3706,6 @@ function toggle(task){
         }else{
           statusTurn();
           maybeCounter(final);
-          /* ⚔ あいぼうの追撃（35%） */
-          if(Math.random() < 0.35) setTimeout(()=>allyFollowup(final, beforeLv), 650);
         }
       });
     }else{
