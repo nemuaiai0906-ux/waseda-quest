@@ -357,6 +357,30 @@
     30%{transform:scaleY(.82) scaleX(1.06);opacity:1;filter:brightness(1.6)}
     70%{transform:scaleY(.28) scaleX(1.3);opacity:.75;filter:brightness(.8) blur(1px)}
     100%{transform:scaleY(.04) scaleX(1.55);opacity:0;filter:brightness(.5) blur(3px)}}
+  /* あいぼう（色違いの相棒。主人公の左奥に小さく） */
+  .mode2d #allyHero{position:absolute;left:25%;bottom:23%;height:33%;z-index:2;
+    filter:hue-rotate(165deg) saturate(.85);pointer-events:none}
+  .mode2d #allyHero img{height:100%;width:auto;animation:bob 3.4s ease-in-out infinite;
+    filter:drop-shadow(0 3px 3px rgba(0,0,30,.35))}
+  .mode3d #allyHero,.glmode #allyHero,.shopmode.battle #allyHero{display:none!important}
+  /* 必殺ゲージ */
+  .cp-gauge.limit div{background:linear-gradient(90deg,#c88a2a,#ffd24a);height:100%;border-radius:inherit;transition:width .4s}
+  #limitRow.full .cp-gauge.limit div{background:linear-gradient(90deg,#ffd24a,#fff2b0);animation:limitGlow .7s ease-in-out infinite alternate}
+  #limitRow.full .cp-num{color:#ffd24a;text-shadow:0 0 8px rgba(255,210,74,.8)}
+  @keyframes limitGlow{from{box-shadow:0 0 3px #ffd24a}to{box-shadow:0 0 14px #ffe98a}}
+  /* コンボ表示 */
+  .comboPop{position:absolute;top:16%;right:7%;z-index:6;pointer-events:none;
+    font-size:21px;font-weight:bold;color:#ffd24a;-webkit-text-stroke:1px #7a4a00;
+    text-shadow:0 2px 0 #7a4a00,0 0 12px rgba(255,180,40,.7);animation:comboA .95s ease-out forwards}
+  @keyframes comboA{0%{transform:scale(.4);opacity:0}18%{transform:scale(1.25);opacity:1}38%{transform:scale(1)}100%{transform:scale(1) translateY(-16px);opacity:0}}
+  /* 必殺カットイン */
+  .lbCut{position:absolute;inset:0;z-index:7;display:flex;align-items:center;justify-content:center;pointer-events:none;
+    background:linear-gradient(100deg,transparent 22%,rgba(20,10,60,.82) 38%,rgba(20,10,60,.82) 62%,transparent 78%);
+    animation:lbBG .9s ease-out forwards}
+  .lbCut span{font-size:26px;font-weight:bold;color:#fff;-webkit-text-stroke:1px #2a1a70;
+    text-shadow:0 0 18px #7fb4ff,0 0 34px #ffd24a;animation:lbTxt .9s cubic-bezier(.2,.9,.3,1) forwards}
+  @keyframes lbBG{0%{opacity:0}12%{opacity:1}80%{opacity:1}100%{opacity:0}}
+  @keyframes lbTxt{0%{transform:translateX(-70vw) skewX(-12deg)}22%{transform:translateX(0) skewX(-12deg)}70%{transform:translateX(6px) skewX(-12deg)}100%{transform:translateX(70vw) skewX(-12deg)}}
 
   /* 3D パーティ（後ろ姿・手前ほど大きく） */
   .mode3d .party3d{display:flex;position:absolute;bottom:10px;left:0;right:0;justify-content:center;gap:30px;z-index:3}
@@ -588,6 +612,7 @@
         <div class="cp-name"><span id="cpName">しゅじんこう</span><span class="cp-lv" id="cpLv">Lv1</span></div>
         <div class="cp-bar"><span class="cp-tag">HP</span><div class="cp-gauge hp"><div id="cpHpFill" style="width:100%"></div></div><span class="cp-num" id="cpHpNum">-</span></div>
         <div class="cp-bar"><span class="cp-tag">MP</span><div class="cp-gauge mp"><div id="cpMpFill" style="width:100%"></div></div><span class="cp-num" id="cpMpNum">-</span></div>
+        <div class="cp-bar" id="limitRow"><span class="cp-tag">⚡</span><div class="cp-gauge limit"><div id="limitFill" style="width:0%"></div></div><span class="cp-num" id="limitNum">ひっさつ</span></div>
         <div class="cp-cmds">
           <div class="cmd" onclick="cmdFight()">たたかう</div>
           <div class="cmd" onclick="openModal('spellModal')">じゅもん</div>
@@ -3238,6 +3263,38 @@ function playEnemyAttack(onHit){
   /* rAFが止まる環境（非表示タブ等）でも ダメージだけは確実に発火 */
   setTimeout(fire, inD+hold+60);
 }
+/* ===== コンボ（連続ヒットで加算・被弾/ミスでリセット。表示のみ） ===== */
+let combo = 0;
+/* ⚔ あいぼうの追撃：主人公の攻撃後、35%でダッシュ→体当たり（本体ダメージの25%） */
+function allyFollowup(baseDmg, beforeLv){
+  if(!state.monster || state.monster.hp<=0 || shopOpen) return;
+  const d = Math.max(1, Math.round(baseDmg*0.25));
+  const ally = document.getElementById("allyHero");
+  if(ally && state.settings.mode!=="3d" && ally.style.display!=="none"){
+    const bv=document.getElementById("battleView");
+    const dx=Math.round((bv.clientWidth||320)*0.40);
+    ally.style.transition="transform .3s cubic-bezier(.5,0,1,1)";
+    ally.style.transform=`translateX(${dx}px)`;
+    setTimeout(()=>{ ally.style.transition="transform .34s ease-out"; ally.style.transform="translateX(0)"; }, 430);
+  }
+  setTimeout(()=>{
+    if(!state.monster || state.monster.hp<=0) return;
+    attackAnim(d);
+    state.monster.hp -= d;
+    msg(`⚔ あいぼうの ついげき！ ${state.monster.n}に ${d}の ダメージ！`, true);
+    save(); render();
+    if(state.monster.hp <= 0) setTimeout(()=>killMonster(beforeLv), 600);
+  }, 320);
+}
+/* ⚡ 必殺発動のカットイン演出 */
+function limitBreakFx(){
+  sfxCrit();
+  const bv=document.getElementById("battleView");
+  const d=document.createElement("div"); d.className="lbCut";
+  d.innerHTML="<span>⚡ ひっさつ！ ブレイブスラッシュ！！</span>";
+  bv.appendChild(d); setTimeout(()=>d.remove(), 950);
+  msg("⚡ ひっさつ！ ブレイブスラッシュ！！", true);
+}
 function renderFieldHero(force){
   const fh=document.getElementById("fieldHero");
   if(!fh || !costumesReady || attackRAF) return;
@@ -3367,6 +3424,13 @@ function drawSprites(){
       if(shadow){ shadow.style.width=""; shadow.style.height=""; shadow.style.margin=""; }
     }
   }
+  /* ⚔ あいぼう（色違いの相棒）を左奥に表示（2D・魔物がいるときだけ） */
+  let allyEl = document.getElementById("allyHero");
+  if(!allyEl){ allyEl = document.createElement("div"); allyEl.id = "allyHero"; document.getElementById("battleView").appendChild(allyEl); }
+  if(!allyEl.firstChild && costumesReady && costumeMap.base){
+    const ai = document.createElement("img"); ai.src = "assets/characters/" + costumeMap.base.file; allyEl.appendChild(ai);
+  }
+  allyEl.style.display = (!is3d && currentMonster) ? "" : "none";
   const party = document.getElementById("party3d");
   party.innerHTML = "";
   if(!is3d){
@@ -3440,6 +3504,14 @@ function render(){
   document.body.classList.toggle("dying", hpRatio <= 0.2);
   document.getElementById("pHpNum").textContent = state.hp + "/" + maxHp(li.lv);
   document.getElementById("pMpFill").style.width = (state.mp/maxMp(li.lv)*100)+"%";
+  /* ⚡ 必殺ゲージ */
+  const limNow = Math.min(100, state.limit||0);
+  const lr = document.getElementById("limitRow");
+  if(lr){
+    document.getElementById("limitFill").style.width = limNow+"%";
+    lr.classList.toggle("full", limNow>=100);
+    document.getElementById("limitNum").textContent = limNow>=100 ? "MAX!" : "ひっさつ";
+  }
   document.getElementById("pMpNum").textContent = state.mp + "/" + maxMp(li.lv);
   /* FF風キャラパネル（立ち絵＋HP/MP）も同期 */
   const cpHp=document.getElementById("cpHpFill");
@@ -3605,6 +3677,7 @@ function toggle(task){
         /* ミス（5%）：攻撃が空振り */
         if(roll < 0.05){
           missDodge();
+          combo = 0;   /* 空振りでコンボ途切れ */
           msg(`ミス！ ${state.monster.n}に ひらりと かわされた！`, true);
           statusTurn(); save(); render();
           return;
@@ -3618,6 +3691,12 @@ function toggle(task){
         }
         /* 🔥 やけど：あたえるダメージが へる（重症ほど 大きく） */
         if(state.ailments.burn) final = Math.max(1, Math.round(final * (state.ailments.burn>=2 ? 0.5 : 0.7)));
+        /* ⚡ 必殺ゲージMAX：このこうげきが ひっさつ技に（ダメージ2倍） */
+        if((state.limit||0) >= 100){
+          state.limit = 0;
+          final = Math.round(final * 2);
+          limitBreakFx();
+        }
         attackAnim(final);
         state.monster.hp -= final;
         if(mult > 1) msg(`${EL_ICON[wEl]}こうかは ばつぐんだ！`, true);
@@ -3629,6 +3708,8 @@ function toggle(task){
         }else{
           statusTurn();
           maybeCounter(final);
+          /* ⚔ あいぼうの追撃（35%） */
+          if(Math.random() < 0.35) setTimeout(()=>allyFollowup(final, beforeLv), 650);
         }
       });
     }else{
@@ -3722,6 +3803,8 @@ function playerDamage(dmg, text){
     text += "（まもりで はんげん！）";
   }
   state.hp = Math.max(0, state.hp - dmg);
+  combo = 0;                                          /* 被弾でコンボ途切れ */
+  state.limit = Math.min(100, (state.limit||0) + 15); /* くらった痛みで必殺ゲージが たまる */
   msg(text, true);
   if(state.hp <= 0){
     deathSequence();
@@ -4113,6 +4196,13 @@ function burstParticles(emojis, count, up, size){
 function attackAnim(dmg, fx){
   sfxHit();
   const bv = document.getElementById("battleView");
+  /* コンボ加算＋必殺ゲージ蓄積（ヒットごと+12） */
+  combo++;
+  state.limit = Math.min(100, (state.limit||0) + 12);
+  if(combo >= 2){
+    const cp=document.createElement("div"); cp.className="comboPop"; cp.textContent=`🔥 ${combo} COMBO!`;
+    bv.appendChild(cp); setTimeout(()=>cp.remove(), 960);
+  }
   const gl3d = state.settings.mode==="3d" && GL;
   const elem = fx && SPELL_FX[fx] ? fx : null;   /* fx=属性キー / 無ければ物理 */
   bv.classList.remove("shake","whiteflash"); void bv.offsetWidth;
