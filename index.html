@@ -605,7 +605,6 @@
 
     <!-- FF風 バトルパネル（立ち絵1/4 ＋ 右3/4にHP/MP・コマンド） -->
     <div class="dqwin charpanel" id="charPanel">
-      <div class="cp-portrait portrait-frame" id="cpPortrait" data-portrait="current"></div>
       <div class="cp-right">
         <div class="cp-name"><span id="cpName">しゅじんこう</span><span class="cp-lv" id="cpLv">Lv1</span></div>
         <div class="cp-bar"><span class="cp-tag">HP</span><div class="cp-gauge hp"><div id="cpHpFill" style="width:100%"></div></div><span class="cp-num" id="cpHpNum">-</span></div>
@@ -3364,7 +3363,7 @@ function drawSprites(){
   const is3d = state.settings.mode==="3d";
   const shadow = wrap.querySelector(".m-shadow");
   if(currentMonster){
-    const art = !is3d ? enemyArt(currentMonster.n) : null;
+    const art = null;   /* ドラクエ風2D：敵はすべてドット絵に統一（イラスト敵は使わない） */
     const hasIdle = art && art.idleMeta && art.idleImg && art.idleImg.complete && art.idleImg.naturalWidth;
     if(hasIdle){
       /* イラスト敵の待機アニメ（その場でドロドロ揺れる・静止画と同じ位置/サイズ）*/
@@ -3523,8 +3522,6 @@ function render(){
     document.getElementById("cpMpNum").textContent=state.mp+"/"+mmp;
     document.getElementById("cpName").textContent=titleFor(li.lv);
     document.getElementById("cpLv").textContent="Lv"+li.lv;
-    const cpP=document.getElementById("cpPortrait");
-    if(cpP && costumesReady && !cpP.querySelector("img")) renderHeroPortrait(cpP);
     renderFieldHero();
   }
   document.getElementById("atkNum").textContent = atkNow();
