@@ -334,6 +334,8 @@
   .sprite-extra{cursor:pointer;opacity:.95;align-self:flex-end}
   .sprite-extra canvas,.sprite-extra img{display:block;margin:0 auto;image-rendering:pixelated}
   .sprite-extra canvas.enemy-anim,.sprite-extra img.enemy-illust{image-rendering:auto}
+  /* ドット絵指定（pixel:true）の敵は にじませずパキッと拡大 */
+  canvas.enemy-anim.pixel,img.enemy-illust.pixel{image-rendering:pixelated!important}
   .sprite-wrap canvas{display:block;margin:0 auto;image-rendering:pixelated}
   /* イラスト敵の待機アニメcanvas（ドット化させず高画質・影つき） */
   .sprite-wrap canvas.enemy-anim{image-rendering:auto;filter:drop-shadow(0 5px 6px rgba(0,0,30,.4))}
@@ -3363,19 +3365,22 @@ function drawSprites(){
   const is3d = state.settings.mode==="3d";
   const shadow = wrap.querySelector(".m-shadow");
   if(currentMonster){
-    const art = null;   /* ドラクエ風2D：敵はすべてドット絵に統一（イラスト敵は使わない） */
+    /* ドラクエ風2D：enemies.jsonで pixel:true のドット絵画像だけ使用（写実イラストは使わない）。
+       ドット絵PNGが無い敵は 従来のコード描画スプライトにフォールバック */
+    const artRaw = !is3d ? enemyArt(currentMonster.n) : null;
+    const art = (artRaw && artRaw.pixel) ? artRaw : null;
     const hasIdle = art && art.idleMeta && art.idleImg && art.idleImg.complete && art.idleImg.naturalWidth;
     if(hasIdle){
       /* イラスト敵の待機アニメ（その場でドロドロ揺れる・静止画と同じ位置/サイズ）*/
       const battle = document.getElementById("battleView");
-      const h = Math.round((battle.clientHeight||300) * 0.5 * 1.08);   /* 静止画のスライムとサイズを合わせる係数 */
+      const h = Math.round((battle.clientHeight||300) * 0.5 * (art.scale||1));   /* サイズはenemies.jsonのscaleで調整可 */
       const m = art.idleMeta, cols=m.columns, fw=m.frameWidth, fhh=m.frameHeight, cnt=m.frameCount, fps=m.fps||12;
       const dw = Math.round(h * fw / fhh);
       const dpr = Math.min(window.devicePixelRatio||1, 3);
-      const mkCv = (hh)=>{ const dw2=Math.round(hh*fw/fhh); const cv2=document.createElement("canvas"); cv2.className="enemy-anim";
+      const mkCv = (hh)=>{ const dw2=Math.round(hh*fw/fhh); const cv2=document.createElement("canvas"); cv2.className="enemy-anim pixel";
         cv2.width=Math.round(dw2*dpr); cv2.height=Math.round(hh*dpr);
         cv2.style.cssText=`display:block;margin:0 auto -${Math.round(hh*0.03)}px;width:${dw2}px;height:${hh}px`;
-        const c2=cv2.getContext("2d"); c2.scale(dpr,dpr); c2.imageSmoothingQuality="high";
+        const c2=cv2.getContext("2d"); c2.scale(dpr,dpr); c2.imageSmoothingEnabled=false;   /* ドット絵をにじませない */
         return {cv:cv2, ctx:c2, dw:dw2, h:hh}; };
       const layers = [];
       const main = mkCv(h);
@@ -3401,17 +3406,17 @@ function drawSprites(){
       })(performance.now());
       if(shadow){ shadow.style.width = Math.round(dw*0.46) + "px"; shadow.style.height = Math.round(h*0.045) + "px"; shadow.style.margin = "-6px auto 0"; }
     }else if(art){
-      /* イラスト敵（静止画・右の手前・足元基準）*/
+      /* ドット絵敵（静止画PNG・中央・pixelated描画）*/
       const battle = document.getElementById("battleView");
-      const h = Math.round((battle.clientHeight||300) * 0.5);
+      const h = Math.round((battle.clientHeight||300) * 0.5 * (art.scale||1));
       const dw = Math.round(h * art.img.naturalWidth / art.img.naturalHeight);
       const im = document.createElement("img");
-      im.className = "enemy-illust"; im.alt = currentMonster.n;
+      im.className = "enemy-illust pixel"; im.alt = currentMonster.n;
       im.src = art.img.src; im.style.height = h + "px"; im.style.width = "auto";
       wrap.insertBefore(im, wrap.firstChild);
       (state.packExtra||[]).slice(0,2).forEach((ex,i)=>{
         const d=document.createElement("div"); d.className="sprite-extra"; d.onclick=()=>targetSwap(i);
-        const im2=document.createElement("img"); im2.className="enemy-illust"; im2.src=art.img.src; im2.style.height=Math.round(h*0.7)+"px"; im2.style.width="auto";
+        const im2=document.createElement("img"); im2.className="enemy-illust pixel"; im2.src=art.img.src; im2.style.height=Math.round(h*0.7)+"px"; im2.style.width="auto";
         d.appendChild(im2);
         if(i===0) wrap.parentElement.insertBefore(d, wrap); else wrap.parentElement.appendChild(d);
       });
